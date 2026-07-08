@@ -18,12 +18,30 @@
       <p class="nd-sub">What should I call you?</p>
       <input id="name-input" type="text" maxlength="24" spellcheck="false"
              placeholder="Your name" aria-label="Your name">
+      <p class="nd-sub nd-q">Where do you want to invest?</p>
+      <div class="seg nd-seg" role="radiogroup" aria-label="Market">
+        <label><input type="radio" name="market" value="US"><span>🇺🇸 US</span></label>
+        <label><input type="radio" name="market" value="IN"><span>🇮🇳 India</span></label>
+        <label><input type="radio" name="market" value="BOTH" checked><span>Both</span></label>
+      </div>
       <button type="submit" class="name-go">Let’s go →</button>
     </form>
   </dialog>
 
+  {# Market switcher on the hero (Phase 7) — client-only (localStorage), shared
+     .market-seg class so base.html's script wires clicks + active state. Filters
+     the search autocomplete and the /today screen; sets the default currency. #}
+  <div class="hero-market" data-tour="market">
+    <span class="hm-label">Investing in</span>
+    <nav class="seg market-seg" aria-label="Market">
+      <a href="#" data-market="US">🇺🇸 US</a>
+      <a href="#" data-market="IN">🇮🇳 India</a>
+      <a href="#" data-market="BOTH">Both</a>
+    </nav>
+  </div>
+
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
-    <div class="search-bar">
+    <div class="search-bar" data-tour="search">
       <input id="symbol" name="symbol" type="text" spellcheck="false"
              placeholder="Search a ticker to analyze — AAPL, RELIANCE.NS, TCS.BO…"
              aria-label="Search a stock ticker to analyze">
@@ -51,7 +69,7 @@
   {% endif %}
 </section>
 
-<section id="watchlist" class="card">
+<section id="watchlist" class="card" data-tour="watchlist">
   {% if rows %}
   <div class="card-head">
     <h2>Your watchlist</h2>
@@ -151,6 +169,25 @@
   {% endif %}
 </section>
 
+{# First-run guided tour (Phase 7) — Otto in a scholar cap walks new visitors
+   through the key features with stepped coach-marks. Shown once (localStorage
+   ir_toured), skippable, works web + mobile. #}
+<div id="tour" class="tour" hidden aria-hidden="true">
+  <div class="tour-spot" id="tour-spot"></div>
+  <div class="tour-bubble" id="tour-bubble" role="dialog" aria-label="Guided tour">
+    <div class="tour-otto">{% include "_otto_scholar.html" %}</div>
+    <div class="tour-body-wrap">
+      <h3 class="tour-title serif" id="tour-title"></h3>
+      <p class="tour-text" id="tour-text"></p>
+      <div class="tour-nav">
+        <button type="button" class="tour-skip" id="tour-skip">Skip</button>
+        <span class="tour-dots" id="tour-dots" aria-hidden="true"></span>
+        <button type="button" class="tour-next" id="tour-next">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // Personalised greeting (no login): time-of-day from the visitor's own clock +
 // a name remembered in localStorage. First-time visitors get a welcome popup.
@@ -176,15 +213,122 @@
       setTimeout(function () { input.focus(); }, 60);
     });
   }
+  function setCookie(k, val) {
+    document.cookie = k + '=' + encodeURIComponent(val) + ';path=/;max-age=' +
+      (365 * 24 * 3600) + ';samesite=lax';
+  }
   if (form) {
     form.addEventListener('submit', function (e) {
       var v = (input.value || '').trim().slice(0, 24);
       if (!v) { e.preventDefault(); input.focus(); return; }  // require a name
-      try { localStorage.setItem('ir_name', v); } catch (e2) {}
+      var mkt = (form.querySelector('input[name=market]:checked') || {}).value || 'BOTH';
+      try {
+        localStorage.setItem('ir_name', v);
+        localStorage.setItem('ir_market', mkt);
+      } catch (e2) {}
+      setCookie('ir_name', v);         // mirror to cookies for server-side logging
+      setCookie('ir_market', mkt);
       name = v;
-      paint();                       // method="dialog" closes the popup itself
+      paint();                         // method="dialog" closes the popup itself
+      // Default the display currency from the market. India → ₹INR needs a
+      // server render to convert, so reload; US/Both stay $USD (no reload —
+      // the greeting repaints and the autocomplete reads localStorage live).
+      var want = mkt === 'IN' ? 'INR' : 'USD';
+      setCookie('ccy', want);
+      if (want === 'INR') { location.reload(); return; }
+      // No reload path: kick off the guided tour once the popup has closed.
+      setTimeout(function () { if (window.irTour) window.irTour.start(); }, 250);
     });
   }
+})();
+</script>
+<script>
+// First-run guided tour engine (Phase 7). Stepped coach-marks: a spotlight over
+// each feature + an Otto bubble explaining it. No dependencies. Runs once
+// (localStorage ir_toured); exposed as window.irTour so the welcome popup can
+// launch it right after onboarding.
+(function () {
+  var steps = [
+    { sel: '[data-tour="search"]',   title: 'Search any stock',
+      text: 'Type a ticker — AAPL, RELIANCE.NS, TCS.BO — and hit Analyze for a full breakdown.' },
+    { sel: '[data-tour="market"]',   title: 'Pick your market',
+      text: 'United States, India, or Both. This filters your suggestions and the Today screen, and sets your currency.' },
+    { sel: '[data-tour="watchlist"]', title: 'Your watchlist',
+      text: 'Stars you save land here with live prices — tap any row for the full analysis.' },
+    { sel: '[data-tour="today"]',    title: "Today's ideas",
+      text: "Otto ranks interesting stocks each night with plain-English reasons. It's a screen, not advice." },
+    { sel: '[data-tour="settings"]', title: 'Settings live here',
+      text: 'Switch currency, light/dark theme, and market any time from this gear.' }
+  ];
+  var overlay = document.getElementById('tour');
+  if (!overlay) return;
+  var spot = document.getElementById('tour-spot'),
+      bubble = document.getElementById('tour-bubble'),
+      titleEl = document.getElementById('tour-title'),
+      textEl = document.getElementById('tour-text'),
+      nextBtn = document.getElementById('tour-next'),
+      skipBtn = document.getElementById('tour-skip'),
+      dotsEl = document.getElementById('tour-dots');
+  var idx = 0, plan = [];
+
+  function done() {
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    try { localStorage.setItem('ir_toured', '1'); } catch (e) {}
+    window.removeEventListener('resize', place);
+  }
+  function place() {
+    var step = plan[idx];
+    var el = document.querySelector(step.sel);
+    if (!el) { advance(); return; }
+    el.scrollIntoView({ block: 'center', inline: 'nearest' });
+    var r = el.getBoundingClientRect(), pad = 8;
+    spot.style.left = (r.left - pad) + 'px';
+    spot.style.top = (r.top - pad) + 'px';
+    spot.style.width = (r.width + pad * 2) + 'px';
+    spot.style.height = (r.height + pad * 2) + 'px';
+    titleEl.textContent = step.title;
+    textEl.textContent = step.text;
+    nextBtn.textContent = (idx === plan.length - 1) ? 'Got it ✓' : 'Next →';
+    dotsEl.innerHTML = plan.map(function (_, i) {
+      return '<i class="tour-dot' + (i === idx ? ' on' : '') + '"></i>'; }).join('');
+    // Bubble below the target if there's room, else above; clamped to the viewport.
+    bubble.style.left = '0px'; bubble.style.top = '0px';   // measure unclamped
+    var bw = bubble.offsetWidth, bh = bubble.offsetHeight,
+        vw = window.innerWidth, vh = window.innerHeight, gap = 14;
+    var top = r.bottom + gap;
+    if (top + bh > vh - 8) top = Math.max(8, r.top - gap - bh);
+    var left = r.left + r.width / 2 - bw / 2;
+    left = Math.max(8, Math.min(left, vw - bw - 8));
+    bubble.style.left = left + 'px';
+    bubble.style.top = Math.max(8, top) + 'px';
+  }
+  function advance() {
+    idx++;
+    if (idx >= plan.length) return done();
+    place();
+  }
+  function start() {
+    try { if (localStorage.getItem('ir_toured')) return; } catch (e) {}
+    plan = steps.filter(function (s) { return document.querySelector(s.sel); });
+    if (!plan.length) return;
+    idx = 0;
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    place();
+  }
+  nextBtn.addEventListener('click', advance);
+  skipBtn.addEventListener('click', done);
+  window.addEventListener('resize', place);
+  window.irTour = { start: start };
+
+  // Returning visitor who onboarded before the tour existed (name set, never
+  // toured) gets it now. Brand-new visitors start it from the welcome popup.
+  try {
+    if (!localStorage.getItem('ir_toured') && localStorage.getItem('ir_name')) {
+      setTimeout(start, 400);
+    }
+  } catch (e) {}
 })();
 </script>
 <script src="{{ url_for('static', filename='tickers.js') }}"></script>
@@ -192,12 +336,21 @@
 // Client-side autocomplete over the static ticker list — no API per keystroke (DESIGN.md §2).
 const input = document.getElementById('symbol'), box = document.getElementById('suggest');
 let sel = -1;
+// Filter suggestions to the visitor's chosen market (localStorage, read live so
+// a change in the settings menu takes effect without a reload). India tickers
+// carry NSE/BSE exchange tags (and .NS/.BO symbols); US carry NYSE/NASDAQ.
+function marketOf() { try { return localStorage.getItem('ir_market') || 'BOTH'; } catch (e) { return 'BOTH'; } }
+function inMarket(x) {
+  const m = marketOf();
+  const india = x === 'NSE' || x === 'BSE';
+  return m === 'BOTH' ? true : m === 'IN' ? india : !india;
+}
 input.addEventListener('input', () => {
   const q = input.value.trim().toUpperCase();
   sel = -1;
   if (q.length < 1) { box.hidden = true; return; }
-  const hits = TICKERS.filter(([s, n]) =>
-    s.toUpperCase().startsWith(q) || n.toUpperCase().includes(q)).slice(0, 8);
+  const hits = TICKERS.filter(([s, n, x]) => inMarket(x) &&
+    (s.toUpperCase().startsWith(q) || n.toUpperCase().includes(q))).slice(0, 8);
   box.innerHTML = hits.map(([s, n, x]) =>
     `<li data-s="${s}"><b>${s}</b><span class="xchg">${x}</span><span class="s-name">${n}</span></li>`).join('');
   box.hidden = hits.length === 0;

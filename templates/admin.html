@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activity · InvestRight</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>
+  .adm { max-width: 1000px; margin: 0 auto; padding: 28px 20px 60px; }
+  .adm h1 { font-size: 24px; margin: 0 0 4px; }
+  .adm .note { color: var(--muted); font-size: 13px; margin: 0 0 20px; max-width: 70ch; }
+  .adm-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+  .adm-stat { background: var(--card); border: 1px solid var(--hairline);
+    border-radius: 12px; padding: 12px 16px; }
+  .adm-stat b { font-size: 20px; display: block; font-variant-numeric: tabular-nums; }
+  .adm-stat span { color: var(--muted); font-size: 12px; }
+  .adm-top { color: var(--muted); font-size: 13px; margin: -8px 0 22px; }
+  .adm-top code { color: var(--text); }
+  .adm-wrap { overflow-x: auto; border: 1px solid var(--hairline); border-radius: 12px; }
+  table.adm-tbl { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .adm-tbl th, .adm-tbl td { text-align: left; padding: 8px 12px;
+    border-bottom: 1px solid var(--hairline); white-space: nowrap; }
+  .adm-tbl th { color: var(--muted); font-weight: 500; position: sticky; top: 0;
+    background: var(--card); }
+  .adm-tbl tr:last-child td { border-bottom: 0; }
+  .adm-tbl .ua { color: var(--muted); max-width: 260px; overflow: hidden;
+    text-overflow: ellipsis; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px;
+    font-size: 11px; border: 1px solid var(--hairline); }
+  .pill.analyze, .pill.add { color: var(--accent); border-color: var(--accent); }
+  .pill.remove { color: var(--down); border-color: var(--down); }
+  .vid { color: var(--muted); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="adm">
+  <h1 class="serif">Visitor activity</h1>
+  <p class="note">Best-effort log — there are no accounts yet, so identity is
+    unverified: <b>visitor</b> is an anonymous per-browser cookie id, and
+    <b>name</b>/<b>market</b> are whatever the visitor typed into the welcome
+    popup (self-reported, editable, clearable). IP/UA are coarse. Treat as a
+    rough sense of usage, not proof of who did what.</p>
+
+  <div class="adm-stats">
+    <div class="adm-stat"><b>{{ total }}</b><span>events logged</span></div>
+    <div class="adm-stat"><b>{{ visitors }}</b><span>distinct browsers</span></div>
+    <div class="adm-stat"><b>{{ events|length }}</b><span>shown (latest)</span></div>
+  </div>
+
+  {% if top %}
+  <p class="adm-top">Most-touched tickers:
+    {% for t in top %}<code>{{ t['ticker'] }}</code>&nbsp;({{ t['n'] }}){% if not loop.last %} · {% endif %}{% endfor %}
+  </p>
+  {% endif %}
+
+  <div class="adm-wrap">
+    <table class="adm-tbl">
+      <thead><tr>
+        <th>When</th><th>Action</th><th>Ticker</th><th>Name</th><th>Market</th>
+        <th>Visitor</th><th>IP</th><th>Browser</th>
+      </tr></thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td>{{ e['ts_local'] }}</td>
+          <td><span class="pill {{ e['action'] }}">{{ e['action'] }}</span></td>
+          <td>{{ e['ticker'] or '' }}</td>
+          <td>{{ e['name'] or '—' }}</td>
+          <td>{{ e['market'] or '—' }}</td>
+          <td class="vid">{{ (e['visitor'] or '')[:8] }}</td>
+          <td class="vid">{{ e['ip'] or '' }}</td>
+          <td class="ua" title="{{ e['ua'] }}">{{ e['ua'] or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if not events %}<p class="note" style="margin-top:16px">No events yet.</p>{% endif %}
+</div>
+</body>
+</html>

@@ -623,3 +623,69 @@ def today_takeaway(rows):
     if hot == 1:
         return f"{top} stands out tonight; the rest of the list is quieter."
     return f"A quiet night — {top} tops the list, but nothing screams."
+
+
+# ── Graph explainers (Phase 7) ──────────────────────────────────────────────
+# Plain-English "what this shows" for each deep-dive graph, plus an Investopedia
+# link to go deeper. Rendered by the 💡 bulb under each chart (templates/
+# _explain.html). Keyed by the card; keep the body to ~2 sentences, jargon-light.
+GRAPH_EXPLAINERS = {
+    "snowflake": {
+        "title": "The snowflake",
+        "body": "Five quick health scores — Value, Future, Past, Health and "
+                "Dividend — each 0–100%. A bigger, more even shape means a stock "
+                "that scores well across the board; a spiky one is strong on some "
+                "axes and weak on others.",
+        "url": "https://www.investopedia.com/terms/f/fundamentalanalysis.asp",
+    },
+    "fair_value": {
+        "title": "Fair value",
+        "body": "Our estimate of what one share is worth based on the cash the "
+                "business is expected to generate (a discounted-cash-flow model), "
+                "next to today's price. Below fair value hints undervalued, above "
+                "hints expensive — it's an estimate, not a guarantee.",
+        "url": "https://www.investopedia.com/terms/d/dcf.asp",
+    },
+    "health": {
+        "title": "Health checks",
+        "body": "Pass/fail rules on the company's finances — debt levels, "
+                "profitability, cash cover and so on. More greens means a sturdier "
+                "balance sheet; an n/a just means we didn't have that data point.",
+        "url": "https://www.investopedia.com/terms/r/ratioanalysis.asp",
+    },
+    "past_performance": {
+        "title": "Past performance",
+        "body": "How revenue, earnings and free cash flow have grown over the "
+                "years. Bars rising left-to-right show a growing business; the "
+                "dashed line is a market-average pace for comparison.",
+        "url": "https://www.investopedia.com/terms/f/freecashflow.asp",
+    },
+    "future": {
+        "title": "Future",
+        "body": "Solid bars are history; dashed bars simply extend the past "
+                "growth trend a few years forward — capped so it stays sane. "
+                "It's a trend line, not an analyst forecast.",
+        "url": "https://www.investopedia.com/terms/c/cagr.asp",
+    },
+    "dividend": {
+        "title": "Dividend",
+        "body": "The share of profit paid back to shareholders as cash. Yield is "
+                "that cash as a % of the price; the payout gauge shows how much of "
+                "earnings is paid out (over ~75% can be hard to sustain).",
+        "url": "https://www.investopedia.com/terms/d/dividendyield.asp",
+    },
+    "competitors": {
+        "title": "Competitors",
+        "body": "A few peers in the same business, each with its own mini "
+                "snowflake, so you can see how this company stacks up rather than "
+                "judging it in isolation.",
+        "url": "https://www.investopedia.com/terms/c/comparable-company-analysis-cca.asp",
+    },
+    "ownership": {
+        "title": "Insider activity",
+        "body": "Buys and sells by the company's own directors and officers, from "
+                "their SEC filings. Insiders sell for many reasons, but clusters "
+                "of open-market buying can signal confidence.",
+        "url": "https://www.investopedia.com/terms/i/insidertrading.asp",
+    },
+}

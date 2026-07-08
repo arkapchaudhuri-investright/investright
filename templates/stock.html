@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_explain.html" import explain %}
 {% block title %}{{ s['name'] }} · InvestRight{% endblock %}
 {% block content %}
 
@@ -84,6 +85,7 @@
       {% endfor %}
     </ul>
   </div>
+  {{ explain('snowflake') }}
 </section>
 
 {# 3 · Fair-value bar — price vs our DCF estimate, assumptions visible + editable (§4.3 / §8.4) #}
@@ -130,6 +132,7 @@
   {% else %}
   <p class="asof">Not enough cash-flow history to estimate a fair value for {{ s['ticker'] }} yet.</p>
   {% endif %}
+  {{ explain('fair_value') }}
 </section>
 
 {# 4 · Health checks — grouped by axis, collapsed to top 6 with show-all (§4.4) #}
@@ -149,6 +152,7 @@
     </ul>
     {% endfor %}
   </details>
+  {{ explain('health') }}
 </section>
 
 {# 5 · Past performance — revenue/earnings/FCF bars, EDGAR 10yr for US, yfinance for India (§4.5 / §8.5 Tier B) #}
@@ -193,6 +197,7 @@
   {% if '.' in s['ticker'] %}
   <p class="asof perf-note">Deeper 10-yr statements are US-only for now — Otto's showing {{ s['ticker'] }}'s Yahoo figures instead.</p>
   {% endif %}
+  {{ explain('past_performance') }}
 </section>
 {% endif %}
 
@@ -237,6 +242,7 @@
   <p class="asof perf-note">Dashed bars just extend the historical trend (capped at ±15%/yr) —
     the same growth our DCF uses. It's arithmetic on the past, not an analyst forecast; real
     futures bend.</p>
+  {{ explain('future') }}
 </section>
 {% endif %}
 
@@ -285,6 +291,7 @@
   </div>
   {% endif %}
   {% endif %}
+  {{ explain('dividend') }}
 </section>
 
 {% endif %}
@@ -322,6 +329,7 @@
   {% else %}
   <p class="asof">No insider filings saved yet — Otto checks EDGAR on each refresh.</p>
   {% endif %}
+  {{ explain('ownership') }}
 </section>
 
 {# 9 · Competitors — hand-picked peers with mini-snowflakes, tap to jump (§4.9) #}
@@ -368,6 +376,7 @@
   <p class="asof">Otto hasn't hand-picked peers for {{ s['ticker'] }} yet — the peer map is
     curated by hand, since there's no good free "similar companies" feed.</p>
   {% endif %}
+  {{ explain('competitors') }}
 </section>
 
 {# 10 · News — latest headlines from yfinance (§4.10) #}

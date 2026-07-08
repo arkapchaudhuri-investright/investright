@@ -1,19 +1,65 @@
 """InvestRight — Phase 1: watchlist + price snapshot table (yfinance only).
 Run: .venv/bin/python app.py  →  http://localhost:8700
 """
+import hmac
 import json
+import os
+import uuid
 from datetime import date, datetime
+from urllib.parse import unquote
 
-from flask import (Flask, abort, flash, make_response, redirect,
+from flask import (Flask, abort, flash, g, make_response, redirect,
                    render_template, request, url_for)
 
 import fetch
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
-from db import get_conn, init_db, save_note, save_snapshot
+from db import get_conn, init_db, log_event, save_note, save_snapshot
 
 app = Flask(__name__)
 app.secret_key = "investright-local-only"
+
+# Plain-English graph explainers for the deep-dive 💡 bulbs (Phase 7). Exposed
+# to every template so _explain.html's macro can look them up by key.
+app.jinja_env.globals["EXPLAIN"] = metrics.GRAPH_EXPLAINERS
+
+# Secret gating the /admin activity log. Loaded from .env (via refresh→digest's
+# tiny loader at import). Unset ⇒ /admin is disabled (404), never wide open.
+ADMIN_KEY = os.environ.get("ADMIN_KEY")
+
+
+@app.before_request
+def _ensure_visitor():
+    """Anonymous per-browser id for the activity log (Phase 6c) — no accounts
+    yet, so this cookie UUID is the only stable handle on a visitor."""
+    g.vid = request.cookies.get("vid") or uuid.uuid4().hex
+
+
+@app.after_request
+def _persist_visitor(resp):
+    if request.cookies.get("vid") != getattr(g, "vid", None):
+        resp.set_cookie("vid", g.vid, max_age=365 * 24 * 3600, samesite="Lax")
+    return resp
+
+
+def _log(action, ticker=None):
+    """Record one activity event. name/market are self-reported values the
+    browser mirrors from localStorage into cookies (see base.html); IP prefers
+    Caddy's X-Forwarded-For. Best-effort: never let logging break a request."""
+    try:
+        xff = request.headers.get("X-Forwarded-For", "")
+        ip = xff.split(",")[0].strip() if xff else request.remote_addr
+        # name/market cookies are percent-encoded client-side (names may hold
+        # spaces/unicode); Werkzeug doesn't unquote them, so do it here.
+        name = unquote(request.cookies.get("ir_name") or "") or None
+        market = unquote(request.cookies.get("ir_market") or "") or None
+        with get_conn() as conn:
+            log_event(
+                conn, action, visitor=getattr(g, "vid", None),
+                name=name, market=market, ticker=ticker, path=request.path,
+                ua=request.headers.get("User-Agent"), ip=ip)
+    except Exception:
+        pass
 
 
 @app.context_processor
@@ -95,6 +141,7 @@ def home():
         ccy=ccy, fx=fx, fx_stale=fx_stale, show_fx=True))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ccy, max_age=180 * 24 * 3600)
+    _log("view")
     return resp
 
 
@@ -157,6 +204,7 @@ def add():
             refresh_job.run_screener(conn)
         except Exception:
             pass
+    _log("add", meta["ticker"])
     flash(f"Added {meta['name']} to your watchlist.", "ok")
     return redirect(url_for("home"))
 
@@ -178,12 +226,14 @@ def analyze():
             flash(_NOT_FOUND.format(symbol), "error")
             return redirect(url_for("home"))
         symbol = meta["ticker"]
+    _log("analyze", symbol)
     return redirect(url_for("stock", ticker=symbol))
 
 
 @app.post("/remove")
 def remove():
     ticker = request.form.get("ticker", "")
+    _log("remove", ticker)
     with get_conn() as conn:
         conn.execute("DELETE FROM watchlist WHERE ticker=?", (ticker,))
         conn.execute("DELETE FROM stocks WHERE ticker=?", (ticker,))  # cascades to snapshots
@@ -224,10 +274,51 @@ def team():
     return render_template("team.html")
 
 
+@app.route("/admin")
+def admin():
+    """Secret-gated activity log (Phase 6c). Visit /admin?key=<ADMIN_KEY>.
+    Honest limits: pre-accounts there's no verified identity — `visitor` is an
+    anonymous cookie UUID, and name/market are self-reported. Disabled entirely
+    (404) unless ADMIN_KEY is set in .env, and the key never appears in a link
+    on the site, so it stays out of logs/history unless you type it."""
+    key = request.args.get("key", "")
+    if not ADMIN_KEY or not hmac.compare_digest(key, ADMIN_KEY):
+        abort(404)                       # don't reveal the page exists
+    with get_conn() as conn:
+        events = [dict(r) for r in conn.execute(
+            "SELECT * FROM events ORDER BY id DESC LIMIT 500")]
+        total = conn.execute("SELECT COUNT(*) c FROM events").fetchone()["c"]
+        visitors = conn.execute(
+            "SELECT COUNT(DISTINCT visitor) c FROM events").fetchone()["c"]
+        top = [dict(r) for r in conn.execute(
+            "SELECT ticker, COUNT(*) n FROM events "
+            "WHERE ticker IS NOT NULL AND ticker != '' "
+            "GROUP BY ticker ORDER BY n DESC LIMIT 10")]
+    # UTC timestamps → the server's local clock for readability.
+    for e in events:
+        try:
+            e["ts_local"] = (datetime.fromisoformat(e["ts"])
+                             .astimezone().strftime("%-d %b %H:%M"))
+        except Exception:
+            e["ts_local"] = e["ts"]
+    return render_template("admin.html", events=events, total=total,
+                           visitors=visitors, top=top, key=key)
+
+
 @app.route("/today")
 def today():
     """The Finimize layer (§4 "Today") — screener ranking + nightly AI digest.
     Reads DB only: cron computed everything here overnight (§3, §8.0)."""
+    # Filter the screen to the visitor's chosen market (Phase 7). Market is a
+    # per-browser preference mirrored into the ir_market cookie; India tickers
+    # carry a .NS/.BO suffix. Ranks are renumbered after filtering so the top of
+    # the shown list still gets the #1 hero treatment.
+    market = (request.cookies.get("ir_market") or "BOTH").upper()
+
+    def _in_market(tk):
+        india = tk.endswith(".NS") or tk.endswith(".BO")
+        return True if market == "BOTH" else (india if market == "IN" else not india)
+
     with get_conn() as conn:
         picks = [dict(r) for r in conn.execute("""
             SELECT sc.*, s.name, s.currency, s.exchange, n.price, n.change_pct
@@ -235,6 +326,9 @@ def today():
             JOIN stocks s ON s.ticker = sc.ticker
             LEFT JOIN snapshots n ON n.ticker = sc.ticker
             ORDER BY sc.rank""")]
+        picks = [p for p in picks if _in_market(p["ticker"])]
+        for i, p in enumerate(picks, 1):
+            p["rank"] = i
         for p in picks:
             p["reasons"] = json.loads(p["reasons_json"] or "[]")
             p["components"] = json.loads(p["components_json"] or "{}")
@@ -267,7 +361,7 @@ def today():
             else "happy" if top_score >= 55 else "neutral")
     return render_template(
         "today.html", picks=picks, digest=dig, as_of=as_of, mood=mood,
-        takeaway=metrics.today_takeaway(picks),
+        takeaway=metrics.today_takeaway(picks), market=market,
         date_label=date.today().strftime("%A, %-d %B"),
         weights=metrics.SCREEN_WEIGHTS, upside_cap=metrics.UPSIDE_CAP)
 
@@ -364,6 +458,7 @@ def stock(ticker):
     if snap and snap["fetched_at"]:
         as_of = datetime.fromisoformat(snap["fetched_at"]).astimezone().strftime("%-d %b, %-I:%M %p")
 
+    _log("view", ticker)
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
         ccy=s["currency"], dcf=dcf, price=price, overridden=overridden,

@@ -371,3 +371,59 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   `cd /opt/investright && ./deploy.sh`. Old rsync dir kept as
   `/opt/investright.rsync-bak`. **Phase 6 complete — InvestRight is open-source and
   publicly live at https://investright.us.**
+- **Phase 6c — onboarding market + activity log + gear polish** (2026-07-08).
+  (1) **Market onboarding:** the first-visit welcome popup now asks "Where do you
+  want to invest?" after the name — a 3-up segmented control (🇺🇸 US / 🇮🇳 India /
+  Both, radios styled via `input:checked + span`), stored per-browser in
+  `localStorage` (`ir_market`, next to `ir_name`). It **defaults the display
+  currency** (India → ₹INR, US/Both → $USD) by writing the existing `ccy` cookie —
+  India reloads once so the server re-converts, US/Both stay USD without a reload.
+  A matching **Market row was added to the ⚙ settings menu** so the choice is
+  changeable later (JS-managed, unlike the server-linked currency/theme: it writes
+  localStorage + the ccy cookie and reloads). The home **autocomplete now filters
+  to the chosen market** — read live from localStorage each keystroke via the
+  ticker's exchange tag (US = NYSE/NASDAQ, India = NSE/BSE; `.NS`/`.BO` carry
+  NSE/BSE), so US hides Indian tickers, India shows only them, Both shows all.
+  Verified on :8700 desktop + mobile (375px), light + dark. (2) **Activity logging
+  (server-side, since localStorage is invisible to the owner):** new `events` table
+  (ts, anonymous per-browser cookie UUID `vid`, self-reported name + market, action
+  view/analyze/add/remove, ticker, path, coarse UA/IP) written by a best-effort
+  `_log()` (try/except — never breaks a render). name/market ride along as
+  first-party cookies mirrored from localStorage (base.html also back-fills them for
+  pre-existing visitors); IP prefers Caddy's `X-Forwarded-For`. Read via a
+  **secret-gated `/admin?key=<ADMIN_KEY>`** (`hmac.compare_digest`; 404 when the key
+  is wrong or unset, so the page never advertises itself) → `admin.html` table +
+  event/visitor counts + most-touched tickers, with an honest banner that identity
+  is unverified pre-accounts. `ADMIN_KEY` lives in `.env` (git-ignored; **must be
+  added to the VM's `.env` too**, else /admin stays 404). (3) **Gear icon:** the ⚙
+  emoji (off-centre, muted) is now an **inline SVG gear filled brand green**
+  (`var(--accent)`, no CDN), perfectly centred by the button's flexbox. Verified:
+  all pages 200, no console errors, secret gate 404/404/200, events captured with
+  name+market+ticker. **Later phase:** real email/password accounts — the per-browser
+  name + market migrate into the account then.
+- **Phase 7 — guided onboarding + learn-as-you-go** (2026-07-08) —
+  (1) **Market-aware Today:** `/today` filters the screen to the visitor's
+  `ir_market` cookie (India = .NS/.BO only, US = the rest, Both = all), renumbers
+  ranks so the shown top still gets the #1 hero treatment, and gains a market
+  switcher on its own full-width row under the header (moved out of the header's
+  flex column to avoid a mobile overflow) plus a market-aware empty state. A
+  matching switcher sits on the home hero ("Investing in …"). (2) **First-run
+  guided tour:** stepped coach-marks — a spotlight (rounded hole punched by a
+  huge box-shadow) over each feature + an Otto bubble explaining it, walking
+  search → market → watchlist → Today → gear. Skippable, shown once
+  (`ir_toured`), launched from the welcome popup for new visitors or on load for
+  ones who onboarded before it existed. Otto wears a mortarboard + tassel
+  (`_otto_scholar.html`, Duolingo-mascot energy), pure inline SVG. Vanilla JS,
+  repositions on resize, resilient to missing targets. (3) **Per-graph
+  explainers:** a 💡 "What does this show?" bulb under every deep-dive chart
+  (snowflake, fair value, health, past performance, future, dividend, ownership,
+  competitors) — a native `<details>` popover with a jargon-light explanation +
+  a "Learn more on Investopedia →" link. Content lives in
+  `metrics.GRAPH_EXPLAINERS`, exposed as the `EXPLAIN` Jinja global and rendered
+  by the `explain()` macro in `_explain.html`. Verified on :8700 desktop + mobile
+  (375px, no h-scroll), light + dark, no console errors: welcome popup asks name
+  + market, tour steps + spotlight track every target incl. below-fold/topbar,
+  finishes and won't re-show; /today filters US vs India vs Both and updates the
+  takeaway; 8 explainer bulbs open with Investopedia links; activity log records
+  name/market/action. **NEEDS on deploy:** add `ADMIN_KEY=…` to the VM's `.env`
+  (out-of-band) for /admin to work in production.
