@@ -53,7 +53,13 @@ gh pr create --fill                    # open a PR against main
 ```
 
 Review and merge the PR on GitHub (squash-merge keeps `main` linear), then
-deploy from `main` on the VM. Keep secrets out of git — `.env` (the Gemini
-key) is `.gitignore`d and lives only on the VM (`chmod 600`), transferred
-out-of-band. Branch protection on `main` is optional but recommended once
-collaborators are added.
+deploy from `main` on the VM:
+
+```sh
+cd /opt/investright && ./deploy.sh    # git pull + restart + health check
+```
+
+Keep secrets out of git — `.env` (the Gemini key) is `.gitignore`d and lives
+only on the VM (`chmod 600`), transferred out-of-band; `data/` (the SQLite DB)
+is git-ignored too, so `git pull` never touches either. Branch protection on
+`main` is optional but recommended once collaborators are added.
