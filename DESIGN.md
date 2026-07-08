@@ -585,3 +585,8 @@ Small, self-contained polish. Do these before the accounts work; verify on :8700
    template). If the rate is stale (Yahoo unreachable today), say so with the date, as
    the settings FX line already does. Goal: a user seeing ₹ prices always knows the
    exact rate and date behind the conversion.
+4. **Remove the watchlist "pulse chips" under the search bar** on Home — the
+   `.chips` / `.chip` strip (ticker + % change, e.g. `AAPL +1.0%` `TCS.NS -1.8%`) in
+   `home.html`. It duplicates the watchlist table/cards right below it and serves no
+   unique purpose. Delete the `{% if rows %}…<div class="chips">…</div>…{% endif %}`
+   block and the now-unused `.chips` / `.chip` CSS in `style.css`.
