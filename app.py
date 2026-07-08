@@ -98,20 +98,14 @@ def home():
     return resp
 
 
-@app.post("/add")
-def add():
-    symbol = request.form.get("symbol", "").strip().upper()
-    if not symbol:
-        return redirect(url_for("home"))
-    with get_conn() as conn:
-        if conn.execute("SELECT 1 FROM watchlist WHERE ticker=?", (symbol,)).fetchone():
-            flash(f"{symbol} is already on your watchlist.", "info")
-            return redirect(url_for("home"))
+def _ingest_stock(symbol):
+    """Fetch a symbol from Yahoo and persist its stock row + snapshot + peers +
+    deep data (checks/DCF/news) — WITHOUT touching the watchlist. Returns the
+    meta dict, or None if Yahoo can't find the symbol. Shared by /add (which also
+    watchlists it) and /analyze (which just opens the deep-dive)."""
     meta = fetch.lookup(symbol)
     if not meta:
-        flash(f"Otto couldn't find “{symbol}” on Yahoo — check the symbol? "
-              "Indian tickers need .NS or .BO (e.g. RELIANCE.NS).", "error")
-        return redirect(url_for("home"))
+        return None
     snap = fetch.snapshot(symbol)
     now = datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
@@ -119,8 +113,6 @@ def add():
                      "VALUES (?,?,?,?,?,?)",
                      (meta["ticker"], meta["name"], meta["exchange"],
                       meta["sector"], meta["currency"], now))
-        conn.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?,?)",
-                     (meta["ticker"], now))
         if snap:
             save_snapshot(conn, snap)
         # peers first (stocks row + price only) so save_deep's peer-average P/E
@@ -137,12 +129,56 @@ def add():
             refresh_job.save_deep(conn, meta["ticker"])
         except Exception:
             pass
+    return meta
+
+
+_NOT_FOUND = ("Otto couldn't find “{}” on Yahoo — check the symbol? "
+              "Indian tickers need .NS or .BO (e.g. RELIANCE.NS).")
+
+
+@app.post("/add")
+def add():
+    symbol = request.form.get("symbol", "").strip().upper()
+    if not symbol:
+        return redirect(url_for("home"))
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM watchlist WHERE ticker=?", (symbol,)).fetchone():
+            flash(f"{symbol} is already on your watchlist.", "info")
+            return redirect(url_for("home"))
+    meta = _ingest_stock(symbol)
+    if not meta:
+        flash(_NOT_FOUND.format(symbol), "error")
+        return redirect(url_for("home"))
+    now = datetime.now().isoformat(timespec="seconds")
+    with get_conn() as conn:
+        conn.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?,?)",
+                     (meta["ticker"], now))
         try:  # fold the newcomer into /today's ranking (DB-only, instant)
             refresh_job.run_screener(conn)
         except Exception:
             pass
     flash(f"Added {meta['name']} to your watchlist.", "ok")
     return redirect(url_for("home"))
+
+
+@app.post("/analyze")
+def analyze():
+    """The search bar's primary action: open a ticker's deep-dive WITHOUT adding
+    it to the watchlist. Fetches + persists the first time we see a symbol (the
+    /stock page itself stays DB-only reads, §3), then redirects. Add-to-watchlist
+    is a separate button — in the search bar and the ☆ on the deep-dive header."""
+    symbol = request.form.get("symbol", "").strip().upper()
+    if not symbol:
+        return redirect(url_for("home"))
+    with get_conn() as conn:
+        known = conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (symbol,)).fetchone()
+    if not known:                        # only hit Yahoo the first time
+        meta = _ingest_stock(symbol)
+        if not meta:
+            flash(_NOT_FOUND.format(symbol), "error")
+            return redirect(url_for("home"))
+        symbol = meta["ticker"]
+    return redirect(url_for("stock", ticker=symbol))
 
 
 @app.post("/remove")

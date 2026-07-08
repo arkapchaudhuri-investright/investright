@@ -6,12 +6,15 @@
   <h1 class="serif">{{ greeting }}, Arka</h1>
   <p class="sub">Which stock are we looking at today?</p>
 
-  <form class="search" action="{{ url_for('add') }}" method="post" autocomplete="off">
-    <input id="symbol" name="symbol" type="text" spellcheck="false"
-           placeholder="Search a ticker — AAPL, RELIANCE.NS, TCS.BO…"
-           aria-label="Add a stock by ticker symbol">
-    <button type="submit">Add</button>
-    <ul id="suggest" class="suggest" hidden></ul>
+  <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
+    <div class="search-bar">
+      <input id="symbol" name="symbol" type="text" spellcheck="false"
+             placeholder="Search a ticker to analyze — AAPL, RELIANCE.NS, TCS.BO…"
+             aria-label="Search a stock ticker to analyze">
+      <button type="submit" class="btn-analyze">Analyze</button>
+      <ul id="suggest" class="suggest" hidden></ul>
+    </div>
+    <button type="submit" class="btn-watch" formaction="{{ url_for('add') }}">☆ Add to watchlist</button>
   </form>
 
   {% with msgs = get_flashed_messages(with_categories=true) %}
@@ -54,6 +57,7 @@
           <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
           <span class="xchg">{{ r['exchange'] }}</span>
           <div class="name">{{ r['name'] }}</div>
+          <a class="row-cta" href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
         </td>
         <td class="num">{{ r['price']|money(r['currency']) }}</td>
         <td class="num {{ 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' }}">

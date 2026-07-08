@@ -328,7 +328,15 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   a minimized row (ticker · name · price · coloured change pill) that taps open via
   native `<details>` (no JS) to reveal mkt cap / P/E / yield / the 52-week range bar
   plus a "Full analysis →" deep-dive link and remove. Desktop keeps the full table
-  (`.wl-cards` is display:none above 560px; the table is display:none below). **GitHub**: repo initialized (`main`); `.gitignore` excludes
+  (`.wl-cards` is display:none above 560px; the table is display:none below).
+  **Search-first flow:** the home search bar's primary action is now **Analyze** —
+  a new `POST /analyze` route that fetches-on-first-sight (via a shared
+  `_ingest_stock()` helper extracted from `/add`) then redirects to the deep-dive,
+  keeping `/stock` itself DB-only (§3). **Add to watchlist** is demoted to a
+  separate, quieter secondary button (search bar + the deep-dive header's ☆/★
+  toggle, so a just-analyzed stock can be watchlisted from its own page). Desktop
+  watchlist rows also gained an explicit **Full analysis →** CTA (the mobile cards
+  already had one). **GitHub**: repo initialized (`main`); `.gitignore` excludes
   `.env`/`.venv`/`data`/`__pycache__`/`*.db`/logs/`.claude`/the source photo; secret
   sweep clean (only digest.py's `.env`-format comments match — no real key);
   `arka.jpg` tracked. Verified on :8700 — all four page types + Otto legible in both
