@@ -136,9 +136,12 @@ def home():
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
     fx_stale = (datetime.fromisoformat(fx_on).strftime("%-d %b")
                 if fx_on and fx_on != date.today().isoformat() else None)
+    # Date the rate is from (fresh or stale) — shown inline at the point of
+    # conversion when displaying ₹ prices (§11.3).
+    fx_on_label = datetime.fromisoformat(fx_on).strftime("%-d %b") if fx_on else None
     resp = make_response(render_template(
         "home.html", rows=rows, as_of=as_of, greeting=greeting(),
-        ccy=ccy, fx=fx, fx_stale=fx_stale, show_fx=True))
+        ccy=ccy, fx=fx, fx_stale=fx_stale, fx_on_label=fx_on_label, show_fx=True))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ccy, max_age=180 * 24 * 3600)
     _log("view")

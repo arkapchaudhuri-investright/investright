@@ -9,6 +9,18 @@
 <body>
 <header class="topbar">
   <a class="brand" href="{{ url_for('home') }}">Invest<span class="brand-accent">Right</span></a>
+  {# Market switcher (§11.1) — persistent on every page, between the wordmark and
+     the Today link. Client-only (localStorage ir_market); shared .market-seg class
+     is wired by the script below (writes localStorage + ccy cookie, reloads to
+     apply currency + the /today filter). data-tour hook lives here now. #}
+  <div class="topbar-market" data-tour="market">
+    <span class="hm-label">Investing in</span>
+    <nav class="seg market-seg" aria-label="Market">
+      <a href="#" data-market="US">🇺🇸 US</a>
+      <a href="#" data-market="IN">🇮🇳 India</a>
+      <a href="#" data-market="BOTH">Both</a>
+    </nav>
+  </div>
   <nav class="topnav">
     <a class="navlink" href="{{ url_for('today') }}" data-tour="today">Today</a>
     <a class="navlink" href="{{ url_for('team') }}">Team</a>
@@ -41,17 +53,7 @@
                class="{{ 'active' if theme == 'dark' }}">☾</a>
           </nav>
         </div>
-        {# Market: client-only preference (localStorage, no accounts yet). Drives
-           the home search autocomplete filter + the default display currency.
-           JS-managed (unlike the server-linked currency/theme) — see base script. #}
-        <div class="set-row">
-          <span class="set-label">Market</span>
-          <nav class="seg market-seg" aria-label="Market">
-            <a href="#" data-market="US" title="United States (NYSE/NASDAQ)">US</a>
-            <a href="#" data-market="IN" title="India (NSE/BSE)">India</a>
-            <a href="#" data-market="BOTH" title="Both markets">Both</a>
-          </nav>
-        </div>
+        {# Market moved to the top bar (§11.1) — persistent on every page. #}
         {% if show_fx %}
         <div class="set-fx" {% if fx_stale %}title="Yahoo unreachable today — using the {{ fx_stale }} rate"{% endif %}>
           {% if fx %}$1 = ₹{{ '%.2f'|format(fx) }}{% if fx_stale %} <span class="fx-stale">({{ fx_stale }})</span>{% endif %}

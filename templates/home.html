@@ -28,17 +28,7 @@
     </form>
   </dialog>
 
-  {# Market switcher on the hero (Phase 7) — client-only (localStorage), shared
-     .market-seg class so base.html's script wires clicks + active state. Filters
-     the search autocomplete and the /today screen; sets the default currency. #}
-  <div class="hero-market" data-tour="market">
-    <span class="hm-label">Investing in</span>
-    <nav class="seg market-seg" aria-label="Market">
-      <a href="#" data-market="US">🇺🇸 US</a>
-      <a href="#" data-market="IN">🇮🇳 India</a>
-      <a href="#" data-market="BOTH">Both</a>
-    </nav>
-  </div>
+  {# Market switcher moved to the top bar (§11.1) — persistent on every page. #}
 
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
     <div class="search-bar" data-tour="search">
@@ -55,18 +45,8 @@
     {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
   {% endwith %}
 
-  {% if rows %}
-  <div class="chips">
-    {% for r in rows %}
-    <a class="chip" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}
-      {% if r['change_pct'] is not none %}
-      <span class="{{ 'up' if r['change_pct'] > 0 else 'down' if r['change_pct'] < 0 else 'flat' }}">
-        {{ '%+.1f'|format(r['change_pct']) }}%</span>
-      {% endif %}
-    </a>
-    {% endfor %}
-  </div>
-  {% endif %}
+  {# Watchlist pulse chips removed (§11.4) — the watchlist table/cards below
+     already show the same tickers + change; the chip strip was redundant. #}
 </section>
 
 <section id="watchlist" class="card" data-tour="watchlist">
@@ -78,6 +58,13 @@
       <button type="submit" class="ghost">↻ Refresh</button>
     </form>
   </div>
+  {# §11.3: when showing ₹ prices, name the exact rate + date behind the
+     conversion, right where the converted prices are — not just in settings. #}
+  {% if ccy == 'INR' and fx %}
+  <p class="fx-note">Converted at today’s rate · $1 = ₹{{ '%.2f'|format(fx) }}
+    {% if fx_stale %}<span class="fx-stale">· Yahoo unreachable today, using the {{ fx_stale }} rate</span>
+    {% else %}<span class="fx-on">· {{ fx_on_label }}</span>{% endif %}</p>
+  {% endif %}
   <table>
     <thead><tr>
       <th>Stock</th><th class="num">Price</th><th class="num">Today</th>

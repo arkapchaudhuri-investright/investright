@@ -431,6 +431,25 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   takeaway; 8 explainer bulbs open with Investopedia links; activity log records
   name/market/action. **NEEDS on deploy:** add `ADMIN_KEY=…` to the VM's `.env`
   (out-of-band) for /admin to work in production.
+- **§11 quick UI tweaks** (2026-07-08) — four self-contained polish items ahead of
+  Phase 8. (1) **Market switcher moved into the top bar** (`base.html`), between
+  the `InvestRight` wordmark and the `Today` link, so it's persistent on every page
+  (was a per-page hero copy on Home + Today, both removed). Still client-only
+  (`localStorage.ir_market`, shared `.market-seg` class wired by base.html's
+  script); `data-tour="market"` hook moved onto the top-bar control so the guided
+  tour still points at it. Mobile: the switcher drops to its own centred full-width
+  row (`order:3; flex-basis:100%`) with the "Investing in" label hidden below
+  560px — no h-overflow at 375px. (2) **Market row removed from the ⚙ settings
+  menu** (redundant now); Currency + Theme + FX line stay. (3) **$→₹ rate shown at
+  the point of conversion:** when `ccy==INR`, a small line under the watchlist head
+  reads "Converted at today's rate · $1 = ₹95.55 · 8 Jul" (new `fx_on_label` passed
+  from `home()`; stale rates say so with the date, matching the settings FX line).
+  (4) **Watchlist pulse chips removed** from Home (`.chips`/`.chip` markup + CSS,
+  incl. the transition + rise-animation references) — the watchlist table/cards
+  right below already show the same tickers + change. Verified on :8701 (Flask dev,
+  since :8700 was busy) desktop + mobile (375px, no h-scroll), light + dark, no
+  console errors: switcher persistent + active-state correct on Home/Today, settings
+  menu Market-free, ₹ note shows the rate + date, chips gone.
 
 ---
 
