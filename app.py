@@ -19,6 +19,13 @@ from db import get_conn, init_db, log_event, save_note, save_snapshot
 app = Flask(__name__)
 app.secret_key = "investright-local-only"
 
+# Ensure the SQLite schema exists at import time, not just under the dev server's
+# __main__ block — gunicorn imports this module without running __main__, so a
+# newly-added table (e.g. Phase 6c's `events`) would otherwise be missing in
+# production until the nightly refresh's init_db() ran. init_db is idempotent
+# (CREATE IF NOT EXISTS + additive migrations), so calling it here is safe.
+init_db()
+
 # Plain-English graph explainers for the deep-dive 💡 bulbs (Phase 7). Exposed
 # to every template so _explain.html's macro can look them up by key.
 app.jinja_env.globals["EXPLAIN"] = metrics.GRAPH_EXPLAINERS
@@ -523,5 +530,4 @@ def bigmoney(value, currency="USD"):
 
 
 if __name__ == "__main__":
-    init_db()
-    app.run(port=8700, debug=True)
+    app.run(port=8700, debug=True)   # schema is ensured at import (init_db above)
