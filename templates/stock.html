@@ -405,12 +405,18 @@
   {% with msgs = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
   {% endwith %}
+  {% if current_user %}
   <form method="post" action="{{ url_for('save_stock_note', ticker=s['ticker']) }}">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <textarea name="body" class="notes-box" rows="4"
       placeholder="Why are you watching {{ s['name'].split(' ')[0] }}? Your thesis, your price, what would change your mind…">{{ note['body'] if note else '' }}</textarea>
     <div class="notes-actions"><button type="submit" class="ghost">Save note</button></div>
   </form>
+  {% else %}
+  <p class="empty-sub notes-signin">
+    <a href="{{ url_for('auth.login', next=request.path) }}">Sign in</a> to keep a
+    private decision journal on this stock — only you can see your notes.</p>
+  {% endif %}
 </section>
 
 {% endblock %}

@@ -16,8 +16,8 @@ import fetch
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
 from auth import bp as auth_bp, current_user, login_required
-from db import (add_user_watch, get_conn, init_db, log_event, remove_user_watch,
-                save_note, save_snapshot, user_watches)
+from db import (add_user_watch, get_conn, get_user_note, init_db, log_event,
+                remove_user_watch, save_snapshot, save_user_note, user_watches)
 
 app = Flask(__name__)
 # Session signing key from .env (§10.0) — refresh→digest's loader put it in the
@@ -444,7 +444,7 @@ def stock(ticker):
         dcf_row = conn.execute("SELECT * FROM dcf WHERE ticker=?", (ticker,)).fetchone()
         news = [dict(r) for r in conn.execute(
             "SELECT * FROM news WHERE ticker=? ORDER BY published_at DESC LIMIT 8", (ticker,))]
-        note = conn.execute("SELECT * FROM notes WHERE ticker=?", (ticker,)).fetchone()
+        note = get_user_note(conn, user["id"], ticker) if user else None
         on_watch = bool(user) and conn.execute(
             "SELECT 1 FROM user_watchlist WHERE user_id=? AND ticker=?",
             (user["id"], ticker)).fetchone() is not None
@@ -530,11 +530,13 @@ def stock(ticker):
 
 
 @app.post("/stock/<ticker>/note")
+@login_required
 def save_stock_note(ticker):
+    user = current_user()
     ticker = ticker.upper()
     with get_conn() as conn:
         if conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
-            save_note(conn, ticker, request.form.get("body", "").strip())
+            save_user_note(conn, user["id"], ticker, request.form.get("body", "").strip())
     flash("Saved your note.", "ok")
     return redirect(url_for("stock", ticker=ticker))
 

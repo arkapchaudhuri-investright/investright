@@ -148,6 +148,15 @@ CREATE TABLE IF NOT EXISTS user_watchlist (
     added_at TEXT NOT NULL,
     PRIMARY KEY (user_id, ticker)
 );
+-- Per-user decision journal (Phase 8 Tier B). The old global `notes` table is
+-- left in place (unused for new writes) — no migration, everyone starts fresh.
+CREATE TABLE IF NOT EXISTS user_notes (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticker     TEXT NOT NULL REFERENCES stocks(ticker) ON DELETE CASCADE,
+    body       TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, ticker)
+);
 -- Activity log (Phase 6c). Pre-accounts there's no real identity, so this is
 -- best-effort: `visitor` is an anonymous per-browser cookie UUID and `name`/
 -- `market` are self-reported (mirrored from the visitor's localStorage into
@@ -267,6 +276,17 @@ def save_digest(conn, body, model, picks):
 def save_note(conn, ticker, body):
     conn.execute("INSERT OR REPLACE INTO notes (ticker, body, updated_at) VALUES (?,?,?)",
                  (ticker, body, _now()))
+
+
+def save_user_note(conn, user_id, ticker, body):
+    conn.execute(
+        "INSERT OR REPLACE INTO user_notes (user_id, ticker, body, updated_at) "
+        "VALUES (?,?,?,?)", (user_id, ticker, body, _now()))
+
+
+def get_user_note(conn, user_id, ticker):
+    return conn.execute("SELECT * FROM user_notes WHERE user_id=? AND ticker=?",
+                        (user_id, ticker)).fetchone()
 
 
 def create_user(conn, email, password_hash, name=None, market=None):

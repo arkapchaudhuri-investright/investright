@@ -197,14 +197,25 @@
   var form = document.getElementById('name-form');
   var input = document.getElementById('name-input');
   var title = document.getElementById('nd-title');
+  // Logged-in visitors are greeted by their ACCOUNT name (§10.5 Tier B) and
+  // never see the "what's your name" popup; their account name/market also seed
+  // localStorage so the autocomplete + Today filter follow the account.
+  var ACCOUNT = {{ ({'name': (current_user['name'] or ''), 'market': (current_user['market'] or '')} if current_user else None) | tojson }};
   var name = '';
   try { name = (localStorage.getItem('ir_name') || '').trim(); } catch (e) {}
+  if (ACCOUNT) {
+    name = (ACCOUNT.name || '').trim();
+    try {
+      if (name) localStorage.setItem('ir_name', name);
+      if (ACCOUNT.market) localStorage.setItem('ir_market', ACCOUNT.market);
+    } catch (e) {}
+  }
   function paint() {
     greetEl.textContent = name ? (g + ', ' + name + ' 👋') : (g + ' 👋');
   }
   paint();
-  // First visit (no name yet): open the welcome popup over the home page.
-  if (!name && dlg && typeof dlg.showModal === 'function') {
+  // First visit (no name yet, and not logged in): welcome popup over the home page.
+  if (!ACCOUNT && !name && dlg && typeof dlg.showModal === 'function') {
     title.textContent = g + ' 👋';
     requestAnimationFrame(function () {
       dlg.showModal();
