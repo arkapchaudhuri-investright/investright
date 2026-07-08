@@ -73,7 +73,7 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   display: flex; justify-content: space-between; align-items: center;
   max-width: 880px; margin: 0 auto; padding: 18px 20px;
 }
-.brand { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: .01em; }
+.brand { font-family: var(--serif); font-size: 23px; font-weight: 400; letter-spacing: .01em; }
 .brand-accent { color: var(--accent); }
 .topnav { display: flex; align-items: center; gap: 18px; }
 .navlink {
@@ -109,13 +109,22 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   color: var(--muted); border: 1px solid var(--hairline); border-radius: 999px;
   width: 34px; height: 34px; display: inline-flex; align-items: center;
   justify-content: center; user-select: none;
+  position: relative; z-index: 62;   /* stay crisp above the scrim */
 }
 .set-btn::-webkit-details-marker { display: none; }
-.set-btn:hover, .settings[open] .set-btn { color: var(--text); border-color: var(--muted); }
+.set-btn:hover, .settings[open] .set-btn {
+  color: var(--text); border-color: var(--muted); background: var(--card);
+}
+/* Opening the gear tints the rest of the screen (a spotlight on the panel). */
+.settings-scrim { display: none; }
+.settings[open] .settings-scrim {
+  display: block; position: fixed; inset: 0; z-index: 55;
+  background: rgba(0, 0, 0, .45); backdrop-filter: blur(1px);
+}
 .settings-panel {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
   background: var(--card); border: 1px solid var(--hairline); border-radius: 14px;
-  padding: 12px 14px; min-width: 208px; box-shadow: 0 10px 28px var(--shadow);
+  padding: 12px 14px; min-width: 208px; box-shadow: 0 12px 34px rgba(0, 0, 0, .5);
   display: flex; flex-direction: column; gap: 12px;
 }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -130,17 +139,32 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 .otto { display: inline-block; }
 .hero h1 { font-size: 30px; margin: 14px 0 4px; }
 .sub { color: var(--muted); margin: 0 0 26px; }
-/* One-time "what should I call you?" prompt (no login; stored in localStorage).
-   :not([hidden]) so the display value doesn't defeat the hidden attribute. */
-.name-ask:not([hidden]) { display: inline-flex; gap: 8px; margin: 0 0 24px; }
-.name-ask input {
-  padding: 9px 14px; border: 1px solid var(--hairline); border-radius: 999px;
-  background: var(--card); color: var(--text); font-size: 14px; width: 210px;
+/* First-visit welcome popup (no login; name stored in localStorage). Native
+   <dialog> — modal, with a tinted ::backdrop dimming the home page behind it. */
+.name-dialog {
+  border: 1px solid var(--hairline); border-radius: 18px; padding: 30px 34px;
+  background: var(--card); color: var(--text); max-width: 380px;
+  width: calc(100% - 40px); box-shadow: 0 24px 64px rgba(0, 0, 0, .55);
 }
-.name-ask input:focus { outline: none; border-color: var(--accent); }
+.name-dialog::backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: blur(2px); }
+.name-dialog form { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+.nd-wave { font-size: 34px; line-height: 1; }
+.name-dialog h2 { font-size: 22px; margin: 2px 0 0; }
+.nd-sub { color: var(--muted); margin: 0 0 8px; font-size: 14.5px; }
+.name-dialog input {
+  width: 100%; padding: 11px 16px; border: 1px solid var(--hairline);
+  border-radius: 999px; background: var(--bg); color: var(--text);
+  font-size: 15px; text-align: center;
+}
+.name-dialog input:focus { outline: none; border-color: var(--accent); }
 .name-go {
-  padding: 0 16px; border: 1px solid var(--accent); background: var(--accent);
-  color: #fff; border-radius: 999px; cursor: pointer; font-size: 15px;
+  width: 100%; padding: 10px 22px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fff; border-radius: 999px;
+  cursor: pointer; font-size: 15px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .name-dialog[open] { animation: nd-pop .18s ease-out; }
+  @keyframes nd-pop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
 }
 
 /* search */
@@ -532,7 +556,7 @@ a.peer:hover { border-color: var(--accent); }
 
 footer .foot-disclaim { margin: 0; }
 footer .foot-credit { margin: 9px 0 0; }
-footer .foot-credit .heart { color: var(--down); font-style: normal; }
+footer .foot-credit .heart { color: var(--accent); font-style: normal; }
 
 .team-head { text-align: center; padding: 40px 0 6px; }
 .team-head h1 { font-size: 30px; margin: 0 0 6px; }

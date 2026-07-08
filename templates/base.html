@@ -17,6 +17,7 @@
        where the future account/login lives). Native <details> = no-JS dropdown. #}
     <details class="settings">
       <summary class="set-btn" role="button" aria-label="Settings" title="Settings">⚙</summary>
+      <div class="settings-scrim" aria-hidden="true"></div>
       <div class="settings-panel">
         {% if show_fx %}
         <div class="set-row">
@@ -85,6 +86,8 @@
   // stays open otherwise). Esc closes too.
   var settings = document.querySelector('.settings');
   if (settings) {
+    var scrim = settings.querySelector('.settings-scrim');
+    if (scrim) scrim.addEventListener('click', function () { settings.open = false; });
     document.addEventListener('click', function (e) {
       if (settings.open && !settings.contains(e.target)) settings.open = false;
     });

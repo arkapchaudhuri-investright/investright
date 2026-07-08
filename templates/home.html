@@ -8,11 +8,19 @@
      remembered in localStorage. Upgrades to a real account later. #}
   <h1 class="serif" id="greet">{{ greeting }}</h1>
   <p class="sub" id="greet-sub">Which stock are we looking at today?</p>
-  <form id="name-ask" class="name-ask" autocomplete="off" hidden>
-    <input id="name-input" type="text" maxlength="24" spellcheck="false"
-           placeholder="What should I call you?" aria-label="Your name">
-    <button type="submit" class="name-go" aria-label="Save name">✓</button>
-  </form>
+
+  {# First-visit welcome popup — asks a name once, remembered in localStorage.
+     Shown as a modal <dialog> only when no name is stored yet (see script). #}
+  <dialog id="name-dialog" class="name-dialog">
+    <form id="name-form" method="dialog" autocomplete="off">
+      <div class="nd-wave" aria-hidden="true">👋</div>
+      <h2 class="serif" id="nd-title">Welcome to InvestRight</h2>
+      <p class="nd-sub">What should I call you?</p>
+      <input id="name-input" type="text" maxlength="24" spellcheck="false"
+             placeholder="Your name" aria-label="Your name">
+      <button type="submit" class="name-go">Let’s go →</button>
+    </form>
+  </dialog>
 
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
     <div class="search-bar">
@@ -145,36 +153,38 @@
 
 <script>
 // Personalised greeting (no login): time-of-day from the visitor's own clock +
-// a name remembered in localStorage. First-time visitors get a gentle prompt.
+// a name remembered in localStorage. First-time visitors get a welcome popup.
 (function () {
   var h = new Date().getHours();
   var g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   var greetEl = document.getElementById('greet');
-  var subEl = document.getElementById('greet-sub');
-  var ask = document.getElementById('name-ask');
+  var dlg = document.getElementById('name-dialog');
+  var form = document.getElementById('name-form');
   var input = document.getElementById('name-input');
+  var title = document.getElementById('nd-title');
   var name = '';
   try { name = (localStorage.getItem('ir_name') || '').trim(); } catch (e) {}
-  function render() {
-    if (name) {
-      greetEl.textContent = g + ', ' + name + ' 👋';
-      subEl.textContent = 'Which stock are we looking at today?';
-      ask.hidden = true;
-    } else {
-      greetEl.textContent = g + ' 👋';
-      subEl.textContent = 'First time here? Tell me what to call you.';
-      ask.hidden = false;
-    }
+  function paint() {
+    greetEl.textContent = name ? (g + ', ' + name + ' 👋') : (g + ' 👋');
   }
-  render();
-  ask.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var v = (input.value || '').trim().slice(0, 24);
-    if (!v) return;
-    name = v;
-    try { localStorage.setItem('ir_name', v); } catch (e) {}
-    render();
-  });
+  paint();
+  // First visit (no name yet): open the welcome popup over the home page.
+  if (!name && dlg && typeof dlg.showModal === 'function') {
+    title.textContent = g + ' 👋';
+    requestAnimationFrame(function () {
+      dlg.showModal();
+      setTimeout(function () { input.focus(); }, 60);
+    });
+  }
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      var v = (input.value || '').trim().slice(0, 24);
+      if (!v) { e.preventDefault(); input.focus(); return; }  // require a name
+      try { localStorage.setItem('ir_name', v); } catch (e2) {}
+      name = v;
+      paint();                       // method="dialog" closes the popup itself
+    });
+  }
 })();
 </script>
 <script src="{{ url_for('static', filename='tickers.js') }}"></script>
