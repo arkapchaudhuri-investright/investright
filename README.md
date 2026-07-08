@@ -27,6 +27,33 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # once
   LLM (Gemini, or Groq) writes a short digest of the top picks. Put a key in
   `.env` (see comments in that file) to turn the digest on; without one the
   screener still works and the page says the digest is off.
-- Phase 5 next: deploy to an always-free VM so it runs without this Mac.
+- **Phase 5 (done):** deployed to an Oracle Cloud Always Free VM (Chicago,
+  `VM.Standard.E5.Flex`, $0/mo) so it runs 24/7 without this Mac. Gunicorn
+  (2 workers, `127.0.0.1:8700`) behind a Caddy reverse proxy (auto-HTTPS via
+  Let's Encrypt, HTTP basic-auth gate). The nightly refresh runs as a systemd
+  timer (`22:00` America/Chicago, `Persistent=true`).
+- **Phase 6 (done):** dark/light theme toggle (cookie-persisted, follows OS by
+  default), a `/team` page, an iOS-Stocks-style collapsible watchlist on mobile,
+  a search-first "Analyze" flow (`POST /analyze` fetches-on-first-sight, then
+  deep-dives; add-to-watchlist is a separate action), and open-sourcing on
+  GitHub. Live at **https://investright.us**.
 
 Not investment advice.
+
+## Contributing / development flow
+
+`main` is the deployed branch. Work on a feature branch and open a PR so
+changes can be reviewed before they merge:
+
+```sh
+git checkout -b feature/<short-name>   # branch off main
+# ...make changes, commit...
+git push -u origin feature/<short-name>
+gh pr create --fill                    # open a PR against main
+```
+
+Review and merge the PR on GitHub (squash-merge keeps `main` linear), then
+deploy from `main` on the VM. Keep secrets out of git — `.env` (the Gemini
+key) is `.gitignore`d and lives only on the VM (`chmod 600`), transferred
+out-of-band. Branch protection on `main` is optional but recommended once
+collaborators are added.
