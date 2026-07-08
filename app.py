@@ -19,6 +19,10 @@ from db import get_conn, init_db, log_event, save_note, save_snapshot
 app = Flask(__name__)
 app.secret_key = "investright-local-only"
 
+# Plain-English graph explainers for the deep-dive 💡 bulbs (Phase 7). Exposed
+# to every template so _explain.html's macro can look them up by key.
+app.jinja_env.globals["EXPLAIN"] = metrics.GRAPH_EXPLAINERS
+
 # Secret gating the /admin activity log. Loaded from .env (via refresh→digest's
 # tiny loader at import). Unset ⇒ /admin is disabled (404), never wide open.
 ADMIN_KEY = os.environ.get("ADMIN_KEY")
@@ -305,6 +309,16 @@ def admin():
 def today():
     """The Finimize layer (§4 "Today") — screener ranking + nightly AI digest.
     Reads DB only: cron computed everything here overnight (§3, §8.0)."""
+    # Filter the screen to the visitor's chosen market (Phase 7). Market is a
+    # per-browser preference mirrored into the ir_market cookie; India tickers
+    # carry a .NS/.BO suffix. Ranks are renumbered after filtering so the top of
+    # the shown list still gets the #1 hero treatment.
+    market = (request.cookies.get("ir_market") or "BOTH").upper()
+
+    def _in_market(tk):
+        india = tk.endswith(".NS") or tk.endswith(".BO")
+        return True if market == "BOTH" else (india if market == "IN" else not india)
+
     with get_conn() as conn:
         picks = [dict(r) for r in conn.execute("""
             SELECT sc.*, s.name, s.currency, s.exchange, n.price, n.change_pct
@@ -312,6 +326,9 @@ def today():
             JOIN stocks s ON s.ticker = sc.ticker
             LEFT JOIN snapshots n ON n.ticker = sc.ticker
             ORDER BY sc.rank""")]
+        picks = [p for p in picks if _in_market(p["ticker"])]
+        for i, p in enumerate(picks, 1):
+            p["rank"] = i
         for p in picks:
             p["reasons"] = json.loads(p["reasons_json"] or "[]")
             p["components"] = json.loads(p["components_json"] or "{}")
@@ -344,7 +361,7 @@ def today():
             else "happy" if top_score >= 55 else "neutral")
     return render_template(
         "today.html", picks=picks, digest=dig, as_of=as_of, mood=mood,
-        takeaway=metrics.today_takeaway(picks),
+        takeaway=metrics.today_takeaway(picks), market=market,
         date_label=date.today().strftime("%A, %-d %B"),
         weights=metrics.SCREEN_WEIGHTS, upside_cap=metrics.UPSIDE_CAP)
 

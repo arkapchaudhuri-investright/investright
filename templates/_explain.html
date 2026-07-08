@@ -1,0 +1,22 @@
+{# 💡 Graph explainer (Phase 7). A small bulb under a chart that opens a plain-
+   English "what this shows" note + an Investopedia link. Native <details> — no
+   JS, works on web + mobile. Content comes from metrics.GRAPH_EXPLAINERS,
+   exposed to templates as the EXPLAIN global. Usage: {{ explain('snowflake') }} #}
+{% macro explain(key) %}
+{% set e = EXPLAIN.get(key) %}
+{% if e %}
+<details class="explain">
+  <summary class="explain-btn">
+    <span class="explain-bulb" aria-hidden="true">💡</span>
+    <span class="explain-cta">What does this show?</span>
+  </summary>
+  <div class="explain-pop" role="note">
+    <p class="explain-body">{{ e['body'] }}</p>
+    {% if e['url'] %}
+    <a class="explain-link" href="{{ e['url'] }}" target="_blank" rel="noopener noreferrer">
+      Learn more on Investopedia →</a>
+    {% endif %}
+  </div>
+</details>
+{% endif %}
+{% endmacro %}

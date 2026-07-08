@@ -10,12 +10,12 @@
 <header class="topbar">
   <a class="brand" href="{{ url_for('home') }}">Invest<span class="brand-accent">Right</span></a>
   <nav class="topnav">
-    <a class="navlink" href="{{ url_for('today') }}">Today</a>
+    <a class="navlink" href="{{ url_for('today') }}" data-tour="today">Today</a>
     <a class="navlink" href="{{ url_for('team') }}">Team</a>
     <a class="wl-toggle" href="{{ url_for('home') }}#watchlist">★ Watchlist{% if rows %}<span class="badge">{{ rows|length }}</span>{% endif %}</a>
     {# Settings: currency + theme + FX rate consolidated behind one menu (also
        where the future account/login lives). Native <details> = no-JS dropdown. #}
-    <details class="settings">
+    <details class="settings" data-tour="settings">
       {# Inline SVG gear (not the ⚙ emoji) — crisp, perfectly centred, and green
          via CSS fill, per the no-CDN / offline-on-VM rule. #}
       <summary class="set-btn" role="button" aria-label="Settings" title="Settings">

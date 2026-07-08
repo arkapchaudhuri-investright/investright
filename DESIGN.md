@@ -401,3 +401,29 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   all pages 200, no console errors, secret gate 404/404/200, events captured with
   name+market+ticker. **Later phase:** real email/password accounts — the per-browser
   name + market migrate into the account then.
+- **Phase 7 — guided onboarding + learn-as-you-go** (2026-07-08) —
+  (1) **Market-aware Today:** `/today` filters the screen to the visitor's
+  `ir_market` cookie (India = .NS/.BO only, US = the rest, Both = all), renumbers
+  ranks so the shown top still gets the #1 hero treatment, and gains a market
+  switcher on its own full-width row under the header (moved out of the header's
+  flex column to avoid a mobile overflow) plus a market-aware empty state. A
+  matching switcher sits on the home hero ("Investing in …"). (2) **First-run
+  guided tour:** stepped coach-marks — a spotlight (rounded hole punched by a
+  huge box-shadow) over each feature + an Otto bubble explaining it, walking
+  search → market → watchlist → Today → gear. Skippable, shown once
+  (`ir_toured`), launched from the welcome popup for new visitors or on load for
+  ones who onboarded before it existed. Otto wears a mortarboard + tassel
+  (`_otto_scholar.html`, Duolingo-mascot energy), pure inline SVG. Vanilla JS,
+  repositions on resize, resilient to missing targets. (3) **Per-graph
+  explainers:** a 💡 "What does this show?" bulb under every deep-dive chart
+  (snowflake, fair value, health, past performance, future, dividend, ownership,
+  competitors) — a native `<details>` popover with a jargon-light explanation +
+  a "Learn more on Investopedia →" link. Content lives in
+  `metrics.GRAPH_EXPLAINERS`, exposed as the `EXPLAIN` Jinja global and rendered
+  by the `explain()` macro in `_explain.html`. Verified on :8700 desktop + mobile
+  (375px, no h-scroll), light + dark, no console errors: welcome popup asks name
+  + market, tour steps + spotlight track every target incl. below-fold/topbar,
+  finishes and won't re-show; /today filters US vs India vs Both and updates the
+  takeaway; 8 explainer bulbs open with Investopedia links; activity log records
+  name/market/action. **NEEDS on deploy:** add `ADMIN_KEY=…` to the VM's `.env`
+  (out-of-band) for /admin to work in production.

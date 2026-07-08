@@ -1,0 +1,49 @@
+{# Otto in a graduation cap — the first-run guided tour guide (Phase 7).
+   Compact head-only owl (Duolingo-mascot energy) with a mortarboard + tassel.
+   Self-contained inline SVG, fixed colours so it reads in light + dark, gentle
+   float/blink gated behind prefers-reduced-motion. No JS, no image files. #}
+<div class="otto-scholar">
+<svg viewBox="0 0 96 100" width="72" height="75" role="img" aria-label="Otto the owl, wearing a graduation cap">
+  <style>
+    @media (prefers-reduced-motion: no-preference) {
+      .otto-scholar svg { animation: os-float 4s ease-in-out infinite; }
+      .otto-scholar .os-lid { animation: os-blink 5s infinite; transform-origin: center 48px; }
+      .otto-scholar .os-tassel { animation: os-swing 4s ease-in-out infinite; transform-origin: 70px 20px; }
+    }
+    @keyframes os-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    @keyframes os-blink { 0%,92%,100% { transform: scaleY(0); } 95%,97% { transform: scaleY(1); } }
+    @keyframes os-swing { 0%,100% { transform: rotate(0); } 50% { transform: rotate(9deg); } }
+  </style>
+  <!-- ear tufts -->
+  <path d="M34 30 Q31 16 41 22 Q37 27 39 32 Z" fill="#1D9E75"/>
+  <path d="M62 30 Q65 16 55 22 Q59 27 57 32 Z" fill="#1D9E75"/>
+  <!-- head -->
+  <ellipse cx="48" cy="56" rx="30" ry="30" fill="#1D9E75"/>
+  <!-- belly hint -->
+  <ellipse cx="48" cy="66" rx="18" ry="18" fill="#F5EEDC"/>
+  <!-- eyes -->
+  <circle cx="37" cy="52" r="12" fill="#FFFFFF"/>
+  <circle cx="59" cy="52" r="12" fill="#FFFFFF"/>
+  <circle cx="38" cy="53" r="5" fill="#26251F"/>
+  <circle cx="60" cy="53" r="5" fill="#26251F"/>
+  <circle cx="40" cy="51" r="1.6" fill="#FFFFFF"/>
+  <circle cx="62" cy="51" r="1.6" fill="#FFFFFF"/>
+  <g class="os-lid">
+    <circle cx="37" cy="52" r="12" fill="#1D9E75"/>
+    <circle cx="59" cy="52" r="12" fill="#1D9E75"/>
+  </g>
+  <!-- beak -->
+  <path d="M48 58 L43 65 Q48 70 53 65 Z" fill="#E8A33D"/>
+  <!-- mortarboard: band, then the flat top as a diamond, plus a tassel -->
+  <path d="M33 33 h30 v6 q-15 5 -30 0 Z" fill="#2b2823"/>
+  <polygon points="48,20 78,31 48,40 18,31" fill="#26251F"/>
+  <polygon points="48,22 72,31 48,38 24,31" fill="#3a3833"/>
+  <circle cx="48" cy="30" r="2.4" fill="#E8A33D"/>
+  <!-- tassel -->
+  <g class="os-tassel">
+    <path d="M70 31 q6 6 4 15" stroke="#E8A33D" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <circle cx="73" cy="30" r="2" fill="#E8A33D"/>
+    <path d="M74 46 l-2 6 M74 46 l0 6 M74 46 l2 6" stroke="#E8A33D" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+</svg>
+</div>
