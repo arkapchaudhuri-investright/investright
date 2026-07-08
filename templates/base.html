@@ -9,29 +9,42 @@
 <body>
 <header class="topbar">
   <a class="brand" href="{{ url_for('home') }}">Invest<span class="brand-accent">Right</span></a>
-  <div class="topbar-right">
-    {% if show_fx %}
-    <span class="fx-note" {% if fx_stale %}title="Yahoo unreachable today — using the {{ fx_stale }} rate"{% endif %}>
-      {% if fx %}$1 = ₹{{ '%.2f'|format(fx) }}{% if fx_stale %} <span class="fx-stale">({{ fx_stale }})</span>{% endif %}
-      {% else %}FX rate unavailable{% endif %}
-    </span>
-    <nav class="seg" aria-label="Display currency">
-      <a href="{{ url_for('home', ccy='USD') }}" class="{{ 'active' if ccy == 'USD' }}">$ USD</a>
-      <a href="{{ url_for('home', ccy='INR') }}" class="{{ 'active' if ccy == 'INR' }}">₹ INR</a>
-    </nav>
-    {% endif %}
-    <a class="wl-toggle" href="{{ url_for('today') }}">☀ Today</a>
-    <a class="wl-toggle" href="{{ url_for('team') }}">Team</a>
-    <a class="wl-toggle" href="{{ url_for('home') }}#watchlist">★ Watchlist
-      {% if rows %}<span class="badge">{{ rows|length }}</span>{% endif %}
-    </a>
-    <nav class="seg theme-seg" aria-label="Colour theme">
-      <a href="?theme=light" data-theme="light" title="Light theme" aria-label="Light theme"
-         class="{{ 'active' if theme == 'light' }}">☀</a>
-      <a href="?theme=dark" data-theme="dark" title="Dark theme" aria-label="Dark theme"
-         class="{{ 'active' if theme == 'dark' }}">☾</a>
-    </nav>
-  </div>
+  <nav class="topnav">
+    <a class="navlink" href="{{ url_for('today') }}">Today</a>
+    <a class="navlink" href="{{ url_for('team') }}">Team</a>
+    <a class="wl-toggle" href="{{ url_for('home') }}#watchlist">★ Watchlist{% if rows %}<span class="badge">{{ rows|length }}</span>{% endif %}</a>
+    {# Settings: currency + theme + FX rate consolidated behind one menu (also
+       where the future account/login lives). Native <details> = no-JS dropdown. #}
+    <details class="settings">
+      <summary class="set-btn" role="button" aria-label="Settings" title="Settings">⚙</summary>
+      <div class="settings-panel">
+        {% if show_fx %}
+        <div class="set-row">
+          <span class="set-label">Currency</span>
+          <nav class="seg" aria-label="Display currency">
+            <a href="{{ url_for('home', ccy='USD') }}" class="{{ 'active' if ccy == 'USD' }}">$ USD</a>
+            <a href="{{ url_for('home', ccy='INR') }}" class="{{ 'active' if ccy == 'INR' }}">₹ INR</a>
+          </nav>
+        </div>
+        {% endif %}
+        <div class="set-row">
+          <span class="set-label">Theme</span>
+          <nav class="seg theme-seg" aria-label="Colour theme">
+            <a href="?theme=light" data-theme="light" title="Light theme" aria-label="Light theme"
+               class="{{ 'active' if theme == 'light' }}">☀</a>
+            <a href="?theme=dark" data-theme="dark" title="Dark theme" aria-label="Dark theme"
+               class="{{ 'active' if theme == 'dark' }}">☾</a>
+          </nav>
+        </div>
+        {% if show_fx %}
+        <div class="set-fx" {% if fx_stale %}title="Yahoo unreachable today — using the {{ fx_stale }} rate"{% endif %}>
+          {% if fx %}$1 = ₹{{ '%.2f'|format(fx) }}{% if fx_stale %} <span class="fx-stale">({{ fx_stale }})</span>{% endif %}
+          {% else %}FX rate unavailable{% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </details>
+  </nav>
 </header>
 <main>
 {% block content %}{% endblock %}
@@ -67,6 +80,18 @@
     });
   });
   paint();
+
+  // Close the settings dropdown when clicking outside it (native <details>
+  // stays open otherwise). Esc closes too.
+  var settings = document.querySelector('.settings');
+  if (settings) {
+    document.addEventListener('click', function (e) {
+      if (settings.open && !settings.contains(e.target)) settings.open = false;
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') settings.open = false;
+    });
+  }
 })();
 </script>
 </body>

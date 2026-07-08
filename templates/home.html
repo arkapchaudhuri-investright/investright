@@ -3,8 +3,16 @@
 
 <section class="hero">
   {% with mood = 'sleepy' if not rows else 'happy' %}{% include "_otto.html" %}{% endwith %}
-  <h1 class="serif">{{ greeting }}, Arka</h1>
-  <p class="sub">Which stock are we looking at today?</p>
+  {# Greeting is personalised client-side: time-of-day from the VISITOR's clock
+     (server {{ greeting }} is the no-JS fallback) + a name they type once,
+     remembered in localStorage. Upgrades to a real account later. #}
+  <h1 class="serif" id="greet">{{ greeting }}</h1>
+  <p class="sub" id="greet-sub">Which stock are we looking at today?</p>
+  <form id="name-ask" class="name-ask" autocomplete="off" hidden>
+    <input id="name-input" type="text" maxlength="24" spellcheck="false"
+           placeholder="What should I call you?" aria-label="Your name">
+    <button type="submit" class="name-go" aria-label="Save name">✓</button>
+  </form>
 
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
     <div class="search-bar">
@@ -135,6 +143,40 @@
   {% endif %}
 </section>
 
+<script>
+// Personalised greeting (no login): time-of-day from the visitor's own clock +
+// a name remembered in localStorage. First-time visitors get a gentle prompt.
+(function () {
+  var h = new Date().getHours();
+  var g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  var greetEl = document.getElementById('greet');
+  var subEl = document.getElementById('greet-sub');
+  var ask = document.getElementById('name-ask');
+  var input = document.getElementById('name-input');
+  var name = '';
+  try { name = (localStorage.getItem('ir_name') || '').trim(); } catch (e) {}
+  function render() {
+    if (name) {
+      greetEl.textContent = g + ', ' + name + ' 👋';
+      subEl.textContent = 'Which stock are we looking at today?';
+      ask.hidden = true;
+    } else {
+      greetEl.textContent = g + ' 👋';
+      subEl.textContent = 'First time here? Tell me what to call you.';
+      ask.hidden = false;
+    }
+  }
+  render();
+  ask.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = (input.value || '').trim().slice(0, 24);
+    if (!v) return;
+    name = v;
+    try { localStorage.setItem('ir_name', v); } catch (e) {}
+    render();
+  });
+})();
+</script>
 <script src="{{ url_for('static', filename='tickers.js') }}"></script>
 <script>
 // Client-side autocomplete over the static ticker list — no API per keystroke (DESIGN.md §2).

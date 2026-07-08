@@ -73,10 +73,13 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   display: flex; justify-content: space-between; align-items: center;
   max-width: 880px; margin: 0 auto; padding: 18px 20px;
 }
-.brand { font-family: var(--serif); font-size: 17px; letter-spacing: .01em; }
+.brand { font-family: var(--serif); font-size: 23px; font-weight: 600; letter-spacing: .01em; }
 .brand-accent { color: var(--accent); }
-.topbar-right { display: flex; align-items: center; gap: 12px; }
-.fx-note { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.topnav { display: flex; align-items: center; gap: 18px; }
+.navlink {
+  color: var(--muted); text-decoration: none; font-size: 14.5px;
+}
+.navlink:hover { color: var(--text); }
 .fx-stale { color: var(--amber); }
 .seg {
   display: inline-flex; border: 1px solid var(--hairline);
@@ -95,7 +98,31 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 .wl-toggle:hover { color: var(--text); border-color: var(--muted); }
 .badge {
   background: var(--accent); color: #fff; border-radius: 999px;
-  font-size: 11px; padding: 1px 7px; margin-left: 4px;
+  font-size: 11px; padding: 1px 7px; margin-left: 6px;
+}
+
+/* Settings menu — one gear consolidating currency + theme + FX rate (and the
+   future account/login). Native <details>; panel floats below, right-aligned. */
+.settings { position: relative; }
+.set-btn {
+  list-style: none; cursor: pointer; font-size: 16px; line-height: 1;
+  color: var(--muted); border: 1px solid var(--hairline); border-radius: 999px;
+  width: 34px; height: 34px; display: inline-flex; align-items: center;
+  justify-content: center; user-select: none;
+}
+.set-btn::-webkit-details-marker { display: none; }
+.set-btn:hover, .settings[open] .set-btn { color: var(--text); border-color: var(--muted); }
+.settings-panel {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  background: var(--card); border: 1px solid var(--hairline); border-radius: 14px;
+  padding: 12px 14px; min-width: 208px; box-shadow: 0 10px 28px var(--shadow);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.set-label { color: var(--muted); font-size: 13.5px; }
+.set-fx {
+  color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--hairline); padding-top: 10px; text-align: right;
 }
 
 /* hero */
@@ -103,6 +130,18 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 .otto { display: inline-block; }
 .hero h1 { font-size: 30px; margin: 14px 0 4px; }
 .sub { color: var(--muted); margin: 0 0 26px; }
+/* One-time "what should I call you?" prompt (no login; stored in localStorage).
+   :not([hidden]) so the display value doesn't defeat the hidden attribute. */
+.name-ask:not([hidden]) { display: inline-flex; gap: 8px; margin: 0 0 24px; }
+.name-ask input {
+  padding: 9px 14px; border: 1px solid var(--hairline); border-radius: 999px;
+  background: var(--card); color: var(--text); font-size: 14px; width: 210px;
+}
+.name-ask input:focus { outline: none; border-color: var(--accent); }
+.name-go {
+  padding: 0 16px; border: 1px solid var(--accent); background: var(--accent);
+  color: #fff; border-radius: 999px; cursor: pointer; font-size: 15px;
+}
 
 /* search */
 .search { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 11px; }
@@ -537,7 +576,7 @@ footer .foot-credit .heart { color: var(--down); font-style: normal; }
   /* Topbar gained a Team link + theme toggle — let the controls wrap onto
      their own line(s) instead of overflowing the viewport (§ no h-scroll). */
   .topbar { flex-wrap: wrap; row-gap: 10px; padding: 14px 16px; }
-  .topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  .topnav { flex-wrap: wrap; justify-content: flex-end; gap: 14px; }
   /* Watchlist → iOS-Stocks-style collapsible cards on phones: a minimized row
      (ticker · name · price · change pill) that taps open to reveal the rest.
      Desktop table is hidden here; expand/collapse is native <details>, no JS. */
