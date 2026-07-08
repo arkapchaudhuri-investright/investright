@@ -35,6 +35,23 @@
       </summary>
       <div class="settings-scrim" aria-hidden="true"></div>
       <div class="settings-panel">
+        {# Account (Phase 8). Login is optional — it only unlocks a per-user
+           watchlist (+ notes). Signed in: name + Sign out; else: sign-in links. #}
+        <div class="set-row set-account">
+          {% if current_user %}
+          <span class="set-label acct-name" title="{{ current_user['email'] }}">{{ current_user['name'] or current_user['email'] }}</span>
+          <form action="{{ url_for('auth.logout') }}" method="post" class="acct-form">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <button type="submit" class="linkbtn">Sign out</button>
+          </form>
+          {% else %}
+          <span class="set-label">Account</span>
+          <span class="acct-links">
+            <a href="{{ url_for('auth.login') }}">Sign in</a>
+            <a href="{{ url_for('auth.register') }}">Create</a>
+          </span>
+          {% endif %}
+        </div>
         {% if show_fx %}
         <div class="set-row">
           <span class="set-label">Currency</span>

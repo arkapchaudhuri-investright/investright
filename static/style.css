@@ -140,6 +140,38 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums;
   border-top: 1px solid var(--hairline); padding-top: 10px; text-align: right;
 }
+/* Account row (Phase 8) — sits at the top of the settings panel. */
+.set-account { border-bottom: 1px solid var(--hairline); padding-bottom: 12px; }
+.acct-name {
+  color: var(--text); max-width: 130px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.acct-links { display: inline-flex; gap: 12px; }
+.acct-form { margin: 0; }
+.acct-links a, .linkbtn {
+  color: var(--accent); text-decoration: none; font-size: 13.5px;
+  background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+}
+.acct-links a:hover, .linkbtn:hover { text-decoration: underline; }
+
+/* Auth pages (Phase 8) — calm, narrow, reuses the hero shell + Analyze button. */
+.auth-hero { max-width: 380px; margin: 0 auto; }
+.auth-form { display: flex; flex-direction: column; gap: 14px; text-align: left; margin-top: 8px; }
+.auth-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--muted); }
+.auth-form input {
+  background: var(--card); border: 1px solid var(--hairline); border-radius: 10px;
+  padding: 11px 13px; color: var(--text); font-size: 15px;
+}
+.auth-form input:focus { outline: none; border-color: var(--accent); }
+.auth-go { width: 100%; margin-top: 4px; }
+.auth-alt { color: var(--muted); font-size: 14px; margin-top: 16px; }
+.auth-alt a { color: var(--accent); text-decoration: none; }
+.auth-alt a:hover { text-decoration: underline; }
+.auth-note {
+  color: var(--muted); font-size: 12.5px; margin-top: 18px; line-height: 1.55;
+  border-top: 1px solid var(--hairline); padding-top: 14px; text-align: left;
+}
+.opt { color: var(--muted); opacity: .7; font-weight: 400; font-size: 12px; }
 
 /* hero */
 .hero { text-align: center; padding: 40px 0 28px; }

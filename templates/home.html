@@ -31,6 +31,7 @@
   {# Market switcher moved to the top bar (§11.1) — persistent on every page. #}
 
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <div class="search-bar" data-tour="search">
       <input id="symbol" name="symbol" type="text" spellcheck="false"
              placeholder="Search a ticker to analyze — AAPL, RELIANCE.NS, TCS.BO…"
@@ -54,6 +55,7 @@
   <div class="card-head">
     <h2>Your watchlist</h2>
     <form action="{{ url_for('refresh') }}" method="post" class="refresh-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
       {% if as_of %}<span class="asof">as of {{ as_of }}</span>{% endif %}
       <button type="submit" class="ghost">↻ Refresh</button>
     </form>
@@ -97,6 +99,7 @@
         <td>
           <form action="{{ url_for('remove') }}" method="post"
                 onsubmit="return confirm('Remove {{ r['ticker'] }} from your watchlist?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
             <input type="hidden" name="ticker" value="{{ r['ticker'] }}">
             <button class="x" aria-label="Remove {{ r['ticker'] }}">×</button>
           </form>
@@ -142,6 +145,7 @@
           <a href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
           <form action="{{ url_for('remove') }}" method="post"
                 onsubmit="return confirm('Remove {{ r['ticker'] }} from your watchlist?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
             <input type="hidden" name="ticker" value="{{ r['ticker'] }}">
             <button class="x" aria-label="Remove {{ r['ticker'] }}">× Remove</button>
           </form>
@@ -150,9 +154,16 @@
     </details>
     {% endfor %}
   </div>
-  {% else %}
-  <p class="empty serif">Otto's dozing — the watchlist is empty.<br>
+  {% elif current_user %}
+  <p class="empty serif">Otto's dozing — your watchlist is empty.<br>
     <span class="empty-sub">Add your first ticker above to wake him up.</span></p>
+  {% else %}
+  {# Logged out: watchlist is per-account now (§10.4). Search / Analyze / Today
+     all still work without an account — only saving a list needs one. #}
+  <p class="empty serif">Sign in to build your watchlist.<br>
+    <span class="empty-sub"><a href="{{ url_for('auth.login') }}">Sign in</a> or
+      <a href="{{ url_for('auth.register') }}">create a free account</a> to save
+      stocks — searching and Today work without one.</span></p>
   {% endif %}
 </section>
 

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Create account · InvestRight{% endblock %}
+{% block content %}
+<section class="hero auth-hero">
+  {% with mood = 'happy' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Create your account</h1>
+  <p class="sub">Free — it just saves your own watchlist.</p>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+  {% endwith %}
+
+  <form class="auth-form" method="post" action="{{ url_for('auth.register') }}" autocomplete="on">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>Name <span class="opt">optional</span>
+      <input type="text" name="name" value="{{ name }}" maxlength="24" autocomplete="name">
+    </label>
+    <label>Email
+      <input type="email" name="email" value="{{ email }}" required autofocus autocomplete="email">
+    </label>
+    <label>Password <span class="opt">8+ characters</span>
+      <input type="password" name="password" required minlength="8" autocomplete="new-password">
+    </label>
+    <label>Confirm password
+      <input type="password" name="password2" required autocomplete="new-password">
+    </label>
+    <button type="submit" class="btn-analyze auth-go">Create account</button>
+  </form>
+
+  <p class="auth-alt">Already have one?
+    <a href="{{ url_for('auth.login', next=next) }}">Sign in</a></p>
+
+  {# Honest limits (§10.6): $0 means no email sending yet. #}
+  <p class="auth-note">Heads up — to stay free, InvestRight can’t send email yet, so
+    addresses aren’t verified and there’s no automatic password reset. Please don’t
+    reuse an important password. Not investment advice.</p>
+</section>
+{% endblock %}

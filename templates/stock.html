@@ -37,6 +37,7 @@
     </div>
   </div>
   <form class="head-star" action="{{ url_for('toggle_watch', ticker=s['ticker']) }}" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <button type="submit" class="star {{ 'on' if on_watch }}"
             aria-label="{{ 'Remove from watchlist' if on_watch else 'Add to watchlist' }}">
       {{ '★ On watchlist' if on_watch else '☆ Add to watchlist' }}
@@ -405,6 +406,7 @@
     {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
   {% endwith %}
   <form method="post" action="{{ url_for('save_stock_note', ticker=s['ticker']) }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <textarea name="body" class="notes-box" rows="4"
       placeholder="Why are you watching {{ s['name'].split(' ')[0] }}? Your thesis, your price, what would change your mind…">{{ note['body'] if note else '' }}</textarea>
     <div class="notes-actions"><button type="submit" class="ghost">Save note</button></div>

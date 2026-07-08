@@ -4,20 +4,40 @@ Run: .venv/bin/python app.py  →  http://localhost:8700
 import hmac
 import json
 import os
+import secrets
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from urllib.parse import unquote
 
 from flask import (Flask, abort, flash, g, make_response, redirect,
-                   render_template, request, url_for)
+                   render_template, request, session, url_for)
 
 import fetch
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
-from db import get_conn, init_db, log_event, save_note, save_snapshot
+from auth import bp as auth_bp, current_user, login_required
+from db import (add_user_watch, get_conn, init_db, log_event, remove_user_watch,
+                save_note, save_snapshot, user_watches)
 
 app = Flask(__name__)
-app.secret_key = "investright-local-only"
+# Session signing key from .env (§10.0) — refresh→digest's loader put it in the
+# environment at import. Falls back to a dev-only constant if unset so local
+# runs still work; production MUST set SECRET_KEY in the VM .env.
+app.secret_key = os.environ.get("SECRET_KEY") or "investright-local-only"
+# Session cookie hardening (§10.0). Secure defaults ON (prod is HTTPS via Caddy);
+# the __main__ dev server flips it off so login works over http://localhost.
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=(os.environ.get("SESSION_COOKIE_SECURE", "1") == "1"),
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
+app.register_blueprint(auth_bp)
+
+# Ensure the schema exists at import time so gunicorn (which never runs the
+# __main__ block) picks up new tables on deploy — the latent fix flagged after
+# Phase 6c, now needed for the Phase 8 users/user_watchlist tables. Idempotent.
+init_db()
 
 # Plain-English graph explainers for the deep-dive 💡 bulbs (Phase 7). Exposed
 # to every template so _explain.html's macro can look them up by key.
@@ -40,6 +60,27 @@ def _persist_visitor(resp):
     if request.cookies.get("vid") != getattr(g, "vid", None):
         resp.set_cookie("vid", g.vid, max_age=365 * 24 * 3600, samesite="Lax")
     return resp
+
+
+@app.before_request
+def _csrf_protect():
+    """Reject cross-site POSTs (§10.0). Every POST form carries a hidden `csrf`
+    input matching the per-session token; SameSite=Lax is the first line of
+    defence, this token is belt-and-braces."""
+    if request.method == "POST":
+        token = session.get("csrf")
+        if not token or not hmac.compare_digest(request.form.get("csrf", ""), token):
+            abort(400)
+
+
+@app.context_processor
+def inject_csrf():
+    """Per-session CSRF token, minted lazily on the first render and exposed to
+    every POST form as `csrf_token`."""
+    token = session.get("csrf")
+    if not token:
+        token = session["csrf"] = secrets.token_urlsafe(32)
+    return {"csrf_token": token}
 
 
 def _log(action, ticker=None):
@@ -122,14 +163,20 @@ def home():
     if ccy not in ("USD", "INR"):
         ccy = "USD"
     fx, fx_on = get_usdinr()
-    with get_conn() as conn:
-        rows = conn.execute("""
-            SELECT s.*, n.fetched_at, n.price, n.prev_close, n.change_pct,
-                   n.market_cap, n.pe, n.div_yield, n.wk52_low, n.wk52_high
-            FROM watchlist w
-            JOIN stocks s ON s.ticker = w.ticker
-            LEFT JOIN snapshots n ON n.ticker = w.ticker
-            ORDER BY w.added_at""").fetchall()
+    # Watchlist is per-account now (§10.4): logged-in shows the user's own list;
+    # logged-out shows an empty sign-in CTA (search / analyze / Today stay open).
+    user = current_user()
+    rows = []
+    if user:
+        with get_conn() as conn:
+            rows = conn.execute("""
+                SELECT s.*, n.fetched_at, n.price, n.prev_close, n.change_pct,
+                       n.market_cap, n.pe, n.div_yield, n.wk52_low, n.wk52_high
+                FROM user_watchlist w
+                JOIN stocks s ON s.ticker = w.ticker
+                LEFT JOIN snapshots n ON n.ticker = w.ticker
+                WHERE w.user_id = ?
+                ORDER BY w.added_at""", (user["id"],)).fetchall()
     rows = [convert_row(dict(r), ccy, fx) for r in rows]
     as_of = max((r["fetched_at"] for r in rows if r["fetched_at"]), default=None)
     if as_of:
@@ -187,22 +234,22 @@ _NOT_FOUND = ("Otto couldn't find “{}” on Yahoo — check the symbol? "
 
 
 @app.post("/add")
+@login_required
 def add():
+    user = current_user()
     symbol = request.form.get("symbol", "").strip().upper()
     if not symbol:
         return redirect(url_for("home"))
     with get_conn() as conn:
-        if conn.execute("SELECT 1 FROM watchlist WHERE ticker=?", (symbol,)).fetchone():
+        if user_watches(conn, user["id"], symbol):
             flash(f"{symbol} is already on your watchlist.", "info")
             return redirect(url_for("home"))
     meta = _ingest_stock(symbol)
     if not meta:
         flash(_NOT_FOUND.format(symbol), "error")
         return redirect(url_for("home"))
-    now = datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
-        conn.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?,?)",
-                     (meta["ticker"], now))
+        add_user_watch(conn, user["id"], meta["ticker"])   # per-user + global union
         try:  # fold the newcomer into /today's ranking (DB-only, instant)
             refresh_job.run_screener(conn)
         except Exception:
@@ -234,16 +281,16 @@ def analyze():
 
 
 @app.post("/remove")
+@login_required
 def remove():
+    user = current_user()
     ticker = request.form.get("ticker", "")
     _log("remove", ticker)
+    # Only drop the ticker from THIS user's list. Shared reference data (stocks /
+    # snapshots) and the global union stay — other users, peers, and /today may
+    # still need them, and the nightly refresh keeps covering the union.
     with get_conn() as conn:
-        conn.execute("DELETE FROM watchlist WHERE ticker=?", (ticker,))
-        conn.execute("DELETE FROM stocks WHERE ticker=?", (ticker,))  # cascades to snapshots
-        try:  # close the rank gap the cascade just left in /today
-            refresh_job.run_screener(conn)
-        except Exception:
-            pass
+        remove_user_watch(conn, user["id"], ticker)
     return redirect(url_for("home"))
 
 
@@ -384,6 +431,7 @@ def _float_arg(name):
 def stock(ticker):
     """Deep-dive — reads DB only (§8.1). Yahoo can be down and this still renders."""
     ticker = ticker.upper()
+    user = current_user()
     with get_conn() as conn:
         s = conn.execute("SELECT * FROM stocks WHERE ticker=?", (ticker,)).fetchone()
         if not s:
@@ -397,8 +445,9 @@ def stock(ticker):
         news = [dict(r) for r in conn.execute(
             "SELECT * FROM news WHERE ticker=? ORDER BY published_at DESC LIMIT 8", (ticker,))]
         note = conn.execute("SELECT * FROM notes WHERE ticker=?", (ticker,)).fetchone()
-        on_watch = conn.execute(
-            "SELECT 1 FROM watchlist WHERE ticker=?", (ticker,)).fetchone() is not None
+        on_watch = bool(user) and conn.execute(
+            "SELECT 1 FROM user_watchlist WHERE user_id=? AND ticker=?",
+            (user["id"], ticker)).fetchone() is not None
 
         # Competitors strip (§4.9) — hand-curated map, scores from saved checks.
         peers = []
@@ -491,18 +540,22 @@ def save_stock_note(ticker):
 
 
 @app.post("/stock/<ticker>/watch")
+@login_required
 def toggle_watch(ticker):
-    """Add/remove from watchlist without leaving the deep-dive."""
+    """Add/remove from the current user's watchlist without leaving the deep-dive."""
+    user = current_user()
     ticker = ticker.upper()
-    now = datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
         if not conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
             abort(404)
-        if conn.execute("SELECT 1 FROM watchlist WHERE ticker=?", (ticker,)).fetchone():
-            conn.execute("DELETE FROM watchlist WHERE ticker=?", (ticker,))
+        if user_watches(conn, user["id"], ticker):
+            remove_user_watch(conn, user["id"], ticker)
         else:
-            conn.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?,?)",
-                         (ticker, now))
+            add_user_watch(conn, user["id"], ticker)   # per-user + global union
+            try:
+                refresh_job.run_screener(conn)
+            except Exception:
+                pass
     return redirect(url_for("stock", ticker=ticker))
 
 
@@ -526,5 +579,10 @@ def bigmoney(value, currency="USD"):
 
 
 if __name__ == "__main__":
+    import sys
+    # Local HTTP dev: allow the session cookie over http://localhost (prod keeps
+    # Secure on via Caddy's HTTPS). Optional port arg for running a second copy.
+    app.config["SESSION_COOKIE_SECURE"] = False
     init_db()
-    app.run(port=8700, debug=True)
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8700
+    app.run(port=port, debug=True)
