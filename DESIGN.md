@@ -371,3 +371,27 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   `cd /opt/investright && ./deploy.sh`. Old rsync dir kept as
   `/opt/investright.rsync-bak`. **Phase 6 complete — InvestRight is open-source and
   publicly live at https://investright.us.**
+- **Phase 6b — public access + share-ready UX** (2026-07-08) — opened the site to
+  friends (no login) and polished the first-run experience. (1) **Login gate
+  removed:** dropped Caddy's `basic_auth` block so `investright.us` serves publicly
+  (was 401-gated). (2) **`www` redirect:** added a `www.investright.us` site block
+  (`redir https://investright.us{uri} permanent`); user added the `www` DNS record,
+  Caddy auto-issued its cert → `www` 301s to the apex. (3) **Branch protection** on
+  `main` via the GitHub API: PRs required (0 required approvals so the solo owner
+  isn't locked out), force-push + deletion blocked, stale reviews dismissed,
+  conversation-resolution required, `enforce_admins=false` (admin escape hatch).
+  (4) **Public-access UX (PR #1):** personalised greeting — the home hero greets by
+  the *visitor's* local time-of-day + a name they enter once, remembered in
+  `localStorage` via a first-visit modal `<dialog>` welcome popup (tinted
+  `::backdrop`); server greeting is the no-JS fallback. **Auto-detecting a real name
+  is impossible** (browsers don't expose it) — hence type-once-and-remember, which
+  upgrades cleanly to real accounts later. **Topbar decluttered:** enlarged +
+  de-bolded wordmark; `Today`/`Team` as text links; currency toggle, theme toggle,
+  and FX rate consolidated behind one **settings (⚙) menu** — a native `<details>`
+  dropdown with a full-screen tint/scrim (closes on scrim-click/Esc/outside-click),
+  where the future account/login will live. Footer heart ♥ recoloured red→brand
+  green (`var(--accent)`). Fixed a CSS gotcha (`display` defeating `[hidden]`).
+  Verified on :8700 desktop+mobile (375px, no h-scroll), light+dark, no console
+  errors; deployed via `./deploy.sh`. **Later phase:** real email/password accounts
+  so people can register and save their own watchlist (currently one shared
+  watchlist; greeting-name is per-browser only).
