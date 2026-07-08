@@ -341,9 +341,33 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   sweep clean (only digest.py's `.env`-format comments match — no real key);
   `arka.jpg` tracked. Verified on :8700 — all four page types + Otto legible in both
   themes, toggle instant/reload-free/cookie-persisted, read-more works, no server or
-  console errors, 375px with no horizontal overflow. **Still pending (user chose
-  features-first): push to GitHub (needs interactive `gh auth login`), redeploy
-  6.1–6.3 to the VM, and clear the three live-site blockers before
-  https://investright.us serves — Oracle 80/443 security-list ingress, GoDaddy
-  A-record → 170.9.255.191, and Caddy cert-storage (running against read-only
-  `/var/www`).**
+  console errors, 375px with no horizontal overflow.
+- **Phase 6 ship-out** (2026-07-07) — the pending push + deploy + live-site blockers
+  are all now **DONE; investright.us is publicly live over HTTPS.** (1) **GitHub**:
+  `gh auth login` (device flow) as `arkapchaudhuri-investright`, then
+  `gh repo create investright --public --source=. --push` →
+  https://github.com/arkapchaudhuri-investright/investright (PUBLIC). README gained a
+  feature-branch → PR flow. (2) **Three live-site blockers cleared:** (a) Oracle VCN
+  Default Security List — user added ingress for TCP 80 & 443 from `0.0.0.0/0`;
+  (b) GoDaddy — user deleted the domain *Forwarding* rule (the source of the parking
+  IPs 13.248.243.5 / 76.223.105.230) and pointed the `@` A-record at 170.9.255.191;
+  (c) **Caddy cert storage** — root cause was Caddy running as `www-data` under
+  `ProtectSystem=strict`, so its storage resolved to www-data's home `/var/www`
+  (nonexistent + read-only) → `mkdir /var/www: read-only file system`. Fixed with a
+  systemd drop-in (`/etc/systemd/system/caddy.service.d/override.conf`):
+  `StateDirectory=caddy` (creates+chowns `/var/lib/caddy`, auto-adds it to the
+  sandbox's writable paths) + `Environment=XDG_DATA_HOME=/var/lib/caddy/data` /
+  `XDG_CONFIG_HOME=/var/lib/caddy/config`. After clearing a+b, one `systemctl restart
+  caddy` → Let's Encrypt HTTP-01 validated and cert issued (CN=investright.us, valid
+  ~90d, auto-renews). Verified externally: `nslookup`→170.9.255.191, 80/443 OPEN,
+  HTTPS 401 basic-auth gate, HTTP→HTTPS 308. (3) **App redeploy**: rsync'd the 6
+  changed Phase-6 files (app.py, base/home/team.html, style.css, arka.jpg;
+  checksum-diffed, VM backup tar'd) + `systemctl restart investright`; verified all
+  features on localhost:8700 (theme toggle, /team, search-first `/analyze` → 302
+  deep-dive that fetches+persists, no regressions on /today or /stock). (4) **Deploy
+  model switched to git-pull**: `/opt/investright` is now a clone of the GitHub repo;
+  `.env` + `data/` stay git-ignored/out-of-band (untouched by pull); added
+  `deploy.sh` (git pull + pip + restart + health check). Future deploys:
+  `cd /opt/investright && ./deploy.sh`. Old rsync dir kept as
+  `/opt/investright.rsync-bak`. **Phase 6 complete — InvestRight is open-source and
+  publicly live at https://investright.us.**
