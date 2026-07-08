@@ -123,9 +123,12 @@ one `<style>` of `@keyframes`. No JS, no image files, scales crisply.
    (6b: public access + share UX; 6c: market onboarding + activity log + gear).
 7. Guided onboarding + learn-as-you-go: first-run Otto tour, market switcher +
    market-aware Today, per-graph 💡 Investopedia explainers. ✅ **done** (§9).
-8. **Real accounts: email + password login, per-user watchlists + notes.** ← **next** (spec in §10).
+8. **Real accounts: email + password login, per-user watchlists + notes.**
+   ✅ **Tier A + B built & verified** (§9); Tier C (niceties) deferred. Preceded by
+   the §11 quick UI tweaks. Awaiting merge + a bundled deploy (SECRET_KEY on the VM).
 
-Phases 1–7 are built, deployed, and live (see §9). Phase 8 (accounts) is spec'd in §10 for the next session.
+Phases 1–7 are built, deployed, and live (see §9). Phase 8 Tier A + B are built and
+verified locally, pending merge + deploy (spec in §10, build log in §9).
 
 ---
 
@@ -450,6 +453,42 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   since :8700 was busy) desktop + mobile (375px, no h-scroll), light + dark, no
   console errors: switcher persistent + active-state correct on Home/Today, settings
   menu Market-free, ₹ note shows the rate + date, chips gone.
+- **Phase 8 Tier A — accounts + per-user watchlist** (2026-07-08). Optional
+  email+password login (§10.0: public site stays open; login only unlocks saving).
+  New `auth.py` Blueprint: `current_user()` (cached on `g`), `login_required`
+  (bounces to `/login?next=<referrer>` — the watchlist routes are POST-only, so
+  next is the *referring GET page*, never the endpoint), and `/register` `/login`
+  `/logout`. Werkzeug PBKDF2 hashing, Flask signed-cookie session (`permanent`, 30d).
+  New `users` + `user_watchlist` tables; the global `watchlist` stays as the
+  refresh/Today **union** (§10.2). **Decision (confirmed with Arka): NO migration —
+  everyone starts empty**, so the old shared watchlist/notes are left as union/ref
+  data only. `app.py`: `SECRET_KEY` from `.env` (dev fallback kept), hardened session
+  cookie (HttpOnly, SameSite=Lax, Secure — relaxed only for the `__main__` dev
+  server / a local `SESSION_COOKIE_SECURE=0`), app-wide **CSRF** (per-session token +
+  `before_request`, 400 on mismatch; hidden input on every POST form), and
+  **`init_db()` at import** so gunicorn creates the new tables on deploy (the latent
+  fix flagged after Phase 6c). `/add` `/remove` `/stock/<t>/watch` are `@login_required`
+  and per-user; `/remove` no longer destroys shared stock/snapshot rows. New
+  `login.html` + `register.html` (calm, honest §10.6 no-verify/no-reset note); settings
+  menu gained an account row (name + Sign out / sign-in links); home empty state is a
+  sign-in CTA when logged out. Verified on :3000 desktop+mobile, light+dark, no console
+  errors: two accounts have independent watchlists, sessions persist across login,
+  wrong-password + duplicate-email (case-insensitive) errors, CSRF rejects bad tokens,
+  logged-out `/add` → `/login`, and `/today` `/stock` `/team` stay open to all.
+- **Phase 8 Tier B — per-user notes + account polish** (2026-07-08). New `user_notes`
+  table (PK `user_id,ticker`; old global `notes` left untouched, no migration) +
+  `save_user_note`/`get_user_note`. `/stock/<t>/note` is `@login_required` and scoped
+  to the user; the deep-dive loads only the current user's note. `stock.html` shows the
+  journal editor only when signed in, else a "Sign in to keep a private journal"
+  prompt. `home.html`: logged-in visitors are greeted by their **account** name and
+  never see the name popup; the account name/market seed localStorage so the
+  autocomplete + Today filter follow the account (per-browser name/market are already
+  adopted into the account on register/login, §10.3). Verified on :3000: two users see
+  only their own notes, logged-out gets the prompt (no editor), a returning user is
+  greeted by account name with no popup, no console errors. **Tier C (remember-me,
+  change/reset password, throttling, delete-account) deferred.** NEEDS on deploy:
+  `SECRET_KEY` in the VM's out-of-band `.env` (else prod sessions break); do NOT set
+  `SESSION_COOKIE_SECURE=0` there (prod is HTTPS via Caddy).
 
 ---
 
