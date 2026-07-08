@@ -554,3 +554,34 @@ runs at import, so gunicorn picks it up — §9 Phase 8-prep note)
   watchlist + notes + identity only.
 
 ---
+
+---
+
+## 11. Quick UI tweaks — do FIRST (before Phase 8)
+
+Small, self-contained polish. Do these before the accounts work; verify on :8700
+(desktop + mobile, light + dark), one PR, deploy.
+
+1. **Move the market switcher into the top bar.** The "Investing in
+   US / India / Both" control (`.hero-market`) currently sits on the Home and Today
+   heros — move it into the **top bar in `base.html`, positioned between the
+   `InvestRight` wordmark (`.brand`) and the `Today` nav link**, so it's persistent
+   on every page. Remove the hero copies from `home.html` and `today.html`. It stays
+   client-side (`localStorage.ir_market`, shared `.market-seg` class already wired by
+   base.html's script — reloads on change to apply currency + Today filter). Move the
+   `data-tour="market"` hook onto the new top-bar control so the guided tour still
+   points at it. **Mobile:** the top bar wraps (`.topbar { flex-wrap: wrap }`) —
+   make the switcher wrap cleanly with no horizontal overflow at 375px; drop or
+   shorten the "Investing in" label on narrow widths if needed (the seg alone is
+   fine).
+2. **Remove the Market row from the ⚙ settings menu.** Now that market lives in the
+   top bar, delete the `Market` `.set-row` (the `.market-seg`) from `base.html`'s
+   settings panel. Keep Currency, Theme, and the FX line there.
+3. **Show today's $→₹ rate at the point of conversion.** When the display currency
+   is INR (`ccy == "INR"`) and prices are being converted from USD, show the rate
+   used, inline and visible — not only buried in settings. e.g. a small line near the
+   watchlist/prices: **"Converted at today's rate · $1 = ₹95.55 (8 Jul)"**, using the
+   existing `fx` + `fx_on`/`fx_stale` from `get_usdinr()` (already passed to the
+   template). If the rate is stale (Yahoo unreachable today), say so with the date, as
+   the settings FX line already does. Goal: a user seeing ₹ prices always knows the
+   exact rate and date behind the conversion.
