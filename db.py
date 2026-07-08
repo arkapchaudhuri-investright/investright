@@ -128,6 +128,22 @@ CREATE TABLE IF NOT EXISTS insider_tx (
     url        TEXT,                    -- SEC filing index page
     fetched_at TEXT NOT NULL
 );
+-- Activity log (Phase 6c). Pre-accounts there's no real identity, so this is
+-- best-effort: `visitor` is an anonymous per-browser cookie UUID and `name`/
+-- `market` are self-reported (mirrored from the visitor's localStorage into
+-- cookies) — unverified. Read via the secret-gated /admin page.
+CREATE TABLE IF NOT EXISTS events (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      TEXT NOT NULL,              -- UTC ISO8601
+    visitor TEXT,                       -- anonymous per-browser cookie UUID
+    name    TEXT,                       -- self-reported (localStorage), unverified
+    market  TEXT,                       -- US|IN|BOTH, self-reported
+    action  TEXT NOT NULL,              -- view|analyze|add|remove
+    ticker  TEXT,
+    path    TEXT,
+    ua      TEXT,                       -- coarse user-agent (truncated)
+    ip      TEXT                        -- client IP (X-Forwarded-For behind Caddy)
+);
 """
 
 
@@ -231,6 +247,17 @@ def save_digest(conn, body, model, picks):
 def save_note(conn, ticker, body):
     conn.execute("INSERT OR REPLACE INTO notes (ticker, body, updated_at) VALUES (?,?,?)",
                  (ticker, body, _now()))
+
+
+def log_event(conn, action, visitor=None, name=None, market=None,
+              ticker=None, path=None, ua=None, ip=None):
+    """Append one activity-log row (Phase 6c). Best-effort — callers wrap this in
+    try/except so logging can never break a page render."""
+    conn.execute(
+        "INSERT INTO events (ts,visitor,name,market,action,ticker,path,ua,ip) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        (_now(), visitor, name, market, action, ticker, path,
+         (ua or "")[:200], ip))
 
 
 def get_conn():

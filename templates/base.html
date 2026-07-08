@@ -16,7 +16,11 @@
     {# Settings: currency + theme + FX rate consolidated behind one menu (also
        where the future account/login lives). Native <details> = no-JS dropdown. #}
     <details class="settings">
-      <summary class="set-btn" role="button" aria-label="Settings" title="Settings">⚙</summary>
+      {# Inline SVG gear (not the ⚙ emoji) — crisp, perfectly centred, and green
+         via CSS fill, per the no-CDN / offline-on-VM rule. #}
+      <summary class="set-btn" role="button" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.5-.42h-3.84a.48.48 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94 0 .32.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.14.24.42.34.66.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.24.1.52 0 .66-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </summary>
       <div class="settings-scrim" aria-hidden="true"></div>
       <div class="settings-panel">
         {% if show_fx %}
@@ -35,6 +39,17 @@
                class="{{ 'active' if theme == 'light' }}">☀</a>
             <a href="?theme=dark" data-theme="dark" title="Dark theme" aria-label="Dark theme"
                class="{{ 'active' if theme == 'dark' }}">☾</a>
+          </nav>
+        </div>
+        {# Market: client-only preference (localStorage, no accounts yet). Drives
+           the home search autocomplete filter + the default display currency.
+           JS-managed (unlike the server-linked currency/theme) — see base script. #}
+        <div class="set-row">
+          <span class="set-label">Market</span>
+          <nav class="seg market-seg" aria-label="Market">
+            <a href="#" data-market="US" title="United States (NYSE/NASDAQ)">US</a>
+            <a href="#" data-market="IN" title="India (NSE/BSE)">India</a>
+            <a href="#" data-market="BOTH" title="Both markets">Both</a>
           </nav>
         </div>
         {% if show_fx %}
@@ -95,6 +110,45 @@
       if (e.key === 'Escape') settings.open = false;
     });
   }
+})();
+
+// Market preference (client-only — no accounts yet). Stored in localStorage;
+// drives the home search autocomplete filter and the default display currency
+// (India → ₹INR, US/Both → $USD). Also mirrors the visitor's name + market into
+// first-party cookies so the server-side activity log can see them (Phase 6c);
+// browsers can't expose a real name, so these stay self-reported.
+(function () {
+  function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function cookie(k) { return (document.cookie.match('(?:^|; )' + k + '=([^;]*)') || [])[1]; }
+  function setCookie(k, v) {
+    document.cookie = k + '=' + encodeURIComponent(v) + ';path=/;max-age=' +
+      (365 * 24 * 3600) + ';samesite=lax';
+  }
+  // Keep name/market cookies in step with localStorage (covers visitors who set
+  // their name before this logging existed — no popup re-prompt needed).
+  var name = ls('ir_name'), market = ls('ir_market') || 'BOTH';
+  if (name && decodeURIComponent(cookie('ir_name') || '') !== name) setCookie('ir_name', name);
+  if (decodeURIComponent(cookie('ir_market') || '') !== market) setCookie('ir_market', market);
+
+  var segs = document.querySelectorAll('.market-seg a');
+  function paint() {
+    var m = ls('ir_market') || 'BOTH';
+    segs.forEach(function (a) { a.classList.toggle('active', a.dataset.market === m); });
+  }
+  paint();
+  segs.forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var m = a.dataset.market;
+      if (m === (ls('ir_market') || 'BOTH')) return;   // no-op on the active one
+      try { localStorage.setItem('ir_market', m); } catch (e2) {}
+      setCookie('ir_market', m);
+      var want = m === 'IN' ? 'INR' : 'USD';
+      setCookie('ccy', want);      // reset display currency to the market default
+      paint();
+      location.reload();           // apply the new currency + autocomplete filter
+    });
+  });
 })();
 </script>
 </body>

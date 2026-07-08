@@ -112,8 +112,12 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   position: relative; z-index: 62;   /* stay crisp above the scrim */
 }
 .set-btn::-webkit-details-marker { display: none; }
+/* Inline SVG gear: brand green, and centred by the flexbox above (an emoji sat
+   slightly off — this fixes it crisply). Fill is fixed green regardless of the
+   button's hover text colour. */
+.set-btn svg { display: block; fill: var(--accent); }
 .set-btn:hover, .settings[open] .set-btn {
-  color: var(--text); border-color: var(--muted); background: var(--card);
+  border-color: var(--muted); background: var(--card);
 }
 /* Opening the gear tints the rest of the screen (a spotlight on the panel). */
 .settings-scrim { display: none; }
@@ -166,6 +170,18 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   .name-dialog[open] { animation: nd-pop .18s ease-out; }
   @keyframes nd-pop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
 }
+/* Market chooser in the welcome popup: three-up segmented control of radios.
+   The real inputs are hidden; the sibling <span> is the pill face. */
+.nd-q { margin: 6px 0 2px; }
+.nd-seg { display: flex; width: 100%; }
+.nd-seg label { flex: 1; margin: 0; }
+.nd-seg input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.nd-seg span {
+  display: block; text-align: center; padding: 8px 6px; font-size: 13px;
+  color: var(--muted); cursor: pointer;
+}
+.nd-seg input:checked + span { background: var(--accent); color: #fff; }
+.nd-seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* search */
 .search { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 11px; }

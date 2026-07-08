@@ -371,3 +371,33 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   `cd /opt/investright && ./deploy.sh`. Old rsync dir kept as
   `/opt/investright.rsync-bak`. **Phase 6 complete — InvestRight is open-source and
   publicly live at https://investright.us.**
+- **Phase 6c — onboarding market + activity log + gear polish** (2026-07-08).
+  (1) **Market onboarding:** the first-visit welcome popup now asks "Where do you
+  want to invest?" after the name — a 3-up segmented control (🇺🇸 US / 🇮🇳 India /
+  Both, radios styled via `input:checked + span`), stored per-browser in
+  `localStorage` (`ir_market`, next to `ir_name`). It **defaults the display
+  currency** (India → ₹INR, US/Both → $USD) by writing the existing `ccy` cookie —
+  India reloads once so the server re-converts, US/Both stay USD without a reload.
+  A matching **Market row was added to the ⚙ settings menu** so the choice is
+  changeable later (JS-managed, unlike the server-linked currency/theme: it writes
+  localStorage + the ccy cookie and reloads). The home **autocomplete now filters
+  to the chosen market** — read live from localStorage each keystroke via the
+  ticker's exchange tag (US = NYSE/NASDAQ, India = NSE/BSE; `.NS`/`.BO` carry
+  NSE/BSE), so US hides Indian tickers, India shows only them, Both shows all.
+  Verified on :8700 desktop + mobile (375px), light + dark. (2) **Activity logging
+  (server-side, since localStorage is invisible to the owner):** new `events` table
+  (ts, anonymous per-browser cookie UUID `vid`, self-reported name + market, action
+  view/analyze/add/remove, ticker, path, coarse UA/IP) written by a best-effort
+  `_log()` (try/except — never breaks a render). name/market ride along as
+  first-party cookies mirrored from localStorage (base.html also back-fills them for
+  pre-existing visitors); IP prefers Caddy's `X-Forwarded-For`. Read via a
+  **secret-gated `/admin?key=<ADMIN_KEY>`** (`hmac.compare_digest`; 404 when the key
+  is wrong or unset, so the page never advertises itself) → `admin.html` table +
+  event/visitor counts + most-touched tickers, with an honest banner that identity
+  is unverified pre-accounts. `ADMIN_KEY` lives in `.env` (git-ignored; **must be
+  added to the VM's `.env` too**, else /admin stays 404). (3) **Gear icon:** the ⚙
+  emoji (off-centre, muted) is now an **inline SVG gear filled brand green**
+  (`var(--accent)`, no CDN), perfectly centred by the button's flexbox. Verified:
+  all pages 200, no console errors, secret gate 404/404/200, events captured with
+  name+market+ticker. **Later phase:** real email/password accounts — the per-browser
+  name + market migrate into the account then.

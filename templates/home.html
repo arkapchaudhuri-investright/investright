@@ -18,6 +18,12 @@
       <p class="nd-sub">What should I call you?</p>
       <input id="name-input" type="text" maxlength="24" spellcheck="false"
              placeholder="Your name" aria-label="Your name">
+      <p class="nd-sub nd-q">Where do you want to invest?</p>
+      <div class="seg nd-seg" role="radiogroup" aria-label="Market">
+        <label><input type="radio" name="market" value="US"><span>🇺🇸 US</span></label>
+        <label><input type="radio" name="market" value="IN"><span>🇮🇳 India</span></label>
+        <label><input type="radio" name="market" value="BOTH" checked><span>Both</span></label>
+      </div>
       <button type="submit" class="name-go">Let’s go →</button>
     </form>
   </dialog>
@@ -176,13 +182,29 @@
       setTimeout(function () { input.focus(); }, 60);
     });
   }
+  function setCookie(k, val) {
+    document.cookie = k + '=' + encodeURIComponent(val) + ';path=/;max-age=' +
+      (365 * 24 * 3600) + ';samesite=lax';
+  }
   if (form) {
     form.addEventListener('submit', function (e) {
       var v = (input.value || '').trim().slice(0, 24);
       if (!v) { e.preventDefault(); input.focus(); return; }  // require a name
-      try { localStorage.setItem('ir_name', v); } catch (e2) {}
+      var mkt = (form.querySelector('input[name=market]:checked') || {}).value || 'BOTH';
+      try {
+        localStorage.setItem('ir_name', v);
+        localStorage.setItem('ir_market', mkt);
+      } catch (e2) {}
+      setCookie('ir_name', v);         // mirror to cookies for server-side logging
+      setCookie('ir_market', mkt);
       name = v;
-      paint();                       // method="dialog" closes the popup itself
+      paint();                         // method="dialog" closes the popup itself
+      // Default the display currency from the market. India → ₹INR needs a
+      // server render to convert, so reload; US/Both stay $USD (no reload —
+      // the greeting repaints and the autocomplete reads localStorage live).
+      var want = mkt === 'IN' ? 'INR' : 'USD';
+      setCookie('ccy', want);
+      if (want === 'INR') { location.reload(); }
     });
   }
 })();
@@ -192,12 +214,21 @@
 // Client-side autocomplete over the static ticker list — no API per keystroke (DESIGN.md §2).
 const input = document.getElementById('symbol'), box = document.getElementById('suggest');
 let sel = -1;
+// Filter suggestions to the visitor's chosen market (localStorage, read live so
+// a change in the settings menu takes effect without a reload). India tickers
+// carry NSE/BSE exchange tags (and .NS/.BO symbols); US carry NYSE/NASDAQ.
+function marketOf() { try { return localStorage.getItem('ir_market') || 'BOTH'; } catch (e) { return 'BOTH'; } }
+function inMarket(x) {
+  const m = marketOf();
+  const india = x === 'NSE' || x === 'BSE';
+  return m === 'BOTH' ? true : m === 'IN' ? india : !india;
+}
 input.addEventListener('input', () => {
   const q = input.value.trim().toUpperCase();
   sel = -1;
   if (q.length < 1) { box.hidden = true; return; }
-  const hits = TICKERS.filter(([s, n]) =>
-    s.toUpperCase().startsWith(q) || n.toUpperCase().includes(q)).slice(0, 8);
+  const hits = TICKERS.filter(([s, n, x]) => inMarket(x) &&
+    (s.toUpperCase().startsWith(q) || n.toUpperCase().includes(q))).slice(0, 8);
   box.innerHTML = hits.map(([s, n, x]) =>
     `<li data-s="${s}"><b>${s}</b><span class="xchg">${x}</span><span class="s-name">${n}</span></li>`).join('');
   box.hidden = hits.length === 0;
