@@ -118,10 +118,14 @@ one `<style>` of `@keyframes`. No JS, no image files, scales crisply.
 3. Deep-dive page: health checks + DCF fair value + charts + news (EDGAR for US). ✅ **done**
 4. Screener + AI digest ("Today" page). ✅ **done** — digest needs a free
    Gemini key in `.env` (see the comments in that file); everything else works without it.
-5. Deploy to Oracle Free VM → fulfills "always available without Claude". ✅ **built** (see §9; not yet publicly reachable — DNS / security-list / cert blockers still open).
-6. Features + open-source: dark/light toggle, footer, team page, GitHub. ← **in progress**
+5. Deploy to Oracle Free VM → fulfills "always available without Claude". ✅ **done** — live at https://investright.us over HTTPS (§9).
+6. Features + open-source: dark/light toggle, footer, team page, GitHub. ✅ **done**
+   (6b: public access + share UX; 6c: market onboarding + activity log + gear).
+7. Guided onboarding + learn-as-you-go: first-run Otto tour, market switcher +
+   market-aware Today, per-graph 💡 Investopedia explainers. ✅ **done** (§9).
+8. **Real accounts: email + password login, per-user watchlists + notes.** ← **next** (spec in §10).
 
-Phases 1–5 are built (see §9). Phase 6 features are built & verified locally; the VM redeploy + GitHub push are pending.
+Phases 1–7 are built, deployed, and live (see §9). Phase 8 (accounts) is spec'd in §10 for the next session.
 
 ---
 
@@ -427,3 +431,126 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   takeaway; 8 explainer bulbs open with Investopedia links; activity log records
   name/market/action. **NEEDS on deploy:** add `ADMIN_KEY=…` to the VM's `.env`
   (out-of-band) for /admin to work in production.
+
+---
+
+## 10. Phase 8 build spec (accounts) — for the next session
+
+**Target: real email + password accounts so each visitor saves their OWN
+watchlist + notes** (today there is ONE global watchlist and one note per ticker,
+shared by everyone). Build as a ladder A → B → C — every tier leaves a *working,
+shippable* site even if the session ends early (token-frugal: never leave the app
+broken mid-tier). Commit + verify on :8700 (desktop + mobile, light + dark) and
+deploy at each tier boundary.
+
+### 10.0 Ground rules
+- **Auth is OPTIONAL — do NOT gate the public site.** The Phase 6b decision stands:
+  anyone can browse, search, `/analyze`, and read `/today` with no login (friends
+  share it frictionlessly). Login is only needed to **save a watchlist / write
+  notes**. Logged-out actions that need an account bounce to `/login?next=…`.
+- **$0, no new heavy deps, offline-on-VM.** Use what's already installed:
+  **Werkzeug** (`werkzeug.security.generate_password_hash` / `check_password_hash`
+  — PBKDF2, no new dependency) for passwords, and **Flask's signed-cookie session**
+  (`flask.session`) for login state. No OAuth, no CDN, no external auth service.
+- **Cron writes, web reads (§3)** is unchanged — accounts touch only `watchlist`
+  and `notes`; `stocks`/`snapshots`/`fundamentals`/etc. stay global reference data.
+- **Label honesty (§1) + privacy.** Store only email + a password *hash* + name +
+  market. Never log raw passwords. The activity log (`events`) may gain a nullable
+  `user_id`, but keep the honest "self-reported / unverified" framing until email
+  verification exists (it won't in v1 — see §10.6).
+- **Security must-dos (do not skip):**
+  - Replace the hard-coded `app.secret_key = "investright-local-only"` with a
+    strong **`SECRET_KEY` from `.env`** (like `ADMIN_KEY`/`GEMINI_API_KEY`;
+    `secrets.token_urlsafe(32)`). **Must be added to the VM's `.env` too** or prod
+    sessions break. Changing it logs everyone out once (fine on first ship).
+  - Session cookie flags: `HttpOnly`, `SameSite=Lax`, `Secure` in prod (Caddy is
+    HTTPS). Flask sets HttpOnly by default; set `SESSION_COOKIE_SAMESITE="Lax"` and
+    `SESSION_COOKIE_SECURE=True`.
+  - **CSRF on state-changing POSTs** (login, register, add/remove watch, notes).
+    Lightweight approach (no Flask-WTF): a per-session token in `session["csrf"]` +
+    a hidden `<input name="csrf">` in every POST form + a `before_request` check on
+    POST. SameSite=Lax already blocks most cross-site POSTs; the token is
+    defence-in-depth.
+  - Basic **login throttling** (e.g. count failures per IP/email in memory or a
+    tiny table; back off after ~5). Optional for v1 but note it.
+
+### 10.1 New routes & files
+- `auth.py` (or a section of `app.py`): `current_user()` helper (reads
+  `session["uid"]` → user row, cached on `flask.g`), `login_required` decorator,
+  and routes `GET/POST /register`, `GET/POST /login`, `POST /logout`.
+- `templates/register.html`, `templates/login.html` — extend `base.html`, same
+  calm styling; email + password fields, inline error flashes, the CSRF hidden
+  input. Link them from the ⚙ settings menu ("Sign in / Create account", and when
+  logged in: the name + "Sign out"). This is where Phase 6b always said accounts
+  would live.
+- Expose `current_user` to templates (context processor) so `base.html` can show
+  the account state and `home.html` can greet by the account name.
+
+### 10.2 Schema additions (add to `db.py` SCHEMA; `init_db` is idempotent + now
+runs at import, so gunicorn picks it up — §9 Phase 8-prep note)
+- `users(id INTEGER PK, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
+  name TEXT, market TEXT, created_at TEXT NOT NULL)`. Email stored lower-cased.
+- **Make the watchlist per-user.** Cleanest: new table
+  `user_watchlist(user_id INTEGER, ticker TEXT, added_at TEXT, PK(user_id,ticker),
+  FKs ON DELETE CASCADE)`. Keep the existing global `watchlist` table as the
+  **union of all tracked tickers the nightly refresh must fetch** (so peers/data
+  stay shared and cron logic barely changes) — or derive that union from
+  `user_watchlist` in `refresh.py`. Pick one and document it; do NOT drop the data
+  layer that `/today` + refresh depend on.
+- **Make notes per-user:** add `user_id` to `notes`, PK `(user_id, ticker)` (via a
+  new table `user_notes` or an additive migration — remember SQLite can't add to a
+  composite PK in place, so a new table + copy is simplest).
+- Optional: add nullable `user_id` to `events`.
+
+### 10.3 Migration of existing shared data (one-time, safe, reversible)
+- On first Phase 8 deploy there is one global `watchlist` (~4 tickers) and some
+  `notes`. **Decision (confirm with Arka): migrate them into Arka's own account**
+  as the owner. Plan: create Arka's user row, then copy `watchlist` → `user_watchlist`
+  and `notes` → per-user notes under his `user_id`. Provide this as an idempotent
+  one-off (a `--migrate` flag on a script or a guarded `db.py` helper), run once on
+  the VM. Back up `data/investright.db` first.
+- **Per-browser → account:** on register/login, if `localStorage`/cookies carry
+  `ir_name`/`ir_market` and the account has none, adopt them into the `users` row.
+  After login the greeting + market come from the account (localStorage stays the
+  fallback for logged-out visitors).
+
+### 10.4 Wiring the per-user watchlist
+- `home()` shows `user_watchlist` for the logged-in user; **logged-out shows an
+  empty state** ("Sign in to build your watchlist" — search/analyze/Today still
+  fully work). (Open decision: optionally show a read-only public/demo list to
+  logged-out visitors — default is the empty CTA for privacy simplicity.)
+- `/add`, `/remove`, `/stock/<t>/watch`, `/stock/<t>/note` → `@login_required`,
+  scoped to `current_user().id`. `_ingest_stock()` (fetching global stock/snapshot/
+  deep data) is unchanged — it populates shared reference tables; only the
+  *watchlist membership* becomes per-user.
+- `refresh.py` refreshes the **union** of all users' watchlisted tickers (+ peers),
+  exactly as it does the global watchlist today. `/today` stays a global discovery
+  screen over all tracked tickers (its market filter from Phase 7 is per-browser and
+  unchanged) — accounts do NOT need a per-user Today in v1.
+
+### 10.5 Tiers (each independently shippable — verify + deploy before moving on)
+- **Tier A — auth + own watchlist.** `users` table, register/login/logout, sessions,
+  `SECRET_KEY` from `.env`, CSRF, `user_watchlist`, per-user home watchlist +
+  add/remove/★ gated by login. Migrate Arka's existing list into his account.
+  *Accept:* two accounts have independent watchlists; logged-out browsing/search/
+  analyze/Today all still work; sessions persist; passwords hashed; CSRF enforced.
+- **Tier B — per-user notes + account polish.** Move `notes` per-user; settings
+  menu shows account state (name + Sign out) / sign-in links; greeting + market
+  adopt from the account; per-browser name/market migrate on first login.
+  *Accept:* two users see only their own notes; a returning user is greeted by
+  their account name across devices (not just per-browser).
+- **Tier C — niceties (optional, only if time).** "Remember me" longer session,
+  change-password (while logged in), basic login throttling, delete-account, and a
+  first honest password-reset story (see §10.6).
+
+### 10.6 Out of scope for v1 / honest limitations (write these into the UI copy)
+- **No email sending infra ($0)** → **no email verification and no self-serve
+  password reset in v1.** Emails are therefore *unverified* (anyone can register
+  with any address) and a forgotten password means a manual reset (owner runs a
+  SQL/CLI reset) until a free transactional-email provider is wired in later. Say
+  so plainly on the register page.
+- No OAuth / social login, no 2FA, no teams/sharing. Defer.
+- Do not rebuild `/today`, the screener, or deep-dive data per-user — accounts are
+  watchlist + notes + identity only.
+
+---
