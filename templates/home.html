@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="hero">
+  {% with mood = 'sleepy' if not rows else 'happy' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">{{ greeting }}, Arka</h1>
+  <p class="sub">Which stock are we looking at today?</p>
+
+  <form class="search" action="{{ url_for('add') }}" method="post" autocomplete="off">
+    <input id="symbol" name="symbol" type="text" spellcheck="false"
+           placeholder="Search a ticker — AAPL, RELIANCE.NS, TCS.BO…"
+           aria-label="Add a stock by ticker symbol">
+    <button type="submit">Add</button>
+    <ul id="suggest" class="suggest" hidden></ul>
+  </form>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+  {% endwith %}
+
+  {% if rows %}
+  <div class="chips">
+    {% for r in rows %}
+    <a class="chip" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}
+      {% if r['change_pct'] is not none %}
+      <span class="{{ 'up' if r['change_pct'] > 0 else 'down' if r['change_pct'] < 0 else 'flat' }}">
+        {{ '%+.1f'|format(r['change_pct']) }}%</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+<section id="watchlist" class="card">
+  {% if rows %}
+  <div class="card-head">
+    <h2>Your watchlist</h2>
+    <form action="{{ url_for('refresh') }}" method="post" class="refresh-form">
+      {% if as_of %}<span class="asof">as of {{ as_of }}</span>{% endif %}
+      <button type="submit" class="ghost">↻ Refresh</button>
+    </form>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Stock</th><th class="num">Price</th><th class="num">Today</th>
+      <th class="num">Mkt cap</th><th class="num">P/E</th><th class="num">Yield</th>
+      <th>52-week range</th><th></th>
+    </tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr id="row-{{ r['ticker'] }}">
+        <td>
+          <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
+          <span class="xchg">{{ r['exchange'] }}</span>
+          <div class="name">{{ r['name'] }}</div>
+        </td>
+        <td class="num">{{ r['price']|money(r['currency']) }}</td>
+        <td class="num {{ 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' }}">
+          {{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</td>
+        <td class="num">{{ r['market_cap']|bigmoney(r['currency']) }}</td>
+        <td class="num">{{ '%.1f'|format(r['pe']) if r['pe'] else '—' }}</td>
+        <td class="num">{{ '%.2f%%'|format(r['div_yield']) if r['div_yield'] else '—' }}</td>
+        <td>
+          {% if r['wk52_low'] and r['wk52_high'] and r['wk52_high'] > r['wk52_low'] %}
+          {% set pos = 100 * (r['price'] - r['wk52_low']) / (r['wk52_high'] - r['wk52_low']) %}
+          <div class="range" title="52w low {{ r['wk52_low']|money(r['currency']) }} · high {{ r['wk52_high']|money(r['currency']) }}">
+            <div class="range-track"><span class="range-dot" style="left:{{ [0, [pos, 100]|min]|max|round(1) }}%"></span></div>
+          </div>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          <form action="{{ url_for('remove') }}" method="post"
+                onsubmit="return confirm('Remove {{ r['ticker'] }} from your watchlist?')">
+            <input type="hidden" name="ticker" value="{{ r['ticker'] }}">
+            <button class="x" aria-label="Remove {{ r['ticker'] }}">×</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# Mobile only: iOS-Stocks-style collapsible cards (desktop uses the table above).
+     Minimized = ticker · name · price · change pill; tap to reveal the rest. #}
+  <div class="wl-cards">
+    {% for r in rows %}
+    {% set dir = 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' %}
+    <details class="wl-card">
+      <summary class="wl-summary">
+        <span class="wl-id">
+          <span class="wl-tk">{{ r['ticker'] }}</span>
+          <span class="wl-nm">{{ r['name'] }}</span>
+        </span>
+        <span class="wl-px">
+          <span class="wl-price">{{ r['price']|money(r['currency']) }}</span>
+          <span class="wl-chg {{ dir }}">{{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</span>
+        </span>
+        <span class="wl-chev" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="wl-detail">
+        <div class="wl-metrics">
+          <div><span>Mkt cap</span><b>{{ r['market_cap']|bigmoney(r['currency']) }}</b></div>
+          <div><span>P/E</span><b>{{ '%.1f'|format(r['pe']) if r['pe'] else '—' }}</b></div>
+          <div><span>Yield</span><b>{{ '%.2f%%'|format(r['div_yield']) if r['div_yield'] else '—' }}</b></div>
+        </div>
+        {% if r['wk52_low'] and r['wk52_high'] and r['wk52_high'] > r['wk52_low'] %}
+        {% set pos = 100 * (r['price'] - r['wk52_low']) / (r['wk52_high'] - r['wk52_low']) %}
+        <div class="wl-rangewrap">
+          <span class="rl">52-week range</span>
+          <div class="range" title="52w low {{ r['wk52_low']|money(r['currency']) }} · high {{ r['wk52_high']|money(r['currency']) }}">
+            <div class="range-track"><span class="range-dot" style="left:{{ [0, [pos, 100]|min]|max|round(1) }}%"></span></div>
+          </div>
+        </div>
+        {% endif %}
+        <div class="wl-actions">
+          <a href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
+          <form action="{{ url_for('remove') }}" method="post"
+                onsubmit="return confirm('Remove {{ r['ticker'] }} from your watchlist?')">
+            <input type="hidden" name="ticker" value="{{ r['ticker'] }}">
+            <button class="x" aria-label="Remove {{ r['ticker'] }}">× Remove</button>
+          </form>
+        </div>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty serif">Otto's dozing — the watchlist is empty.<br>
+    <span class="empty-sub">Add your first ticker above to wake him up.</span></p>
+  {% endif %}
+</section>
+
+<script src="{{ url_for('static', filename='tickers.js') }}"></script>
+<script>
+// Client-side autocomplete over the static ticker list — no API per keystroke (DESIGN.md §2).
+const input = document.getElementById('symbol'), box = document.getElementById('suggest');
+let sel = -1;
+input.addEventListener('input', () => {
+  const q = input.value.trim().toUpperCase();
+  sel = -1;
+  if (q.length < 1) { box.hidden = true; return; }
+  const hits = TICKERS.filter(([s, n]) =>
+    s.toUpperCase().startsWith(q) || n.toUpperCase().includes(q)).slice(0, 8);
+  box.innerHTML = hits.map(([s, n, x]) =>
+    `<li data-s="${s}"><b>${s}</b><span class="xchg">${x}</span><span class="s-name">${n}</span></li>`).join('');
+  box.hidden = hits.length === 0;
+});
+box.addEventListener('mousedown', e => {
+  const li = e.target.closest('li');
+  if (li) { input.value = li.dataset.s; box.hidden = true; input.form.submit(); }
+});
+input.addEventListener('keydown', e => {
+  const items = box.querySelectorAll('li');
+  if (box.hidden || !items.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items.forEach((li, i) => li.classList.toggle('active', i === sel));
+  } else if (e.key === 'Enter' && sel >= 0) {
+    input.value = items[sel].dataset.s;
+    box.hidden = true;
+  } else if (e.key === 'Escape') { box.hidden = true; }
+});
+input.addEventListener('blur', () => setTimeout(() => box.hidden = true, 150));
+</script>
+{% endblock %}

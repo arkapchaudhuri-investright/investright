@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Today · InvestRight{% endblock %}
+{% block content %}
+
+{# Header — Otto in mood + serif takeaway, same shape as the deep-dive header (§5) #}
+<section class="card stock-head">
+  <div class="head-otto">{% include "_otto.html" %}</div>
+  <div class="head-main">
+    <div class="head-row">
+      <h1>Today</h1>
+      <span class="xchg">{{ date_label }}</span>
+    </div>
+    <p class="head-take serif">{{ takeaway }}</p>
+    <div class="head-price">
+      {% if as_of %}<span class="asof">screener last ran {{ as_of }} · refreshed nightly</span>
+      {% else %}<span class="asof">rankings land with the nightly refresh</span>{% endif %}
+    </div>
+  </div>
+</section>
+
+{# Otto's read — the nightly AI digest; a summary of our own rules, labeled so (§1, §4) #}
+<section class="card">
+  <div class="card-head"><h2>Otto's read</h2>
+    <span class="asof">AI summary of the screen below</span></div>
+  {% if digest %}
+  {% if digest['stale'] %}
+  <p class="flash flash-error">The AI hasn't answered since {{ digest['date_label'] }} —
+    this is the last note it wrote. The ranking below is still current.</p>
+  {% endif %}
+  <p class="digest-body">{{ digest['body'] }}</p>
+  <p class="asof perf-note">Written by {{ digest['model'] }} on {{ digest['date_label'] }},
+    summarizing the rule-based screener output below — it reads our arithmetic, it doesn't
+    do research. Not investment advice.</p>
+  {% else %}
+  <p class="asof">No AI digest saved yet. Otto writes one each night once a free Gemini
+    (or Groq) key sits in <code>.env</code> — see the README. The screener below doesn't
+    need it and works either way.</p>
+  {% endif %}
+</section>
+
+{# Tonight's screen — ranked from rules the cron already saved; no request-time math (§8.0) #}
+<section class="card">
+  <div class="card-head"><h2>Tonight's screen</h2>
+    <span class="asof">{{ picks|length }} tickers · watchlist ★ + peers</span></div>
+  {% if picks %}
+  <ol class="scr-list">
+    {% for p in picks %}
+    <li class="scr-row{% if not p['is_watchlist'] %} scr-peer{% endif %}{% if p['rank'] == 1 %} scr-top{% endif %}">
+      <span class="scr-rank">{{ p['rank'] }}</span>
+      {% if p['snowflake'] %}
+      <svg class="peer-snow" viewBox="0 0 60 60" role="img"
+           aria-label="Mini score radar for {{ p['ticker'] }}">
+        <polygon points="{{ p['snowflake']['rings'][3] }}" fill="none"
+                 stroke="var(--hairline)" stroke-width="1"/>
+        <polygon points="{{ p['snowflake']['rings'][1] }}" fill="none"
+                 stroke="var(--hairline)" stroke-width="1" opacity=".6"/>
+        <polygon points="{{ p['snowflake']['polygon'] }}" fill="rgba(29,158,117,.25)"
+                 stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+      {% endif %}
+      <div class="scr-main">
+        <div class="scr-name">
+          <a class="tick tick-link" href="{{ url_for('stock', ticker=p['ticker']) }}">{{ p['ticker'] }}</a>
+          {% if p['is_watchlist'] %}<span class="scr-star" title="On your watchlist">★</span>
+          {% else %}<span class="xchg">peer</span>{% endif %}
+          <span class="name">{{ p['name'] }}</span>
+        </div>
+        {% if p['rank'] == 1 and p['reasons'] %}
+        {% set hero = p['reasons'][0]['label'] %}
+        <p class="scr-hero serif">{{ (hero[0]|upper) + hero[1:] }}.</p>
+        {% endif %}
+        {% set chip_reasons = p['reasons'][1:] if p['rank'] == 1 else p['reasons'] %}
+        {% if chip_reasons %}
+        <div class="scr-reasons">
+          {% for reason in chip_reasons[:4] %}
+          <span class="reason reason-{{ reason['kind'] }}">{{ reason['label'] }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="scr-right">
+        {% if p['price'] %}
+        <span class="peer-px">{{ p['price']|money(p['currency']) }}
+          {% if p['change_pct'] is not none %}
+          <span class="{{ 'up' if p['change_pct'] > 0 else 'down' if p['change_pct'] < 0 else 'flat' }}">
+            {{ '%+.1f%%'|format(p['change_pct']) }}</span>
+          {% endif %}
+        </span>
+        {% endif %}
+        <span class="scr-score"
+              title="fundamentals {{ p['components'].get('fundamentals') }}/{{ weights['fundamentals'] }} · value gap {{ p['components'].get('value_gap') }}/{{ weights['value_gap'] }} · insiders {{ p['components'].get('insiders') }}/{{ weights['insiders'] }} · dividend {{ p['components'].get('dividend') }}/{{ weights['dividend'] }}">
+          <b class="{{ 'score-hi' if p['score'] >= 70 else 'score-lo' if p['score'] < 40 else '' }}">{{ p['score']|round|int }}</b><span class="asof">/100</span></span>
+        {# score anatomy at a glance — full track = 100, one segment per component (§5 color = meaning) #}
+        <span class="sbar" aria-hidden="true">
+          <span class="sbar-seg sbar-fund" style="width:{{ p['components'].get('fundamentals', 0) }}%"></span>
+          <span class="sbar-seg sbar-value" style="width:{{ p['components'].get('value_gap', 0) }}%"></span>
+          <span class="sbar-seg sbar-insider" style="width:{{ p['components'].get('insiders', 0) }}%"></span>
+          <span class="sbar-seg sbar-div" style="width:{{ p['components'].get('dividend', 0) }}%"></span>
+        </span>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+  <details class="checks-all">
+    <summary>How the score works</summary>
+    <p class="asof">Each ticker starts from its snowflake: the average of its five axis
+      scores is worth up to {{ weights['fundamentals'] }} points. DCF upside adds up to
+      {{ weights['value_gap'] }} (capped at +{{ upside_cap }}% — past that, our trend model
+      is stretching), net open-market insider buying over the last 90 days up to
+      {{ weights['insiders'] }}, and dividend quality up to {{ weights['dividend'] }}.
+      Every input is a saved rule output you can inspect on the stock's own page —
+      there's no AI in the ranking, and hover over a score for its breakdown.</p>
+  </details>
+  {% else %}
+  <p class="empty serif">Otto hasn't screened anything yet.<br>
+    <span class="empty-sub">Add a stock or hit ↻ on the home page — rankings appear
+      once the first deep data is saved.</span></p>
+  {% endif %}
+</section>
+
+{% endblock %}

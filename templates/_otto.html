@@ -1,0 +1,70 @@
+{# Otto the owl — single self-contained inline SVG, no JS, no image files (DESIGN.md §6).
+   mood reacts to a stock's overall score (§6):
+   "happy" (default / undervalued → green badge) | "neutral" (mixed → no badge) |
+   "concerned" (weak → amber badge) | "sleepy" (empty/no data → eyes half-closed). #}
+{% set _labels = {'sleepy': ', dozing', 'concerned': ', a little concerned', 'neutral': ''} %}
+<div class="otto otto-{{ mood|default('happy') }}" style="--w: {{ size|default(96) }}px">
+<svg viewBox="0 0 120 120" width="{{ size|default(96) }}" height="{{ size|default(96) }}" role="img"
+     aria-label="Otto the owl{{ _labels.get(mood, '') }}">
+  <style>
+    @media (prefers-reduced-motion: no-preference) {
+      .otto svg { animation: otto-float 4.5s ease-in-out infinite; }
+      .otto .o-lid { animation: otto-blink 5.2s infinite; transform-origin: center 46px; }
+      .otto .o-pupil { animation: otto-glance 7s ease-in-out infinite; }
+      .otto .o-wing-l { animation: otto-flap-l 6s ease-in-out infinite; transform-origin: 28px 70px; }
+      .otto .o-wing-r { animation: otto-flap-r 6s ease-in-out infinite; transform-origin: 92px 70px; }
+      .otto .o-tuft { animation: otto-wiggle 6.5s ease-in-out infinite; transform-origin: 60px 22px; }
+      .otto .o-spark { animation: otto-spark 2.4s ease-in-out infinite; }
+    }
+    .otto-sleepy .o-lid { animation: none !important; transform: scaleY(.55); }
+    .otto-sleepy .o-badge, .otto-neutral .o-badge { display: none; }
+    /* concerned: badge turns amber (caution), not the green trend-up */
+    .otto-concerned .o-badge circle:first-child { fill: #6d4d16; }
+    .otto-concerned .o-badge path { stroke: #d9a03d; }
+    .otto-concerned .o-spark { fill: #d9a03d; }
+    @keyframes otto-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    @keyframes otto-blink { 0%,94%,100% { transform: scaleY(0); } 96%,98% { transform: scaleY(1); } }
+    @keyframes otto-glance { 0%,55%,100% { transform: translate(0,0); } 62%,80% { transform: translate(2.5px,.5px); } }
+    @keyframes otto-flap-l { 0%,88%,100% { transform: rotate(0); } 93% { transform: rotate(-8deg); } }
+    @keyframes otto-flap-r { 0%,88%,100% { transform: rotate(0); } 93% { transform: rotate(8deg); } }
+    @keyframes otto-wiggle { 0%,90%,100% { transform: rotate(0); } 94% { transform: rotate(3deg); } }
+    @keyframes otto-spark { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+  </style>
+  <!-- tufts -->
+  <g class="o-tuft">
+    <path d="M42 26 Q40 12 50 18 Q47 22 48 27 Z" fill="#1D9E75"/>
+    <path d="M78 26 Q80 12 70 18 Q73 22 72 27 Z" fill="#1D9E75"/>
+  </g>
+  <!-- wings -->
+  <ellipse class="o-wing-l" cx="27" cy="70" rx="11" ry="22" fill="#177E5E"/>
+  <ellipse class="o-wing-r" cx="93" cy="70" rx="11" ry="22" fill="#177E5E"/>
+  <!-- body + belly -->
+  <ellipse cx="60" cy="66" rx="34" ry="38" fill="#1D9E75"/>
+  <ellipse cx="60" cy="76" rx="22" ry="24" fill="#F5EEDC"/>
+  <path d="M52 68 q8 6 16 0 M50 78 q10 7 20 0" stroke="#E3D9BE" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <!-- eyes -->
+  <circle cx="47" cy="46" r="13" fill="#FFFFFF"/>
+  <circle cx="73" cy="46" r="13" fill="#FFFFFF"/>
+  <g class="o-pupil">
+    <circle cx="49" cy="47" r="5.5" fill="#26251F"/>
+    <circle cx="75" cy="47" r="5.5" fill="#26251F"/>
+    <circle cx="51" cy="45" r="1.7" fill="#FFFFFF"/>
+    <circle cx="77" cy="45" r="1.7" fill="#FFFFFF"/>
+  </g>
+  <g class="o-lid">
+    <circle cx="47" cy="46" r="13" fill="#1D9E75"/>
+    <circle cx="73" cy="46" r="13" fill="#1D9E75"/>
+  </g>
+  <!-- beak + feet -->
+  <path d="M60 52 L54 60 Q60 66 66 60 Z" fill="#E8A33D"/>
+  <path d="M50 103 l-3 6 M54 104 l0 6 M70 103 l3 6 M66 104 l0 6" stroke="#E8A33D" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- trend-up badge -->
+  <g class="o-badge">
+    <circle cx="97" cy="34" r="12" fill="#134F3B"/>
+    <path d="M90 39 l5 -5 l3 3 l6 -7" stroke="#4ADE9C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M101 30 h3 v3" stroke="#4ADE9C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="o-spark" cx="108" cy="22" r="1.6" fill="#4ADE9C"/>
+    <circle class="o-spark" cx="86" cy="20" r="1.2" fill="#4ADE9C" style="animation-delay:.8s"/>
+  </g>
+</svg>
+</div>

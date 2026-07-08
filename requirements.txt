@@ -1,0 +1,4 @@
+flask>=3.0
+yfinance>=0.2.40
+requests>=2.31
+gunicorn>=21  # Phase 5: production WSGI server on the VM (replaces Flask's debug dev server)

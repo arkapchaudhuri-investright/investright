@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"{% if theme %} data-theme="{{ theme }}"{% endif %}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}InvestRight{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ url_for('home') }}">Invest<span class="brand-accent">Right</span></a>
+  <div class="topbar-right">
+    {% if show_fx %}
+    <span class="fx-note" {% if fx_stale %}title="Yahoo unreachable today — using the {{ fx_stale }} rate"{% endif %}>
+      {% if fx %}$1 = ₹{{ '%.2f'|format(fx) }}{% if fx_stale %} <span class="fx-stale">({{ fx_stale }})</span>{% endif %}
+      {% else %}FX rate unavailable{% endif %}
+    </span>
+    <nav class="seg" aria-label="Display currency">
+      <a href="{{ url_for('home', ccy='USD') }}" class="{{ 'active' if ccy == 'USD' }}">$ USD</a>
+      <a href="{{ url_for('home', ccy='INR') }}" class="{{ 'active' if ccy == 'INR' }}">₹ INR</a>
+    </nav>
+    {% endif %}
+    <a class="wl-toggle" href="{{ url_for('today') }}">☀ Today</a>
+    <a class="wl-toggle" href="{{ url_for('team') }}">Team</a>
+    <a class="wl-toggle" href="{{ url_for('home') }}#watchlist">★ Watchlist
+      {% if rows %}<span class="badge">{{ rows|length }}</span>{% endif %}
+    </a>
+    <nav class="seg theme-seg" aria-label="Colour theme">
+      <a href="?theme=light" data-theme="light" title="Light theme" aria-label="Light theme"
+         class="{{ 'active' if theme == 'light' }}">☀</a>
+      <a href="?theme=dark" data-theme="dark" title="Dark theme" aria-label="Dark theme"
+         class="{{ 'active' if theme == 'dark' }}">☾</a>
+    </nav>
+  </div>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>
+  <p class="foot-disclaim">Prices from Yahoo Finance, ~15-min delayed / EOD · Not investment advice — Otto just crunches numbers.</p>
+  <p class="foot-credit">Designed with love by Arkaprava Chaudhuri <span class="heart">♥</span></p>
+</footer>
+<script>
+// Colour-theme toggle. The page's initial theme is already set server-side
+// (data-theme from the cookie) or by the CSS prefers-color-scheme media query,
+// so there's no flash. This just makes the switch instant + reload-free and
+// keeps the segmented control's active state in sync. No-JS falls back to the
+// ?theme= links (Flask sets the cookie and re-renders).
+(function () {
+  var root = document.documentElement;
+  var links = document.querySelectorAll('.theme-seg a');
+  function effective() {
+    return root.dataset.theme ||
+      (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  }
+  function paint() {
+    var t = effective();
+    links.forEach(function (a) { a.classList.toggle('active', a.dataset.theme === t); });
+  }
+  links.forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var t = a.dataset.theme;
+      root.setAttribute('data-theme', t);
+      document.cookie = 'theme=' + t + ';path=/;max-age=' + (180 * 24 * 3600) + ';samesite=lax';
+      paint();
+    });
+  });
+  paint();
+})();
+</script>
+</body>
+</html>

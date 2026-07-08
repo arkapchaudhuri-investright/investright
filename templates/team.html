@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Meet Our Team · InvestRight{% endblock %}
+{% block content %}
+
+<section class="team-head">
+  <h1 class="serif">Meet Our Team</h1>
+  <p class="sub">Our team is growing.</p>
+</section>
+
+<section class="card">
+  <div class="member">
+    <img class="member-photo" src="{{ url_for('static', filename='arka.jpg') }}"
+         alt="Arka Prava Chaudhuri" width="128" height="128">
+    <div class="member-body">
+      <p class="member-name">Arka Prava Chaudhuri</p>
+      <p class="member-role">Founder &amp; Chief Investment Officer</p>
+
+      <p class="bio-lede">Arka brings over eight years of experience crafting
+        transformative, data-driven products to his role as Founder and Chief
+        Investment Officer at InvestRight.us. With a background spanning FinTech,
+        enterprise software, and AI-powered products, he specialises in merging
+        advanced technology with strategic planning to solve complex user problems
+        and scale growth.</p>
+
+      <details class="bio-more">
+        <summary></summary>
+        <div class="bio-full">
+          <p>Prior to founding InvestRight.us, Arka led product and analytics
+            initiatives at top-tier global organizations. As a Management Consultant
+            at KPMG India, he spearheaded the zero-to-one development of an omnichannel
+            B2B FinTech application — optimizing customer payments and loans, driving a
+            20% increase in Average Revenue Per User (ARPU) and significantly reducing
+            time to market.</p>
+          <p>His expertise in scaling digital platforms was demonstrated as a Lead
+            Product Manager at Sprinklr, where he managed a team of product managers and
+            owned the P&amp;L for an AI-powered SaaS portfolio, growing it to $38M in
+            Annual Recurring Revenue. He has also provided strategic direction as a
+            Senior Management Consultant focused on product pricing at McDonald's
+            headquarters in Chicago.</p>
+          <p>Arka holds a Master of Engineering Management (Technology) from the Gies
+            College of Business at the University of Illinois Urbana-Champaign, an MBA
+            from the Indian Institute of Management, Lucknow, and a B.Tech from the
+            National Institute of Technology Durgapur. His core competencies include
+            inferential and predictive statistics, Python, SQL, and data visualization.</p>
+          <p>When he's not building financial platforms, Arka enjoys playing on
+            chess.com, reading, sketching with charcoal, exploring new travel
+            destinations with his wife, and passionately cheering for Manchester United.</p>
+        </div>
+      </details>
+
+      <div class="member-links">
+        <a class="linkedin" href="https://www.linkedin.com/in/arkapchaudhuri/"
+           target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/>
+          </svg>
+          Connect on LinkedIn
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<p class="team-growing">Our team is growing — more folks joining Otto's roost soon.</p>
+
+{% endblock %}

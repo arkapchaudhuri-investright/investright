@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+{% block title %}{{ s['name'] }} · InvestRight{% endblock %}
+{% block content %}
+
+{% macro check_row(c) %}
+<li class="chk chk-{{ 'pass' if c['passed'] else 'fail' if c['passed'] is false else 'na' }}">
+  <span class="chk-mark">{{ '✓' if c['passed'] else '⚠' if c['passed'] is false else '–' }}</span>
+  <span class="chk-body"><span class="chk-label">{{ c['label'] }}</span>
+    {% if c['detail'] %}<span class="chk-detail">{{ c['detail'] }}</span>{% endif %}</span>
+</li>
+{% endmacro %}
+
+{% set has_data = checks_by_axis and applicable_n > 0 %}
+
+{# 1 · Header — name, exchange badge, price/day-change, ★ watch, Otto by score (§4.1) #}
+<section class="card stock-head">
+  <div class="head-otto">{% include "_otto.html" %}</div>
+  <div class="head-main">
+    <div class="head-row">
+      <h1>{{ s['name'] }}</h1>
+      <span class="tick">{{ s['ticker'] }}</span>
+      <span class="xchg">{{ s['exchange'] }}</span>
+    </div>
+    <p class="head-take serif">{{ takeaway }}</p>
+    <div class="head-price">
+      {% if price is not none %}
+        <span class="px">{{ price|money(ccy) }}</span>
+        {% if snap and snap['change_pct'] is not none %}
+        <span class="{{ 'up' if snap['change_pct'] > 0 else 'down' if snap['change_pct'] < 0 else 'flat' }}">
+          {{ '%+.2f%%'|format(snap['change_pct']) }} today</span>
+        {% endif %}
+        {% if as_of %}<span class="asof">as of {{ as_of }}</span>{% endif %}
+      {% else %}
+        <span class="asof">No saved price yet — Otto will fetch one on the next refresh.</span>
+      {% endif %}
+    </div>
+  </div>
+  <form class="head-star" action="{{ url_for('toggle_watch', ticker=s['ticker']) }}" method="post">
+    <button type="submit" class="star {{ 'on' if on_watch }}"
+            aria-label="{{ 'Remove from watchlist' if on_watch else 'Add to watchlist' }}">
+      {{ '★ On watchlist' if on_watch else '☆ Add to watchlist' }}
+    </button>
+  </form>
+</section>
+
+{% if not has_data %}
+<section class="card">
+  <p class="empty serif">Otto's still crunching {{ s['name'].split(' ')[0] }}'s numbers.<br>
+    <span class="empty-sub">Deeper data lands after the next refresh — hit ↻ on the home page to fetch it now.</span></p>
+</section>
+{% else %}
+
+{# 2 · Snowflake — 5-axis radar, geometry computed in Python (§4.2 / §8.3) #}
+<section class="card">
+  <div class="card-head"><h2>The snowflake</h2>
+    <span class="asof">checks passed on each axis</span></div>
+  <div class="snowflake-wrap">
+    <svg class="snowflake" viewBox="-58 -8 316 216" role="img"
+         aria-label="Five-axis score radar for {{ s['ticker'] }}">
+      {% for ring in snowflake['rings'] %}
+      <polygon points="{{ ring }}" fill="none" stroke="var(--hairline)"
+               stroke-width="{{ '1.4' if loop.last else '1' }}"/>
+      {% endfor %}
+      {% for ax in snowflake['axes'] %}
+      <line x1="{{ snowflake['cx'] }}" y1="{{ snowflake['cy'] }}"
+            x2="{{ ax['x'] if ax['anchor']=='middle' else (ax['x'] - 8 if ax['anchor']=='start' else ax['x'] + 8) }}"
+            y2="{{ ax['y'] }}" stroke="var(--hairline)" stroke-width="1" opacity=".5"/>
+      {% endfor %}
+      <polygon class="snow-poly" points="{{ snowflake['polygon'] }}"
+               fill="rgba(29,158,117,.22)" stroke="var(--accent)" stroke-width="2"
+               stroke-linejoin="round"/>
+      {% for ax in snowflake['axes'] %}
+      <text x="{{ ax['x'] }}" y="{{ ax['y'] }}" text-anchor="{{ ax['anchor'] }}"
+            dominant-baseline="middle" class="snow-label">{{ ax['label'] }}
+        <tspan class="snow-pct">{{ (ax['pct']|string + '%') if ax['pct'] is not none else 'n/a' }}</tspan>
+      </text>
+      {% endfor %}
+    </svg>
+    <ul class="snow-legend">
+      {% for key, name in axis_names.items() %}
+      <li><span class="dot"></span>{{ name }}
+        <b>{{ axis_detail[key]['passed'] }}/{{ axis_detail[key]['applicable'] or '—' }}</b>
+        <span class="asof">checks</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+{# 3 · Fair-value bar — price vs our DCF estimate, assumptions visible + editable (§4.3 / §8.4) #}
+<section class="card">
+  <div class="card-head"><h2>Fair value</h2>
+    <span class="asof">our estimate · not analyst forecast</span></div>
+  {% if dcf and price %}
+  {% set fair = dcf['fair_value'] %}
+  {% set scale = [price, fair]|max * 1.25 %}
+  {% set upside = dcf['upside_pct'] %}
+  <p class="fv-verdict">
+    {% if upside > 0 %}
+      <span class="up">{{ '%.0f'|format(upside) }}% below</span> our estimate — you'd be paying less than our numbers say it's worth.
+    {% elif upside < 0 %}
+      <span class="down">{{ '%.0f'|format(-upside) }}% above</span> our estimate — the price sits over what our numbers support.
+    {% else %}Roughly in line with our estimate.{% endif %}
+  </p>
+  <div class="fv-bar">
+    <div class="fv-fill" style="width: {{ (100 * price / scale)|round(1) }}%"></div>
+    <div class="fv-fair" style="left: {{ (100 * fair / scale)|round(1) }}%"
+         title="Our fair-value estimate"></div>
+  </div>
+  <div class="fv-legend">
+    <span><b class="px">{{ price|money(ccy) }}</b> price today</span>
+    <span class="fv-fair-key"><b>{{ fair|money(ccy) }}</b> fair value</span>
+  </div>
+  <details class="fv-assume">
+    <summary>How we got there {{ '· recomputed with your assumptions' if overridden }}</summary>
+    <p class="asof">A 2-stage discounted-cash-flow on {{ dcf['basis'] or 'cash flow' }}: grow it at the
+      capped historical trend for five years, fade to a {{ '%.1f'|format(dcf['terminal_growth']*100) }}%
+      long-run rate, discount everything at {{ '%.1f'|format(dcf['discount_rate']*100) }}%. It's a
+      transparent estimate from <em>past</em> numbers, not a licensed forecast — treat it as one lens, not truth.</p>
+    <form class="fv-form" method="get" action="{{ url_for('stock', ticker=s['ticker']) }}">
+      <label>Growth %<input name="growth" type="number" step="0.5"
+             value="{{ '%.1f'|format(dcf['growth_used']*100) }}"></label>
+      <label>Discount %<input name="discount" type="number" step="0.5"
+             value="{{ '%.1f'|format(dcf['discount_rate']*100) }}"></label>
+      <label>Terminal %<input name="terminal" type="number" step="0.25"
+             value="{{ '%.2f'|format(dcf['terminal_growth']*100) }}"></label>
+      <button type="submit" class="ghost">Recompute</button>
+      {% if overridden %}<a class="ghost" href="{{ url_for('stock', ticker=s['ticker']) }}">Reset</a>{% endif %}
+    </form>
+  </details>
+  {% else %}
+  <p class="asof">Not enough cash-flow history to estimate a fair value for {{ s['ticker'] }} yet.</p>
+  {% endif %}
+</section>
+
+{# 4 · Health checks — grouped by axis, collapsed to top 6 with show-all (§4.4) #}
+<section class="card">
+  <div class="card-head"><h2>Health checks</h2>
+    <span class="asof">{{ applicable_n }} checks run on free data</span></div>
+  <ul class="checks">
+    {% for c in top6 %}{{ check_row(c) }}{% endfor %}
+  </ul>
+  <details class="checks-all">
+    <summary>Show all {{ applicable_n }} checks by axis</summary>
+    {% for key, name in axis_names.items() %}
+    <h3 class="axis-h">{{ name }}
+      <span class="asof">{{ axis_detail[key]['passed'] }}/{{ axis_detail[key]['applicable'] or '—' }} passed</span></h3>
+    <ul class="checks">
+      {% for c in checks_by_axis[key] %}{{ check_row(c) }}{% endfor %}
+    </ul>
+    {% endfor %}
+  </details>
+</section>
+
+{# 5 · Past performance — revenue/earnings/FCF bars, EDGAR 10yr for US, yfinance for India (§4.5 / §8.5 Tier B) #}
+{% if charts %}
+<section class="card">
+  <div class="card-head"><h2>Past performance</h2>
+    <span class="asof">
+      {% if fund_source == 'edgar' %}10-yr history from SEC EDGAR filings
+      {% else %}recent history from Yahoo Finance{% endif %}
+    </span></div>
+  <div class="perf-grid">
+    {% for key in ('revenue', 'net_income', 'fcf') %}
+    {% if charts[key] %}
+    {% set c = charts[key] %}
+    <div class="perf-chart">
+      <h3 class="perf-h">{{ c['label'] }}</h3>
+      <svg viewBox="0 0 {{ c['width'] }} {{ c['height'] }}" role="img"
+           aria-label="{{ c['label'] }} by year, {{ c['first_year'] }} to {{ c['last_year'] }}">
+        <line x1="0" y1="{{ c['y0'] }}" x2="{{ c['width'] }}" y2="{{ c['y0'] }}"
+              stroke="var(--hairline)" stroke-width="1"/>
+        {% for b in c['bars'] %}
+        <rect x="{{ b['x'] }}" y="{{ b['y'] }}" width="{{ b['w'] }}" height="{{ b['h'] }}"
+              rx="1.5" fill="{{ 'var(--up)' if b['pos'] else 'var(--down)' }}"
+              opacity="{{ '1' if loop.last else '.55' }}"/>
+        {% endfor %}
+        {% if c['bench_points'] %}
+        <polyline points="{{ c['bench_points'] }}" fill="none" stroke="var(--muted)"
+                  stroke-width="1.2" stroke-dasharray="3,3" opacity=".7"/>
+        {% endif %}
+      </svg>
+      <div class="perf-legend">
+        <span>{{ c['first_year'] }} · {{ c['first_label'] }}</span>
+        <span>{{ c['last_year'] }} · {{ c['last_label'] }}</span>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% if charts.get('revenue', {}).get('bench_points') %}
+  <p class="asof perf-note">dashed line = what it'd look like growing at our ~{{ market_growth_pct }}% market-average benchmark, for comparison</p>
+  {% endif %}
+  {% if '.' in s['ticker'] %}
+  <p class="asof perf-note">Deeper 10-yr statements are US-only for now — Otto's showing {{ s['ticker'] }}'s Yahoo figures instead.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{# 6 · Future — the historical trend extended, NOT an analyst forecast (§4.6) #}
+{% if projection %}
+<section class="card">
+  <div class="card-head"><h2>Future</h2>
+    <span class="asof">trend, not analyst forecast</span></div>
+  <div class="perf-grid">
+    {% for key in ('revenue', 'net_income') %}
+    {% if projection.get(key) %}
+    {% set c = projection[key] %}
+    <div class="perf-chart">
+      <h3 class="perf-h">{{ c['label'] }} <span class="asof">· extended at {{ c['growth_pct'] }}%/yr</span></h3>
+      <svg viewBox="0 0 {{ c['width'] }} {{ c['height'] }}" role="img"
+           aria-label="{{ c['label'] }} history and trend projection to {{ c['end_year'] }}">
+        <line x1="0" y1="{{ c['y0'] }}" x2="{{ c['width'] }}" y2="{{ c['y0'] }}"
+              stroke="var(--hairline)" stroke-width="1"/>
+        {% if c['split_x'] %}
+        <line x1="{{ c['split_x'] }}" y1="4" x2="{{ c['split_x'] }}" y2="{{ c['height'] - 4 }}"
+              stroke="var(--muted)" stroke-width="1" stroke-dasharray="2,3" opacity=".6"/>
+        {% endif %}
+        {% for b in c['bars'] %}
+        {% if b['proj'] %}
+        <rect x="{{ b['x'] }}" y="{{ b['y'] }}" width="{{ b['w'] }}" height="{{ b['h'] }}"
+              rx="1.5" fill="rgba(29,158,117,.14)" stroke="var(--accent)"
+              stroke-width="1" stroke-dasharray="3,2"/>
+        {% else %}
+        <rect x="{{ b['x'] }}" y="{{ b['y'] }}" width="{{ b['w'] }}" height="{{ b['h'] }}"
+              rx="1.5" fill="{{ 'var(--up)' if b['pos'] else 'var(--down)' }}" opacity=".55"/>
+        {% endif %}
+        {% endfor %}
+      </svg>
+      <div class="perf-legend">
+        <span>{{ c['first_year'] }} · {{ c['first_label'] }}</span>
+        <span>{{ c['end_year'] }} · {{ c['end_label'] }} projected</span>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <p class="asof perf-note">Dashed bars just extend the historical trend (capped at ±15%/yr) —
+    the same growth our DCF uses. It's arithmetic on the past, not an analyst forecast; real
+    futures bend.</p>
+</section>
+{% endif %}
+
+{# 7 · Dividend — yield, payout gauge, streak (§4.7) #}
+<section class="card">
+  <div class="card-head"><h2>Dividend</h2>
+    <span class="asof">from cash actually paid, not promises</span></div>
+  {% if not dividend['pays'] %}
+  <p class="asof">{{ s['name'].split(' ')[0] }} doesn't pay a dividend — Otto leaves this
+    axis blank rather than guessing.</p>
+  {% else %}
+  <div class="div-stats">
+    <div><b>{{ (dividend['yield']|string + '%') if dividend['yield'] is not none else '—' }}</b>
+      <span class="asof">current yield · market ~{{ dividend['market_yield'] }}%</span></div>
+    <div><b>{{ dividend['streak'] }} yr{{ 's' if dividend['streak'] != 1 }}</b>
+      <span class="asof">without a cut, on record</span></div>
+    <div><b>{{ 'Growing' if dividend['growing'] else ('Flat or cut' if dividend['growing'] is false else '—') }}</b>
+      <span class="asof">over the saved record</span></div>
+  </div>
+  {% if dividend['payout_pct'] is not none %}
+  <div class="gauge">
+    <div class="gauge-fill {{ 'gauge-over' if dividend['payout_pct'] > 75 }}"
+         style="width: {{ [dividend['payout_pct'], 100]|min }}%"></div>
+    <div class="gauge-mark" title="75% comfort line"></div>
+  </div>
+  <div class="fv-legend">
+    <span>paying out <b>{{ dividend['payout_pct'] }}%</b> of earnings</span>
+    <span>75% comfort line</span>
+  </div>
+  {% endif %}
+  {% if dividend['chart'] %}
+  {% set c = dividend['chart'] %}
+  <h3 class="perf-h div-hist-h">Total dividends paid <span class="asof">· split-proof, unlike per-share history</span></h3>
+  <svg class="div-hist" viewBox="0 0 {{ c['width'] }} {{ c['height'] }}" role="img"
+       aria-label="Dividends paid by year, {{ c['first_year'] }} to {{ c['last_year'] }}">
+    <line x1="0" y1="{{ c['y0'] }}" x2="{{ c['width'] }}" y2="{{ c['y0'] }}"
+          stroke="var(--hairline)" stroke-width="1"/>
+    {% for b in c['bars'] %}
+    <rect x="{{ b['x'] }}" y="{{ b['y'] }}" width="{{ b['w'] }}" height="{{ b['h'] }}"
+          rx="1.5" fill="var(--accent)" opacity="{{ '1' if loop.last else '.55' }}"/>
+    {% endfor %}
+  </svg>
+  <div class="perf-legend">
+    <span>{{ c['first_year'] }} · {{ c['first_label'] }}</span>
+    <span>{{ c['last_year'] }} · {{ c['last_label'] }}</span>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+
+{% endif %}
+
+{# 8 · Ownership & insiders — US-only, SEC Form 4 (§4.8) #}
+<section class="card">
+  <div class="card-head"><h2>Ownership &amp; insiders</h2>
+    {% if is_us %}<span class="asof">from SEC Form 4 filings</span>{% endif %}</div>
+  {% if not is_us %}
+  <p class="asof">Insider-trade filings come from SEC EDGAR, which covers US companies only —
+    there's no free equivalent for Indian filings yet, so Otto skips this one for {{ s['ticker'] }}.</p>
+  {% elif insiders %}
+  {% if ins_buys or ins_sells %}
+  <p class="ins-summary">{{ ins_buys }} open-market buy{{ 's' if ins_buys != 1 }} ·
+    {{ ins_sells }} sale{{ 's' if ins_sells != 1 }} in the last {{ insiders|length }} saved filings</p>
+  {% else %}
+  <p class="ins-summary asof">No open-market buys or sells in the recent filings — what's below
+    is mostly awards and option activity.</p>
+  {% endif %}
+  <ul class="ins-list">
+    {% for i in insiders %}
+    <li>
+      <span class="ins-act ins-{{ i['action'] }}">{{ i['action']|capitalize }}</span>
+      <span class="ins-who">{{ i['name'] }}{% if i['role'] %}<span class="asof"> · {{ i['role'] }}</span>{% endif %}</span>
+      <span class="ins-amt">
+        {% if i['shares'] %}{{ '{:,.0f}'.format(i['shares']) }} sh{% endif %}
+        {% if i['value'] %} · {{ i['value']|bigmoney(ccy) }}{% endif %}
+      </span>
+      <a class="asof" href="{{ i['url'] }}" target="_blank" rel="noopener noreferrer">{{ i['filed_at'] }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="asof perf-note">Insiders must report within two business days. Sales are often
+    pre-planned (10b5-1) rather than a signal — buys tend to say more.</p>
+  {% else %}
+  <p class="asof">No insider filings saved yet — Otto checks EDGAR on each refresh.</p>
+  {% endif %}
+</section>
+
+{# 9 · Competitors — hand-picked peers with mini-snowflakes, tap to jump (§4.9) #}
+<section class="card">
+  <div class="card-head"><h2>Competitors</h2>
+    <span class="asof">hand-picked peers · tap to jump</span></div>
+  {% if peers %}
+  <div class="peer-strip">
+    {% for p in peers %}
+    {% if p['missing'] %}
+    <div class="peer peer-missing">
+      <span class="tick">{{ p['ticker'] }}</span>
+      <span class="asof">no saved data yet</span>
+    </div>
+    {% else %}
+    <a class="peer" href="{{ url_for('stock', ticker=p['ticker']) }}">
+      {% if p['snowflake'] %}
+      <svg class="peer-snow" viewBox="0 0 60 60" role="img"
+           aria-label="Mini score radar for {{ p['ticker'] }}">
+        <polygon points="{{ p['snowflake']['rings'][3] }}" fill="none"
+                 stroke="var(--hairline)" stroke-width="1"/>
+        <polygon points="{{ p['snowflake']['rings'][1] }}" fill="none"
+                 stroke="var(--hairline)" stroke-width="1" opacity=".6"/>
+        <polygon points="{{ p['snowflake']['polygon'] }}" fill="rgba(29,158,117,.25)"
+                 stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+      {% endif %}
+      <span class="tick">{{ p['ticker'] }}</span>
+      <span class="peer-name">{{ p['name'] }}</span>
+      {% if p['price'] %}
+      <span class="peer-px">{{ p['price']|money(p['currency']) }}
+        {% if p['change_pct'] is not none %}
+        <span class="{{ 'up' if p['change_pct'] > 0 else 'down' if p['change_pct'] < 0 else 'flat' }}">
+          {{ '%+.1f%%'|format(p['change_pct']) }}</span>
+        {% endif %}
+      </span>
+      {% endif %}
+      {% if not p['snowflake'] %}<span class="asof">scores after next refresh</span>{% endif %}
+    </a>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="asof">Otto hasn't hand-picked peers for {{ s['ticker'] }} yet — the peer map is
+    curated by hand, since there's no good free "similar companies" feed.</p>
+  {% endif %}
+</section>
+
+{# 10 · News — latest headlines from yfinance (§4.10) #}
+<section class="card">
+  <div class="card-head"><h2>In the news</h2></div>
+  {% if news %}
+  <ul class="news">
+    {% for n in news %}
+    <li>
+      <a href="{{ n['url'] }}" target="_blank" rel="noopener noreferrer">{{ n['title'] }}</a>
+      <div class="news-meta">{{ n['publisher'] }}{% if n['published_at'] %} · {{ n['published_at'][:10] }}{% endif %}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="asof">No recent headlines saved — Otto grabs them on each refresh.</p>
+  {% endif %}
+</section>
+
+{# 11 · My notes — decision journal, the edge SWS doesn't have (§4.11) #}
+<section class="card">
+  <div class="card-head"><h2>My notes</h2>
+    {% if note and note['updated_at'] %}
+    <span class="asof">saved {{ note['updated_at'][:10] }}</span>{% endif %}</div>
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+  {% endwith %}
+  <form method="post" action="{{ url_for('save_stock_note', ticker=s['ticker']) }}">
+    <textarea name="body" class="notes-box" rows="4"
+      placeholder="Why are you watching {{ s['name'].split(' ')[0] }}? Your thesis, your price, what would change your mind…">{{ note['body'] if note else '' }}</textarea>
+    <div class="notes-actions"><button type="submit" class="ghost">Save note</button></div>
+  </form>
+</section>
+
+{% endblock %}
