@@ -184,6 +184,23 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 a.acct-name { color: var(--text); text-decoration: none; }
 a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 
+/* danger zone — folded away so the destructive form is never one stray click */
+.danger-h2 { color: var(--down); }
+.danger-zone { text-align: left; }
+.danger-zone summary {
+  cursor: pointer; color: var(--down); font-size: 13.5px; padding: 6px 0;
+  list-style: none;
+}
+.danger-zone summary::-webkit-details-marker { display: none; }
+.danger-zone summary::before { content: "▸ "; }
+.danger-zone[open] summary::before { content: "▾ "; }
+.danger-copy { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 4px 0 10px; }
+.btn-danger {
+  background: var(--down); color: #fff; border: none; border-radius: 999px;
+  padding: 11px 18px; font-size: 14.5px; font-weight: 500; cursor: pointer;
+}
+.btn-danger:hover { filter: brightness(1.08); }
+
 /* hero */
 .hero { text-align: center; padding: 40px 0 28px; }
 .otto { display: inline-block; }

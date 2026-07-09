@@ -321,6 +321,14 @@ def set_password(conn, user_id, password_hash):
     return rotate_session_token(conn, user_id)
 
 
+def delete_user(conn, user_id):
+    """Erase an account. `user_watchlist` and `user_notes` go with it via
+    ON DELETE CASCADE (get_conn sets PRAGMA foreign_keys=ON). The global
+    `watchlist` table is deliberately left alone — it's the union of tickers the
+    nightly refresh fetches and /today screens, not personal data (§10.4)."""
+    conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+
 def get_user_by_email(conn, email):
     return conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
 

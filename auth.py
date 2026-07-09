@@ -12,7 +12,8 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from db import create_user, get_user_by_email, get_user_by_id, set_password
+from db import (create_user, delete_user, get_user_by_email, get_user_by_id,
+                set_password)
 
 bp = Blueprint("auth", __name__)
 
@@ -212,3 +213,29 @@ def change_password():
     g.__dict__.pop("user", None)
     flash("Password changed. Any other devices have been signed out.", "ok")
     return redirect(url_for("auth.account"))
+
+
+@bp.post("/account/delete")
+@login_required
+def delete_account():
+    """Irreversible. Guarded by the password *and* a typed confirmation, since a
+    stray click here costs someone their watchlist and journal."""
+    from db import get_conn
+    user = current_user()
+    pw = request.form.get("password") or ""
+    typed = (request.form.get("confirm") or "").strip()
+
+    if not check_password_hash(user["password_hash"], pw):
+        flash("That isn't your password — account not deleted.", "error")
+        return redirect(url_for("auth.account"))
+    if typed != "DELETE":
+        flash("Type DELETE in the box to confirm — account not deleted.", "error")
+        return redirect(url_for("auth.account"))
+
+    with get_conn() as conn:
+        delete_user(conn, user["id"])
+    session.clear()
+    g.__dict__.pop("user", None)
+    flash("Your account, watchlist and notes are gone. Thanks for trying InvestRight.",
+          "info")
+    return redirect(url_for("home"))
