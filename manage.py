@@ -6,19 +6,28 @@ default to a dry run; pass --apply to write.
 
     python manage.py migrate-watchlist --email you@example.com            # preview
     python manage.py migrate-watchlist --email you@example.com --apply    # commit
+    python manage.py set-password --email you@example.com --apply         # prompts
 
 migrate-watchlist (DESIGN §10.3): Phase 8 made the watchlist per-user, which
 stranded the pre-accounts global `watchlist`/`notes` rows — they belong to
 whoever was using the site before accounts existed. This copies them into that
 person's account. The global `watchlist` table is left untouched: it is still
 the union of tickers the nightly refresh fetches and /today screens (§10.4).
+
+set-password (DESIGN §10.6): there is no self-serve password reset — no email
+infrastructure on a $0 budget — so a forgotten password means the owner resets
+it here, which is exactly what the register page promises. Resetting also
+rotates the account's session token, signing out every device.
 """
 import argparse
+import getpass
 import shutil
 import sys
 from datetime import datetime
 
-from db import DB_PATH, get_conn, get_user_by_email
+from werkzeug.security import generate_password_hash
+
+from db import DB_PATH, get_conn, get_user_by_email, set_password
 
 
 def _backup():
@@ -82,6 +91,35 @@ def migrate_watchlist(email, apply_):
         print(f"Wrote {len(watch)} watchlist row(s) and {len(notes)} note(s). Done.")
 
 
+def set_user_password(email, password, apply_):
+    email = email.strip().lower()
+    with get_conn() as conn:
+        user = get_user_by_email(conn, email)
+        if not user:
+            sys.exit(f"No account with email {email!r}.")
+        print(f"Target account: id={user['id']} email={user['email']} name={user['name']!r}")
+
+        if not apply_:
+            print("\nDRY RUN — no password asked for, nothing written. "
+                  "Re-run with --apply to set one.")
+            return
+
+        # Prompt rather than take it on argv, so the password never lands in
+        # shell history or `ps` output.
+        if not password:
+            password = getpass.getpass("New password (hidden): ")
+            if password != getpass.getpass("Confirm: "):
+                sys.exit("The two passwords don't match. Nothing changed.")
+        if len(password) < 8:
+            sys.exit("Use a password of at least 8 characters. Nothing changed.")
+
+        backup = _backup()
+        print(f"Backed up DB -> {backup}")
+        set_password(conn, user["id"], generate_password_hash(password))
+        print(f"Password reset for {user['email']}. "
+              "Every device signed into that account has been signed out.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -93,9 +131,18 @@ def main():
     m.add_argument("--apply", action="store_true",
                    help="actually write (default is a dry run)")
 
+    p = sub.add_parser("set-password",
+                       help="reset an account's password (no self-serve reset exists, §10.6)")
+    p.add_argument("--email", required=True, help="email of the account to reset")
+    p.add_argument("--password", help="skip the hidden prompt (leaks into shell history)")
+    p.add_argument("--apply", action="store_true",
+                   help="actually write (default is a dry run)")
+
     args = ap.parse_args()
     if args.cmd == "migrate-watchlist":
         migrate_watchlist(args.email, args.apply)
+    elif args.cmd == "set-password":
+        set_user_password(args.email, args.password, args.apply)
 
 
 if __name__ == "__main__":
