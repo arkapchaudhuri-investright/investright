@@ -97,11 +97,13 @@ def _log(action, ticker=None):
         # spaces/unicode); Werkzeug doesn't unquote them, so do it here.
         name = unquote(request.cookies.get("ir_name") or "") or None
         market = unquote(request.cookies.get("ir_market") or "") or None
+        user = current_user()
         with get_conn() as conn:
             log_event(
                 conn, action, visitor=getattr(g, "vid", None),
                 name=name, market=market, ticker=ticker, path=request.path,
-                ua=request.headers.get("User-Agent"), ip=ip)
+                ua=request.headers.get("User-Agent"), ip=ip,
+                user_id=user["id"] if user else None)
     except Exception:
         pass
 
@@ -343,7 +345,9 @@ def admin():
         abort(404)                       # don't reveal the page exists
     with get_conn() as conn:
         events = [dict(r) for r in conn.execute(
-            "SELECT * FROM events ORDER BY id DESC LIMIT 500")]
+            "SELECT e.*, u.email AS account FROM events e "
+            "LEFT JOIN users u ON u.id = e.user_id "
+            "ORDER BY e.id DESC LIMIT 500")]
         total = conn.execute("SELECT COUNT(*) c FROM events").fetchone()["c"]
         visitors = conn.execute(
             "SELECT COUNT(DISTINCT visitor) c FROM events").fetchone()["c"]

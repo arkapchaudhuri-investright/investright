@@ -31,16 +31,19 @@
   .pill.analyze, .pill.add { color: var(--accent); border-color: var(--accent); }
   .pill.remove { color: var(--down); border-color: var(--down); }
   .vid { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .adm-tbl .acct { color: var(--accent); max-width: 180px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
 </style>
 </head>
 <body>
 <div class="adm">
   <h1 class="serif">Visitor activity</h1>
-  <p class="note">Best-effort log — there are no accounts yet, so identity is
-    unverified: <b>visitor</b> is an anonymous per-browser cookie id, and
-    <b>name</b>/<b>market</b> are whatever the visitor typed into the welcome
-    popup (self-reported, editable, clearable). IP/UA are coarse. Treat as a
-    rough sense of usage, not proof of who did what.</p>
+  <p class="note">Best-effort log. <b>Account</b> is the only verified column —
+    it's set when the visitor was signed in, and blanks out if that account is
+    later deleted. Everything else is unverified: <b>visitor</b> is an anonymous
+    per-browser cookie id, and <b>name</b>/<b>market</b> are whatever the visitor
+    typed into the welcome popup (self-reported, editable, clearable). IP/UA are
+    coarse. Treat as a rough sense of usage, not proof of who did what.</p>
 
   <div class="adm-stats">
     <div class="adm-stat"><b>{{ total }}</b><span>events logged</span></div>
@@ -57,7 +60,7 @@
   <div class="adm-wrap">
     <table class="adm-tbl">
       <thead><tr>
-        <th>When</th><th>Action</th><th>Ticker</th><th>Name</th><th>Market</th>
+        <th>When</th><th>Action</th><th>Ticker</th><th>Account</th><th>Name</th><th>Market</th>
         <th>Visitor</th><th>IP</th><th>Browser</th>
       </tr></thead>
       <tbody>
@@ -66,6 +69,7 @@
           <td>{{ e['ts_local'] }}</td>
           <td><span class="pill {{ e['action'] }}">{{ e['action'] }}</span></td>
           <td>{{ e['ticker'] or '' }}</td>
+          <td class="acct" title="{{ e['account'] or '' }}">{{ e['account'] or '—' }}</td>
           <td>{{ e['name'] or '—' }}</td>
           <td>{{ e['market'] or '—' }}</td>
           <td class="vid">{{ (e['visitor'] or '')[:8] }}</td>
