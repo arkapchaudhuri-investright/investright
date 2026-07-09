@@ -82,8 +82,6 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 .navlink:hover { color: var(--text); }
 .fx-stale { color: var(--amber); }
 /* §11.3: inline note under the watchlist head naming the $→₹ rate + date. */
-.fx-note { margin: 2px 0 12px; font-size: 12.5px; color: var(--muted); }
-.fx-note .fx-on { color: var(--muted); }
 .seg {
   display: inline-flex; border: 1px solid var(--hairline);
   border-radius: 999px; overflow: hidden;
@@ -186,10 +184,24 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   width: calc(100% - 40px); box-shadow: 0 24px 64px rgba(0, 0, 0, .55);
 }
 .name-dialog::backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: blur(2px); }
-.name-dialog form { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
-.nd-wave { font-size: 34px; line-height: 1; }
+.name-dialog { text-align: center; }
+.nd-otto { display: flex; justify-content: center; margin-bottom: 4px; }
+.nd-step { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+.nd-step[hidden] { display: none; }   /* the explicit display above would otherwise beat [hidden] */
 .name-dialog h2 { font-size: 22px; margin: 2px 0 0; }
 .nd-sub { color: var(--muted); margin: 0 0 8px; font-size: 14.5px; }
+/* Step 1 — choose account / guest / sign in. */
+.nd-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 8px; }
+.nd-secondary {
+  width: 100%; padding: 10px 22px; border: 1px solid var(--hairline);
+  background: transparent; color: var(--text); border-radius: 999px;
+  cursor: pointer; font-size: 15px; font-family: inherit; box-sizing: border-box;
+}
+.nd-secondary:hover { border-color: var(--accent); }
+.nd-alt { color: var(--muted); font-size: 13.5px; margin: 4px 0 0; }
+.nd-alt a { color: var(--accent); text-decoration: none; }
+.nd-alt a:hover { text-decoration: underline; }
+.nd-foot { color: var(--muted); font-size: 12px; margin: 12px 0 0; line-height: 1.5; opacity: .85; }
 .name-dialog input {
   width: 100%; padding: 11px 16px; border: 1px solid var(--hairline);
   border-radius: 999px; background: var(--bg); color: var(--text);
@@ -197,9 +209,9 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 }
 .name-dialog input:focus { outline: none; border-color: var(--accent); }
 .name-go {
-  width: 100%; padding: 10px 22px; border: 1px solid var(--accent);
-  background: var(--accent); color: #fff; border-radius: 999px;
-  cursor: pointer; font-size: 15px;
+  display: block; width: 100%; padding: 10px 22px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fff; border-radius: 999px; text-decoration: none;
+  cursor: pointer; font-size: 15px; text-align: center; box-sizing: border-box;
 }
 @media (prefers-reduced-motion: no-preference) {
   .name-dialog[open] { animation: nd-pop .18s ease-out; }
@@ -645,11 +657,6 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
      their own line(s) instead of overflowing the viewport (§ no h-scroll). */
   .topbar { flex-wrap: wrap; row-gap: 10px; padding: 14px 16px; }
   .topnav { flex-wrap: wrap; justify-content: flex-end; gap: 14px; }
-  /* §11.1: the persistent market switcher shares the wrapped top bar. The seg
-     alone reads clearly on a phone, so drop the "Investing in" label to save
-     width and avoid any horizontal overflow at 375px. */
-  .topbar-market { order: 3; flex-basis: 100%; justify-content: center; }
-  .topbar-market .hm-label { display: none; }
   /* Watchlist → iOS-Stocks-style collapsible cards on phones: a minimized row
      (ticker · name · price · change pill) that taps open to reveal the rest.
      Desktop table is hidden here; expand/collapse is native <details>, no JS. */
@@ -691,11 +698,6 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
   .wl-actions a { color: var(--accent); text-decoration: none; font-size: 13.5px; font-weight: 500; }
   .wl-actions .x { font-size: 13px; color: var(--muted); padding: 4px 2px; }
 }
-
-/* ── §11.1: market switcher in the top bar (persistent on every page) ───────
-   Shared .seg/.market-seg look; sits between the wordmark and the Today link. */
-.topbar-market { display: inline-flex; align-items: center; gap: 8px; margin-left: 22px; }
-.hm-label { color: var(--muted); font-size: 13px; white-space: nowrap; }
 
 /* ── Phase 7: 💡 graph explainers (deep-dive) ──────────────────────────────
    A small bulb pill under each chart; opens a plain-English note + Investopedia

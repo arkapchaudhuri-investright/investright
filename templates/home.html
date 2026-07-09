@@ -9,12 +9,28 @@
   <h1 class="serif" id="greet">{{ greeting }}</h1>
   <p class="sub" id="greet-sub">Which stock are we looking at today?</p>
 
-  {# First-visit welcome popup — asks a name once, remembered in localStorage.
-     Shown as a modal <dialog> only when no name is stored yet (see script). #}
+  {# First-visit welcome popup. Two steps: (1) choose how to start — create an
+     account, continue as a guest, or sign in; (2) guests give a name + market.
+     Otto sits on top (no wave emoji). Shown only when not logged in and no guest
+     name is stored yet (see script). #}
   <dialog id="name-dialog" class="name-dialog">
-    <form id="name-form" method="dialog" autocomplete="off">
-      <div class="nd-wave" aria-hidden="true">👋</div>
+    <div class="nd-otto">{% with mood = 'happy', size = 74 %}{% include "_otto.html" %}{% endwith %}</div>
+
+    {# Step 1 — pick a path #}
+    <div id="nd-choice" class="nd-step">
       <h2 class="serif" id="nd-title">Welcome to InvestRight</h2>
+      <p class="nd-sub">Calm, plain-English stock research — for the US and India.</p>
+      <div class="nd-actions">
+        <a class="name-go" href="{{ url_for('auth.register', next=url_for('home')) }}">Create an account</a>
+        <button type="button" class="nd-secondary" id="nd-guest-btn">Continue as guest</button>
+      </div>
+      <p class="nd-alt">Already have an account?
+        <a href="{{ url_for('auth.login', next=url_for('home')) }}">Sign in</a></p>
+      <p class="nd-foot">Change currency, theme &amp; market anytime from the ⚙ gear, top-right.</p>
+    </div>
+
+    {# Step 2 — guest: name + market (only shown after "Continue as guest") #}
+    <form id="name-form" class="nd-step" method="dialog" autocomplete="off" hidden>
       <p class="nd-sub">What should I call you?</p>
       <input id="name-input" type="text" maxlength="24" spellcheck="false"
              placeholder="Your name" aria-label="Your name">
@@ -25,10 +41,11 @@
         <label><input type="radio" name="market" value="BOTH" checked><span>Both</span></label>
       </div>
       <button type="submit" class="name-go">Let’s go →</button>
+      <p class="nd-foot">You can change your market anytime from the ⚙ gear.</p>
     </form>
   </dialog>
 
-  {# Market switcher moved to the top bar (§11.1) — persistent on every page. #}
+  {# Market switcher lives only in the ⚙ gear now (§11 corrected) — no hero/top-bar copy. #}
 
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
@@ -60,13 +77,6 @@
       <button type="submit" class="ghost">↻ Refresh</button>
     </form>
   </div>
-  {# §11.3: when showing ₹ prices, name the exact rate + date behind the
-     conversion, right where the converted prices are — not just in settings. #}
-  {% if ccy == 'INR' and fx %}
-  <p class="fx-note">Converted at today’s rate · $1 = ₹{{ '%.2f'|format(fx) }}
-    {% if fx_stale %}<span class="fx-stale">· Yahoo unreachable today, using the {{ fx_stale }} rate</span>
-    {% else %}<span class="fx-on">· {{ fx_on_label }}</span>{% endif %}</p>
-  {% endif %}
   <table>
     <thead><tr>
       <th>Stock</th><th class="num">Price</th><th class="num">Today</th>
@@ -211,16 +221,23 @@
     } catch (e) {}
   }
   function paint() {
-    greetEl.textContent = name ? (g + ', ' + name + ' 👋') : (g + ' 👋');
+    greetEl.textContent = name ? (g + ', ' + name) : g;
   }
   paint();
-  // First visit (no name yet, and not logged in): welcome popup over the home page.
-  if (!ACCOUNT && !name && dlg && typeof dlg.showModal === 'function') {
-    title.textContent = g + ' 👋';
-    requestAnimationFrame(function () {
-      dlg.showModal();
-      setTimeout(function () { input.focus(); }, 60);
+  // First visit (not logged in, no guest name yet): show the welcome popup on
+  // step 1 (create account / continue as guest / sign in). "Continue as guest"
+  // reveals the name + market step below.
+  var choice = document.getElementById('nd-choice');
+  var guestBtn = document.getElementById('nd-guest-btn');
+  if (guestBtn && form) {
+    guestBtn.addEventListener('click', function () {
+      if (choice) choice.hidden = true;
+      form.hidden = false;
+      setTimeout(function () { input.focus(); }, 40);
     });
+  }
+  if (!ACCOUNT && !name && dlg && typeof dlg.showModal === 'function') {
+    requestAnimationFrame(function () { dlg.showModal(); });
   }
   function setCookie(k, val) {
     document.cookie = k + '=' + encodeURIComponent(val) + ';path=/;max-age=' +
@@ -260,14 +277,12 @@
   var steps = [
     { sel: '[data-tour="search"]',   title: 'Search any stock',
       text: 'Type a ticker — AAPL, RELIANCE.NS, TCS.BO — and hit Analyze for a full breakdown.' },
-    { sel: '[data-tour="market"]',   title: 'Pick your market',
-      text: 'United States, India, or Both. This filters your suggestions and the Today screen, and sets your currency.' },
     { sel: '[data-tour="watchlist"]', title: 'Your watchlist',
-      text: 'Stars you save land here with live prices — tap any row for the full analysis.' },
+      text: 'Stars you save land here with live prices — tap any row for the full analysis. Sign in to keep your own list.' },
     { sel: '[data-tour="today"]',    title: "Today's ideas",
       text: "Otto ranks interesting stocks each night with plain-English reasons. It's a screen, not advice." },
-    { sel: '[data-tour="settings"]', title: 'Settings live here',
-      text: 'Switch currency, light/dark theme, and market any time from this gear.' }
+    { sel: '[data-tour="settings"]', title: 'Everything lives in the gear',
+      text: 'Your market (US / India / Both), currency, the live $→₹ rate, light/dark theme, and your account all live behind this gear.' }
   ];
   var overlay = document.getElementById('tour');
   if (!overlay) return;
