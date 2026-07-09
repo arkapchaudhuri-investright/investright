@@ -733,6 +733,7 @@ Caddy, 24/7, no Mac/Claude dependency). Phases 1–9 are done and deployed:
 `fetch.py` (yfinance) · `edgar.py` (SEC, US-only) · `metrics.py` (pure: checks/DCF/
 snowflake/screener geometry) · `refresh.py` (nightly cron job) · `digest.py`
 (Gemini/Groq: `run_digest` + `ask` for Ask Otto) · `logos.py` (company-logo cache)
+· `manage.py` (hand-run admin CLI; dry-run by default, `--apply` to write)
 · `templates/*` (extend `base.html`) · `static/style.css` (CSS-var themed).
 
 ### 12.4 Gotchas (bitten before)
