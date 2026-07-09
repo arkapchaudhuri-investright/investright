@@ -187,7 +187,11 @@ CREATE TABLE IF NOT EXISTS events (
     ticker  TEXT,
     path    TEXT,
     ua      TEXT,                       -- coarse user-agent (truncated)
-    ip      TEXT                        -- client IP (X-Forwarded-For behind Caddy)
+    ip      TEXT,                       -- client IP (X-Forwarded-For behind Caddy)
+    -- The one *verified* identity here, when the visitor was signed in (§10.2).
+    -- SET NULL, not CASCADE: deleting an account must not punch holes in the
+    -- activity history, but it must stop pointing at the person.
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 """
 
@@ -412,14 +416,15 @@ def clear_login_failures(conn, email, ip):
 
 
 def log_event(conn, action, visitor=None, name=None, market=None,
-              ticker=None, path=None, ua=None, ip=None):
+              ticker=None, path=None, ua=None, ip=None, user_id=None):
     """Append one activity-log row (Phase 6c). Best-effort — callers wrap this in
-    try/except so logging can never break a page render."""
+    try/except so logging can never break a page render. `user_id` is the only
+    verified field; name/market stay self-reported."""
     conn.execute(
-        "INSERT INTO events (ts,visitor,name,market,action,ticker,path,ua,ip) "
-        "VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO events (ts,visitor,name,market,action,ticker,path,ua,ip,user_id) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
         (_now(), visitor, name, market, action, ticker, path,
-         (ua or "")[:200], ip))
+         (ua or "")[:200], ip, user_id))
 
 
 def get_conn():
@@ -445,6 +450,14 @@ def _migrate(conn):
         conn.execute("ALTER TABLE users ADD COLUMN session_token TEXT")
     for r in conn.execute("SELECT id FROM users WHERE session_token IS NULL").fetchall():
         rotate_session_token(conn, r["id"])
+
+    # events.user_id (§10.2). SQLite allows ADD COLUMN with a REFERENCES clause
+    # only when it defaults to NULL — which is exactly what we want for the
+    # pre-accounts rows.
+    ecols = {r["name"] for r in conn.execute("PRAGMA table_info(events)")}
+    if "user_id" not in ecols:
+        conn.execute("ALTER TABLE events ADD COLUMN user_id INTEGER "
+                     "REFERENCES users(id) ON DELETE SET NULL")
 
 
 def init_db():
