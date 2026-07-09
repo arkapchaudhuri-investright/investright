@@ -519,6 +519,48 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   token (400). **NEEDS on deploy (same as Phase 8):** `SECRET_KEY` in the VM `.env`;
   the existing `GEMINI_API_KEY` (powers the digest) also powers Ask Otto in prod.
 
+- **2026-07-09 — Backlog clearing (Phase 8 Tier C + admin CLI). No new features.**
+  Seven PRs, each verified on the preview server (desktop + mobile 375px, light +
+  dark, no console errors) before merge. No new secrets, no new dependencies.
+  - **`manage.py`** (#13, #19) — a hand-run admin CLI, nothing scheduled, nothing
+    reachable from the web. Dry run by default, `--apply` to write, backs the DB up
+    first. `migrate-watchlist --email` copies the stranded pre-accounts global
+    `watchlist`/`notes` into an account (§10.3): idempotent, skips rows the account
+    already has (never clobbers a newer note), preserves original timestamps, leaves
+    the global `watchlist` union alone. `set-password --email` is the manual reset
+    §10.6 already promised but had **no implementation** — prompts via `getpass` so
+    the password stays out of shell history, and rotates the session token.
+  - **Tier C, complete** (#14 remember-me, #15 change-password, #16 delete-account,
+    #17 throttling). Login gained a *"Stay signed in for 30 days"* checkbox (was
+    unconditionally permanent); unchecked ⇒ a browser-session cookie. New
+    login-gated **`/account`** page (reached by clicking your name in the ⚙ gear):
+    change password, and a `<details>`-folded danger zone that deletes the account
+    behind password + typing `DELETE`. Deletion cascades `user_watchlist`/`user_notes`
+    (FK verified, not assumed) and leaves the global union intact.
+  - **`users.session_token`** — sessions are a *signed client-side cookie*, so there's
+    no server store to evict and a naive change-password would leave other devices
+    signed in. The token is mirrored into the session as `stok`; `current_user()`
+    voids any session whose `stok` no longer matches; `set_password()` rotates it and
+    the changing device re-pins itself. `_start_session()` is now the only place a
+    session is created. `_migrate()` backfills existing accounts — **so everyone
+    signed in at that deploy is signed out once.**
+  - **Login throttling** — new `login_attempts` table; 8 failures per email or 20
+    per IP in 15 min ⇒ **429 without checking the password at all**; a success clears
+    the slate; expired rows pruned on every check. Kept in SQLite, not process
+    memory, because gunicorn runs 2 workers and an in-process counter would see only
+    half the attempts. Also closed a **user-enumeration timing oracle**: a missing
+    email used to skip password hashing and return measurably faster, so latency
+    revealed which emails were registered — it now hashes against a dummy. Measured
+    after: 102.7 ms known vs 103.1 ms unknown.
+  - **`events.user_id`** (#18, §10.2) — nullable, `ON DELETE SET NULL` (deleting an
+    account must sever attribution without punching holes in history). `/admin` gains
+    an **Account** column, the only verified one; its banner no longer claims "there
+    are no accounts yet". `client_ip()` factored out of `app._log` and shared.
+  - **Housekeeping** — 9 stale branches deleted. **PR #7 was still OPEN**, contrary to
+    the old handoff note (only #6 had been closed); it was superseded by the merged #8
+    and also carried the §11 top-bar market switcher that Phase 9 deliberately
+    reversed, so merging it would have regressed the UI. Closed with that reasoning.
+
 ---
 
 ## 10. Phase 8 build spec (accounts) — for the next session
@@ -696,12 +738,16 @@ Caddy, 24/7, no Mac/Claude dependency). Phases 1–9 are done and deployed:
   `SECRET_KEY` from `.env`, CSRF on every POST, per-user `user_watchlist` +
   `user_notes`. Auth is **optional** — guests browse/search/analyze/Today freely;
   login only gates saving a watchlist / writing notes.
-- **9 (this batch):** two-step welcome popup (Create account / Continue as guest /
+- **9:** two-step welcome popup (Create account / Continue as guest /
   Sign in), Otto-on-top + **no 👋 wave**, **settings gear-only** (market, currency,
   theme, dated $→₹ rate — nowhere else), **company logo replaces Otto in the
   deep-dive header** (monogram fallback), **Ask Otto** floating chatbot on
   `/stock` (Gemini-grounded, guests allowed), and the home search placeholder
   "Which stock are we looking at today?" (no hero subtitle).
+- **8 Tier C (2026-07-09):** "stay signed in" checkbox, `/account` page
+  (change password + delete account), login throttling, `users.session_token`
+  for real cross-device sign-out. Plus `manage.py` (watchlist migration +
+  manual password reset) and `events.user_id`. See §9's last entry.
 
 ### 12.2 How to run + ship (the rules — do not skip)
 - **Local:** `cd ~/Desktop/InvestRight && .venv/bin/python app.py` → http://localhost:8700
@@ -751,18 +797,37 @@ snowflake/screener geometry) · `refresh.py` (nightly cron job) · `digest.py`
 - **⚠️ Two Claude sessions edited this repo at once (2026-07-08).** Before big
   multi-file work: `git status`, `git reflog`, and check for a stray flask process
   (`lsof -iTCP:8700`).
+- **A schema change to `users` or `events` runs through `_migrate()`**, not just
+  `CREATE IF NOT EXISTS`. SQLite can only `ADD COLUMN` with a `REFERENCES` clause
+  when it defaults to NULL.
+- **`~/Desktop/.claude/launch.json`** (not the repo's) is what the preview server
+  reads when the cwd is `~/Desktop`; use the `investright-autoport` config.
+  Restart it after editing `.py` — only templates auto-reload.
 
 ### 12.5 Backlog (nothing is broken — pick what you want)
-1. **Watchlist migration (§10.3) — the one visible gap.** Watchlist is now
-   per-user, so Arka's old global list (~4 tickers in the global `watchlist` table)
-   isn't shown until he makes an account. Once he has one, run a one-time, idempotent
-   copy `watchlist → user_watchlist` (+ `notes → user_notes`) under his `user_id`.
-   Back up `data/investright.db` first. **Confirm his account/email with him first.**
-2. **Phase 8 Tier C** (spec'd, unbuilt): remember-me longer sessions, change-password
-   while logged in, login throttling, delete-account.
-3. **Password reset / email verification** — out of v1 (no free email infra);
-   forgotten passwords = manual CLI reset. Register page says so honestly. Revisit if
-   a free transactional-email provider is wired in.
-4. **Housekeeping:** delete stale merged branches on GitHub
-   (`feature/phase8-accounts-tierA`, `feature/ui-tweaks-topbar-market`, the per-change
-   `feature/*` from Phase 9); optionally add the `user_id` column to `events` (§10.2).
+> The 2026-07-09 session cleared the previous backlog end-to-end. See §9's last
+> entry. Tier C is **complete**; `manage.py` exists; branches are clean.
+
+1. **Password reset / email verification** — still out of v1, deliberately. A
+   forgotten password is reset by the owner with
+   `python manage.py set-password --email <addr> --apply` (hidden prompt), which is
+   exactly what the register page promises. Self-serve reset needs a free
+   transactional-email provider (Resend/Brevo), DKIM/SPF on investright.us at
+   GoDaddy, a new VM secret, and an expiring single-use token table — a **new
+   feature with a new external dependency**, not a cleanup. Same for email
+   verification; emails stay unverified until then (§10.6).
+2. **Ideas, none urgent:** a "sign out everywhere" button now that `session_token`
+   exists (one line: rotate it); surface `login_attempts` on `/admin`; per-user
+   `/today`; OAuth; 2FA. All deferred (§10.6).
+
+### 12.6 Things a future session should not re-litigate
+- **`users.session_token` is load-bearing.** Sessions are a signed *client-side*
+  cookie — there is no server-side store to evict. `stok` in the session must match
+  `users.session_token` or `current_user()` voids the session. Rotate the token to
+  sign someone out everywhere; that's what change-password and `set-password` do.
+- **The global `watchlist` table is not dead.** It is the union of tickers the
+  nightly `refresh.py` fetches and `/today` screens. Per-user membership lives in
+  `user_watchlist`. Deleting an account must not prune the union (§10.4).
+- **Throttling state belongs in SQLite,** not memory: gunicorn runs 2 workers.
+- **Don't reintroduce a top-bar market switcher.** Phase 9 moved market, currency,
+  theme and the $→₹ rate into the ⚙ gear *only*; §11 above is historical.
