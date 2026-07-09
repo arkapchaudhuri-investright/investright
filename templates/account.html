@@ -32,6 +32,27 @@
     infrastructure on a $0 budget), so pick something you'll keep.
   </p>
 
+  <h2 class="acct-h2 danger-h2">Delete account</h2>
+  <details class="danger-zone">
+    <summary>Delete my account</summary>
+    <p class="danger-copy">
+      This erases your account, your watchlist and every note you've written.
+      It cannot be undone, and there are no backups of your notes.
+    </p>
+    <form class="auth-form" method="post" action="{{ url_for('auth.delete_account') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <label>Your password
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      {# One span, else .auth-form label's column flex stacks each text node. #}
+      <label><span>Type <strong>DELETE</strong> to confirm</span>
+        <input type="text" name="confirm" required autocomplete="off"
+               spellcheck="false" placeholder="DELETE">
+      </label>
+      <button type="submit" class="btn-danger auth-go">Permanently delete my account</button>
+    </form>
+  </details>
+
   <p class="auth-alt"><a href="{{ url_for('home') }}">← Back to your watchlist</a></p>
 </section>
 {% endblock %}
