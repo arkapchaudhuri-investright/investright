@@ -354,6 +354,18 @@ footer {
 .head-otto { flex: none; margin: -4px 0 0 -4px; }
 .head-main { flex: 1; min-width: 0; }
 .head-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+/* Company logo / monogram (Phase 9) — sits left of the name, vertically centred
+   against the baseline-aligned row. White plate so dark marks read in both themes. */
+.head-logo { flex: none; align-self: center; display: inline-flex; }
+.head-logo img, .logo-mono {
+  width: 40px; height: 40px; border-radius: 9px; box-sizing: border-box;
+}
+.head-logo img { object-fit: contain; background: #fff; border: 1px solid var(--hairline); padding: 3px; }
+.logo-mono {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; font-family: var(--serif);
+  font-size: 17px; font-weight: 600; letter-spacing: .02em;
+}
 .head-row h1 { font-size: 22px; margin: 0; font-weight: 600; }
 .head-row .tick { font-weight: 600; color: var(--muted); }
 .head-take { color: var(--text); font-size: 17px; margin: 8px 0 12px; line-height: 1.4; }

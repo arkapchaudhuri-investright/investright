@@ -16,6 +16,7 @@ from datetime import date, datetime
 import digest
 import edgar
 import fetch
+import logos
 import metrics
 from db import (get_conn, init_db, save_checks, save_dcf, save_digest,
                 save_fundamentals, save_insiders, save_news, save_screener,
@@ -45,6 +46,10 @@ def ensure_stock(conn, ticker):
                  "VALUES (?,?,?,?,?,?)",
                  (meta["ticker"], meta["name"], meta["exchange"], meta["sector"],
                   meta["currency"], datetime.now().isoformat(timespec="seconds")))
+    try:
+        logos.ensure(meta["ticker"], meta.get("website"))
+    except Exception:
+        pass
     return True
 
 
@@ -61,6 +66,11 @@ def save_deep(conn, ticker):
     data = fetch.deep(ticker)
     funds, ratios, news = data["fundamentals"], data["ratios"], data["news"]
     source = "yfinance"
+
+    try:  # cache the company logo (best-effort; find() short-circuits if cached)
+        logos.ensure(ticker, ratios.get("website"))
+    except Exception:
+        pass
 
     if "." not in ticker:
         try:

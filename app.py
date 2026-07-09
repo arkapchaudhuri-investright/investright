@@ -13,6 +13,7 @@ from flask import (Flask, abort, flash, g, make_response, redirect,
                    render_template, request, session, url_for)
 
 import fetch
+import logos
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
 from auth import bp as auth_bp, current_user, login_required
@@ -203,6 +204,10 @@ def _ingest_stock(symbol):
     meta = fetch.lookup(symbol)
     if not meta:
         return None
+    try:  # cache the company logo now so the deep-dive shows it immediately
+        logos.ensure(meta["ticker"], meta.get("website"))
+    except Exception:
+        pass
     snap = fetch.snapshot(symbol)
     now = datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
@@ -513,6 +518,7 @@ def stock(ticker):
     _log("view", ticker)
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
+        logo=logos.find(ticker),
         ccy=s["currency"], dcf=dcf, price=price, overridden=overridden,
         checks_by_axis=checks_by_axis, axis_names=dict(metrics.AXES),
         axis_detail=axis_detail, top6=top6, applicable_n=len(applicable),

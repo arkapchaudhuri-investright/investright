@@ -26,6 +26,7 @@ def lookup(symbol):
             "exchange": info.get("fullExchangeName") or info.get("exchange") or "",
             "sector": info.get("sector") or "",
             "currency": info.get("currency") or "USD",
+            "website": info.get("website") or "",   # for the company logo (Phase 9)
         }
     except Exception:
         return None
@@ -202,6 +203,7 @@ def deep(symbol):
             "roe": info.get("returnOnEquity"),
             "debt_to_equity": info.get("debtToEquity"),
             "industry_pe": None,   # no free source
+            "website": info.get("website") or "",   # for the company logo (Phase 9)
         }
     except Exception:
         ratios = {}
