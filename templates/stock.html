@@ -13,23 +13,23 @@
 
 {% set has_data = checks_by_axis and applicable_n > 0 %}
 
-{# 1 · Header — name, exchange badge, price/day-change, ★ watch, Otto by score (§4.1) #}
+{# 1 · Header — company logo, name, exchange badge, price/day-change, ★ watch (§4.1).
+   The logo takes the mascot slot on the deep-dive (Otto stays on /today + Ask Otto). #}
 <section class="card stock-head">
-  <div class="head-otto">{% include "_otto.html" %}</div>
+  {# Company logo (Phase 9), cached locally at ingest; monogram of the company
+     initials if we couldn't fetch a mark. #}
+  {% set _words = s['name'].split() %}
+  {% set _initials = (_words[0][0] ~ (_words[1][0] if _words|length > 1 else ''))|upper %}
+  <div class="head-brand">
+    {% if logo %}
+    <img class="head-brand-logo" src="{{ url_for('static', filename='logos/' + logo) }}"
+         alt="{{ s['name'] }} logo" width="72" height="72" loading="lazy">
+    {% else %}
+    <span class="head-brand-logo logo-mono" aria-hidden="true">{{ _initials }}</span>
+    {% endif %}
+  </div>
   <div class="head-main">
     <div class="head-row">
-      {# Company logo (Phase 9) — cached locally at ingest; monogram of the
-         company initials if we couldn't fetch a mark. #}
-      {% set _words = s['name'].split() %}
-      {% set _initials = (_words[0][0] ~ (_words[1][0] if _words|length > 1 else ''))|upper %}
-      <span class="head-logo">
-        {% if logo %}
-        <img src="{{ url_for('static', filename='logos/' + logo) }}"
-             alt="{{ s['name'] }} logo" width="40" height="40" loading="lazy">
-        {% else %}
-        <span class="logo-mono" aria-hidden="true">{{ _initials }}</span>
-        {% endif %}
-      </span>
       <h1>{{ s['name'] }}</h1>
       <span class="tick">{{ s['ticker'] }}</span>
       <span class="xchg">{{ s['exchange'] }}</span>
