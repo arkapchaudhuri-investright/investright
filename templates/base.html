@@ -27,7 +27,8 @@
            watchlist (+ notes). Signed in: name + Sign out; else: sign-in links. #}
         <div class="set-row set-account">
           {% if current_user %}
-          <span class="set-label acct-name" title="{{ current_user['email'] }}">{{ current_user['name'] or current_user['email'] }}</span>
+          <a class="set-label acct-name" href="{{ url_for('auth.account') }}"
+             title="{{ current_user['email'] }} — account settings">{{ current_user['name'] or current_user['email'] }}</a>
           <form action="{{ url_for('auth.logout') }}" method="post" class="acct-form">
             <input type="hidden" name="csrf" value="{{ csrf_token }}">
             <button type="submit" class="linkbtn">Sign out</button>

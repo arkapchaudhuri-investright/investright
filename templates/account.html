@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Account · InvestRight{% endblock %}
+{% block content %}
+<section class="hero auth-hero acct-page">
+  <h1 class="serif">Your account</h1>
+  <p class="sub">{{ user['email'] }}</p>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+  {% endwith %}
+
+  <h2 class="acct-h2">Change password</h2>
+  <form class="auth-form" method="post" action="{{ url_for('auth.change_password') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    {# Helps password managers associate the change with the right account. #}
+    <input type="hidden" name="username" autocomplete="username" value="{{ user['email'] }}">
+    <label>Current password
+      <input type="password" name="current_password" required autocomplete="current-password">
+    </label>
+    <label>New password
+      <input type="password" name="new_password" required minlength="8" autocomplete="new-password">
+    </label>
+    <label>Confirm new password
+      <input type="password" name="new_password2" required minlength="8" autocomplete="new-password">
+    </label>
+    <button type="submit" class="btn-analyze auth-go">Change password</button>
+  </form>
+
+  <p class="auth-note">
+    Changing your password signs you out everywhere else — this device stays
+    signed in. There's still no self-serve reset if you forget it (no email
+    infrastructure on a $0 budget), so pick something you'll keep.
+  </p>
+
+  <p class="auth-alt"><a href="{{ url_for('home') }}">← Back to your watchlist</a></p>
+</section>
+{% endblock %}
