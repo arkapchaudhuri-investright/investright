@@ -7,7 +7,7 @@
      (server {{ greeting }} is the no-JS fallback) + a name they type once,
      remembered in localStorage. Upgrades to a real account later. #}
   <h1 class="serif" id="greet">{{ greeting }}</h1>
-  <p class="sub" id="greet-sub">Which stock are we looking at today?</p>
+  <p class="sub" id="greet-sub">Search any US or India ticker — AAPL, RELIANCE.NS, TCS.BO</p>
 
   {# First-visit welcome popup. Two steps: (1) choose how to start — create an
      account, continue as a guest, or sign in; (2) guests give a name + market.
@@ -51,8 +51,8 @@
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <div class="search-bar" data-tour="search">
       <input id="symbol" name="symbol" type="text" spellcheck="false"
-             placeholder="Search a ticker to analyze — AAPL, RELIANCE.NS, TCS.BO…"
-             aria-label="Search a stock ticker to analyze">
+             placeholder="Which stock are we looking at today?"
+             aria-label="Which stock are we looking at today? Search a ticker to analyze">
       <button type="submit" class="btn-analyze">Analyze</button>
       <ul id="suggest" class="suggest" hidden></ul>
     </div>
