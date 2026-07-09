@@ -17,7 +17,7 @@ import fetch
 import logos
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
-from auth import bp as auth_bp, current_user, login_required
+from auth import bp as auth_bp, client_ip, current_user, login_required
 from db import (add_user_watch, get_conn, get_user_note, init_db, log_event,
                 remove_user_watch, save_snapshot, save_user_note, user_watches)
 
@@ -92,8 +92,7 @@ def _log(action, ticker=None):
     browser mirrors from localStorage into cookies (see base.html); IP prefers
     Caddy's X-Forwarded-For. Best-effort: never let logging break a request."""
     try:
-        xff = request.headers.get("X-Forwarded-For", "")
-        ip = xff.split(",")[0].strip() if xff else request.remote_addr
+        ip = client_ip()
         # name/market cookies are percent-encoded client-side (names may hold
         # spaces/unicode); Werkzeug doesn't unquote them, so do it here.
         name = unquote(request.cookies.get("ir_name") or "") or None

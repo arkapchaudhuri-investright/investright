@@ -9,7 +9,7 @@ summary of them — kept by date so last-good survives an API outage).
 import json
 import secrets
 import sqlite3
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -162,6 +162,17 @@ CREATE TABLE IF NOT EXISTS user_notes (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (user_id, ticker)
 );
+-- Failed sign-in attempts (Tier C throttling). One row per failure; success
+-- clears the rows for that email+IP. Pruned to the window on every check, so it
+-- stays tiny. Shared via SQLite rather than kept in memory, because gunicorn
+-- runs 2 workers and an in-process counter would only see half the attempts.
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT,                          -- lower-cased; what was typed, may not exist
+    ip    TEXT,
+    ts    TEXT NOT NULL                  -- UTC ISO8601, same format as _now()
+);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ts ON login_attempts(ts);
 -- Activity log (Phase 6c). Pre-accounts there's no real identity, so this is
 -- best-effort: `visitor` is an anonymous per-browser cookie UUID and `name`/
 -- `market` are self-reported (mirrored from the visitor's localStorage into
@@ -358,6 +369,46 @@ def user_watches(conn, user_id, ticker):
     return conn.execute(
         "SELECT 1 FROM user_watchlist WHERE user_id=? AND ticker=?",
         (user_id, ticker)).fetchone() is not None
+
+
+# Sign-in throttling (Tier C). Two limits: per-email (someone guessing one
+# account's password) and the looser per-IP one (someone spraying many accounts
+# from one host). Both are generous enough that a person mistyping their own
+# password a few times never notices.
+LOGIN_WINDOW_MIN = 15
+LOGIN_MAX_PER_EMAIL = 8
+LOGIN_MAX_PER_IP = 20
+
+
+def _login_cutoff():
+    return (datetime.now(timezone.utc) -
+            timedelta(minutes=LOGIN_WINDOW_MIN)).isoformat(timespec="seconds")
+
+
+def login_failures(conn, email, ip):
+    """(failures for this email, failures from this IP) inside the window.
+    Prunes expired rows first, so the table never grows. Timestamps share one
+    UTC format, so a string compare is a time compare."""
+    cutoff = _login_cutoff()
+    conn.execute("DELETE FROM login_attempts WHERE ts < ?", (cutoff,))
+    by_email = conn.execute(
+        "SELECT COUNT(*) FROM login_attempts WHERE email=? AND ts >= ?",
+        (email, cutoff)).fetchone()[0]
+    by_ip = conn.execute(
+        "SELECT COUNT(*) FROM login_attempts WHERE ip=? AND ts >= ?",
+        (ip, cutoff)).fetchone()[0] if ip else 0
+    return by_email, by_ip
+
+
+def record_login_failure(conn, email, ip):
+    conn.execute("INSERT INTO login_attempts (email,ip,ts) VALUES (?,?,?)",
+                 (email, ip, _now()))
+
+
+def clear_login_failures(conn, email, ip):
+    """A correct password wipes the slate for that email and that IP — so a
+    legitimate person who fumbled their password isn't left near the limit."""
+    conn.execute("DELETE FROM login_attempts WHERE email=? OR ip=?", (email, ip))
 
 
 def log_event(conn, action, visitor=None, name=None, market=None,
