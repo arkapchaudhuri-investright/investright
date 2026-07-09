@@ -4,7 +4,8 @@ A self-hosted stock research web app: Simply Wall St-level per-stock insights + 
 Finimize-style "interesting stocks" digest. Must be **always available without
 Claude or a Pro membership** — build locally, then host 24/7 on a free VM.
 
-> Status: design phase. No app code yet. This doc is the handoff for the build session.
+> Status: **LIVE at https://investright.us** — Phases 1–9 built + deployed (2026-07-09).
+> **New session? Jump to [§12 "Next session — START HERE"](#12-next-session--start-here-handoff-current-as-of-2026-07-09)** for current state, workflow, gotchas, and backlog. §1–§7 = design; §8/§10/§11 = historical build specs; §9 = build log.
 
 ---
 
@@ -676,3 +677,91 @@ Small, self-contained polish. Do these before the accounts work; verify on :8700
    `home.html`. It duplicates the watchlist table/cards right below it and serves no
    unique purpose. Delete the `{% if rows %}…<div class="chips">…</div>…{% endif %}`
    block and the now-unused `.chips` / `.chip` CSS in `style.css`.
+
+---
+
+## 12. Next session — START HERE (handoff, current as of 2026-07-09)
+
+> §8, §10, §11 above are **historical build specs** — already built + shipped.
+> Read the last few entries of §9 (Phases 8 + 9) for what the app does today, then
+> this section for state, workflow, gotchas, and backlog.
+
+### 12.1 Where things stand
+InvestRight is **fully live at https://investright.us** (Oracle Free VM, HTTPS via
+Caddy, 24/7, no Mac/Claude dependency). Phases 1–9 are done and deployed:
+- 1–7: watchlist, nightly refresh, deep-dive (health checks + DCF + charts +
+  news), "Today" screener + AI digest, Oracle deploy, dark/light + team page +
+  open-source, guided onboarding + 💡 explainers. (See §9.)
+- **8 (accounts):** email/password login (Werkzeug PBKDF2), Flask sessions,
+  `SECRET_KEY` from `.env`, CSRF on every POST, per-user `user_watchlist` +
+  `user_notes`. Auth is **optional** — guests browse/search/analyze/Today freely;
+  login only gates saving a watchlist / writing notes.
+- **9 (this batch):** two-step welcome popup (Create account / Continue as guest /
+  Sign in), Otto-on-top + **no 👋 wave**, **settings gear-only** (market, currency,
+  theme, dated $→₹ rate — nowhere else), **company logo replaces Otto in the
+  deep-dive header** (monogram fallback), **Ask Otto** floating chatbot on
+  `/stock` (Gemini-grounded, guests allowed), and the home search placeholder
+  "Which stock are we looking at today?" (no hero subtitle).
+
+### 12.2 How to run + ship (the rules — do not skip)
+- **Local:** `cd ~/Desktop/InvestRight && .venv/bin/python app.py` → http://localhost:8700
+  (takes an optional port arg, e.g. `app.py 8701`, for a second copy). SQLite at
+  `data/investright.db`. `.env` (git-ignored) holds `GEMINI_API_KEY`, `ADMIN_KEY`,
+  `SECRET_KEY`.
+- **Constraints (locked):** $0 only — free data + free hosting. **No CDN, no JS
+  chart libs** (must work offline on the VM); charts/snowflake/Otto are inline SVG.
+  Cron writes, web reads (§3). Wrap every external call in try/except + cache
+  last-good. AI is **Gemini/Groq, never Claude** (§1). Label honesty: DCF = estimate
+  from historical growth, not advice.
+- **Git flow:** `main` is **branch-protected** (PRs required, 0 approvals so the
+  solo owner can self-merge). Work on a `feature/*` branch → push → `gh pr create`
+  → squash-merge → deploy. `gh` is at `~/.local/bin/gh` (not on PATH; `export
+  PATH="$HOME/.local/bin:$PATH"`). GitHub account `arkapchaudhuri-investright`.
+- **Verify before deploy:** on :8700/:8701, **desktop + mobile (375px), light +
+  dark**, no console errors. To skip the welcome popup/tour in a preview:
+  `localStorage.setItem('ir_name','X'); localStorage.setItem('ir_toured','1')`.
+- **Deploy:** `ssh -i ~/.ssh/investright_oracle ubuntu@170.9.255.191` (passwordless
+  sudo) then `cd /opt/investright && ./deploy.sh` (git ff-pull + pip + restart
+  gunicorn + health check). `/opt/investright` is a clone of `main`; `.env` + `data/`
+  are out-of-band (chmod 600, untouched by pull). **ASK before touching the VM/DNS.**
+  VM services: `investright` (gunicorn :8700), `caddy` (:80/443), `investright-refresh.timer`
+  (22:00 CT nightly). Admin log: `/admin?key=<ADMIN_KEY>`.
+
+### 12.3 File map
+`app.py` (routes, context builders) · `auth.py` (login blueprint) · `db.py` (schema
++ writers; `init_db()` runs **at import** so gunicorn picks up new tables) ·
+`fetch.py` (yfinance) · `edgar.py` (SEC, US-only) · `metrics.py` (pure: checks/DCF/
+snowflake/screener geometry) · `refresh.py` (nightly cron job) · `digest.py`
+(Gemini/Groq: `run_digest` + `ask` for Ask Otto) · `logos.py` (company-logo cache)
+· `templates/*` (extend `base.html`) · `static/style.css` (CSS-var themed).
+
+### 12.4 Gotchas (bitten before)
+- **New DB table won't exist in prod** unless `init_db()` runs — it's called at
+  import in `app.py` now, so a deploy restart creates it. (Was a latent bug.)
+- **CSRF on POST:** `_csrf_protect` rejects any POST without a valid `csrf` token —
+  **AJAX POSTs must send `csrf`** (Ask Otto posts it as a form field; the token is
+  in `csrf_token` / a page `data-csrf` attribute).
+- **A new `SECRET_KEY`/`ADMIN_KEY`/etc. must be added to the VM `.env` by hand**
+  (out-of-band) before/with the deploy, or prod breaks. Don't set
+  `SESSION_COOKIE_SECURE=0` on the VM (prod is HTTPS).
+- **`static/logos/` is gitignored** — fetched at ingest, repopulates via refresh /
+  any `/analyze`; after a deploy, run a one-off to warm logos if you want them
+  instantly (see §9 Phase 9-ship note).
+- **⚠️ Two Claude sessions edited this repo at once (2026-07-08).** Before big
+  multi-file work: `git status`, `git reflog`, and check for a stray flask process
+  (`lsof -iTCP:8700`).
+
+### 12.5 Backlog (nothing is broken — pick what you want)
+1. **Watchlist migration (§10.3) — the one visible gap.** Watchlist is now
+   per-user, so Arka's old global list (~4 tickers in the global `watchlist` table)
+   isn't shown until he makes an account. Once he has one, run a one-time, idempotent
+   copy `watchlist → user_watchlist` (+ `notes → user_notes`) under his `user_id`.
+   Back up `data/investright.db` first. **Confirm his account/email with him first.**
+2. **Phase 8 Tier C** (spec'd, unbuilt): remember-me longer sessions, change-password
+   while logged in, login throttling, delete-account.
+3. **Password reset / email verification** — out of v1 (no free email infra);
+   forgotten passwords = manual CLI reset. Register page says so honestly. Revisit if
+   a free transactional-email provider is wired in.
+4. **Housekeeping:** delete stale merged branches on GitHub
+   (`feature/phase8-accounts-tierA`, `feature/ui-tweaks-topbar-market`, the per-change
+   `feature/*` from Phase 9); optionally add the `user_id` column to `events` (§10.2).
