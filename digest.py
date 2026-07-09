@@ -95,6 +95,42 @@ def generate(picks, today_label):
     return _gemini(prompt, key) if name == "gemini" else _groq(prompt, key)
 
 
+def _ask_prompt(context, question):
+    """Ground Otto's answer in the stock's saved metrics (the `context` block).
+    Same honesty rules as the digest (§1): explain the numbers, never advise."""
+    return f"""You are Otto, a friendly, plain-spoken owl assistant on InvestRight, a \
+personal stock-research dashboard. Answer the user's question about the stock \
+using ONLY the data below — do not invent figures or use outside knowledge. If \
+the data doesn't cover it, say so plainly.
+
+Rules:
+- Be concise: 2–4 short sentences, sentence case, calm, no hype, no emojis, no markdown.
+- The DCF "fair value" is arithmetic on the company's own past growth, not an \
+analyst target — hedge large gaps.
+- Never tell the user to buy, sell, or hold, and never say what they "should" do. \
+You explain what the numbers say. End nothing with advice.
+
+DATA
+{context}
+
+QUESTION: {question}
+
+Otto's answer:"""
+
+
+def ask(context, question):
+    """Answer one user question about a stock, grounded in `context`. Uses the
+    same free provider as the digest (Gemini, else Groq); never Claude (§1).
+    Returns the answer text. Raises on any failure so the caller can degrade."""
+    prov = provider()
+    if not prov:
+        raise RuntimeError("no GEMINI_API_KEY or GROQ_API_KEY in .env or environment")
+    name, key = prov
+    prompt = _ask_prompt(context, question)
+    body, _model = _gemini(prompt, key) if name == "gemini" else _groq(prompt, key)
+    return body
+
+
 def _gemini(prompt, key):
     r = requests.post(
         "https://generativelanguage.googleapis.com/v1beta/models/"

@@ -123,9 +123,12 @@ one `<style>` of `@keyframes`. No JS, no image files, scales crisply.
    (6b: public access + share UX; 6c: market onboarding + activity log + gear).
 7. Guided onboarding + learn-as-you-go: first-run Otto tour, market switcher +
    market-aware Today, per-graph 💡 Investopedia explainers. ✅ **done** (§9).
-8. **Real accounts: email + password login, per-user watchlists + notes.** ← **next** (spec in §10).
+8. **Real accounts: email + password login, per-user watchlists + notes.**
+   ✅ **Tier A + B built & verified** (§9); Tier C (niceties) deferred. Preceded by
+   the §11 quick UI tweaks. Awaiting merge + a bundled deploy (SECRET_KEY on the VM).
 
-Phases 1–7 are built, deployed, and live (see §9). Phase 8 (accounts) is spec'd in §10 for the next session.
+Phases 1–7 are built, deployed, and live (see §9). Phase 8 Tier A + B are built and
+verified locally, pending merge + deploy (spec in §10, build log in §9).
 
 ---
 
@@ -431,6 +434,89 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   takeaway; 8 explainer bulbs open with Investopedia links; activity log records
   name/market/action. **NEEDS on deploy:** add `ADMIN_KEY=…` to the VM's `.env`
   (out-of-band) for /admin to work in production.
+- **§11 quick UI tweaks** (2026-07-08) — four self-contained polish items ahead of
+  Phase 8. (1) **Market switcher moved into the top bar** (`base.html`), between
+  the `InvestRight` wordmark and the `Today` link, so it's persistent on every page
+  (was a per-page hero copy on Home + Today, both removed). Still client-only
+  (`localStorage.ir_market`, shared `.market-seg` class wired by base.html's
+  script); `data-tour="market"` hook moved onto the top-bar control so the guided
+  tour still points at it. Mobile: the switcher drops to its own centred full-width
+  row (`order:3; flex-basis:100%`) with the "Investing in" label hidden below
+  560px — no h-overflow at 375px. (2) **Market row removed from the ⚙ settings
+  menu** (redundant now); Currency + Theme + FX line stay. (3) **$→₹ rate shown at
+  the point of conversion:** when `ccy==INR`, a small line under the watchlist head
+  reads "Converted at today's rate · $1 = ₹95.55 · 8 Jul" (new `fx_on_label` passed
+  from `home()`; stale rates say so with the date, matching the settings FX line).
+  (4) **Watchlist pulse chips removed** from Home (`.chips`/`.chip` markup + CSS,
+  incl. the transition + rise-animation references) — the watchlist table/cards
+  right below already show the same tickers + change. Verified on :8701 (Flask dev,
+  since :8700 was busy) desktop + mobile (375px, no h-scroll), light + dark, no
+  console errors: switcher persistent + active-state correct on Home/Today, settings
+  menu Market-free, ₹ note shows the rate + date, chips gone.
+- **Phase 8 Tier A — accounts + per-user watchlist** (2026-07-08). Optional
+  email+password login (§10.0: public site stays open; login only unlocks saving).
+  New `auth.py` Blueprint: `current_user()` (cached on `g`), `login_required`
+  (bounces to `/login?next=<referrer>` — the watchlist routes are POST-only, so
+  next is the *referring GET page*, never the endpoint), and `/register` `/login`
+  `/logout`. Werkzeug PBKDF2 hashing, Flask signed-cookie session (`permanent`, 30d).
+  New `users` + `user_watchlist` tables; the global `watchlist` stays as the
+  refresh/Today **union** (§10.2). **Decision (confirmed with Arka): NO migration —
+  everyone starts empty**, so the old shared watchlist/notes are left as union/ref
+  data only. `app.py`: `SECRET_KEY` from `.env` (dev fallback kept), hardened session
+  cookie (HttpOnly, SameSite=Lax, Secure — relaxed only for the `__main__` dev
+  server / a local `SESSION_COOKIE_SECURE=0`), app-wide **CSRF** (per-session token +
+  `before_request`, 400 on mismatch; hidden input on every POST form), and
+  **`init_db()` at import** so gunicorn creates the new tables on deploy (the latent
+  fix flagged after Phase 6c). `/add` `/remove` `/stock/<t>/watch` are `@login_required`
+  and per-user; `/remove` no longer destroys shared stock/snapshot rows. New
+  `login.html` + `register.html` (calm, honest §10.6 no-verify/no-reset note); settings
+  menu gained an account row (name + Sign out / sign-in links); home empty state is a
+  sign-in CTA when logged out. Verified on :3000 desktop+mobile, light+dark, no console
+  errors: two accounts have independent watchlists, sessions persist across login,
+  wrong-password + duplicate-email (case-insensitive) errors, CSRF rejects bad tokens,
+  logged-out `/add` → `/login`, and `/today` `/stock` `/team` stay open to all.
+- **Phase 8 Tier B — per-user notes + account polish** (2026-07-08). New `user_notes`
+  table (PK `user_id,ticker`; old global `notes` left untouched, no migration) +
+  `save_user_note`/`get_user_note`. `/stock/<t>/note` is `@login_required` and scoped
+  to the user; the deep-dive loads only the current user's note. `stock.html` shows the
+  journal editor only when signed in, else a "Sign in to keep a private journal"
+  prompt. `home.html`: logged-in visitors are greeted by their **account** name and
+  never see the name popup; the account name/market seed localStorage so the
+  autocomplete + Today filter follow the account (per-browser name/market are already
+  adopted into the account on register/login, §10.3). Verified on :3000: two users see
+  only their own notes, logged-out gets the prompt (no editor), a returning user is
+  greeted by account name with no popup, no console errors. **Tier C (remember-me,
+  change/reset password, throttling, delete-account) deferred.** NEEDS on deploy:
+  `SECRET_KEY` in the VM's out-of-band `.env` (else prod sessions break); do NOT set
+  `SESSION_COOKIE_SECURE=0` there (prod is HTTPS via Caddy).
+- **Phase 9 — onboarding revamp + logos + Ask Otto** (2026-07-08). Per new
+  direction; a few points **supersede §11**. (1) **Welcome popup is now two steps:**
+  choose **Create an account / Continue as guest / Sign in** (guest → the existing
+  "what should I call you" name + market ask). **Otto sits on top** of the popup and
+  the **👋 wave emoji is removed everywhere** (popup + greeting). Account/Sign-in link
+  to the Phase 8 `/register` `/login`. (2) **Market selection is now gear-only**
+  (reverses §11's top-bar switcher): market, currency, light/dark theme, and today's
+  **$→₹ rate (dated, "as of …")** all live behind the ⚙ gear and nowhere else — hero,
+  Today, and top-bar copies removed; the inline watchlist rate note dropped. The
+  guided tour drops its separate market step and its settings step now names all of
+  these. Onboarding + tour still *mention* that these live in the gear. (3) **Company
+  logos** on every deep-dive header — new `logos.py` caches a mark at ingest (Clearbit
+  API is dead, so it uses gstatic faviconV2 128px PNG, DuckDuckGo icon fallback;
+  tiny/globe responses rejected), served locally (offline-safe, §8.0); a monogram of
+  the initials is the always-available fallback. Wired into `_ingest_stock`,
+  `refresh.ensure_stock` + `save_deep`; `static/logos/` gitignored (repopulates via
+  refresh / any `/analyze`). (4) **Ask Otto** — a floating bottom-right chatbot on the
+  deep-dive (Otto with a gentle attention-bounce) that answers questions about *that*
+  stock. New `POST /stock/<t>/ask` grounds the free LLM (`digest.ask` → Gemini/Groq,
+  never Claude) in `_stock_context()` — the saved snapshot, axis scores, DCF, passed/
+  failed checks, fundamentals, insiders, news — and returns JSON; open to guests,
+  explains the numbers, never advises (§1), degrades to a friendly line with no key/
+  quota (never 500s). Verified on :8701 desktop + mobile, light + dark, no console
+  errors: onboarding 3-way choice + guest step, gear holds market/currency/theme/rate,
+  AAPL logo renders (white plate, both themes) with monogram fallback, Ask Otto answers
+  (chips + free text + typing dots), all routes 200, `/ask` rejects a missing CSRF
+  token (400). **NEEDS on deploy (same as Phase 8):** `SECRET_KEY` in the VM `.env`;
+  the existing `GEMINI_API_KEY` (powers the digest) also powers Ask Otto in prod.
 
 ---
 

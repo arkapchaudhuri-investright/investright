@@ -18,17 +18,8 @@
   </div>
 </section>
 
-{# Market switcher (Phase 7) — filters the screen below. Its own full-width row
-   (outside the header's flex column, so it never gets cramped on mobile). Shared
-   .market-seg class, wired by base.html's script (localStorage, reload on change). #}
-<div class="today-market">
-  <span class="hm-label">Showing</span>
-  <nav class="seg market-seg" aria-label="Market">
-    <a href="#" data-market="US">🇺🇸 US</a>
-    <a href="#" data-market="IN">🇮🇳 India</a>
-    <a href="#" data-market="BOTH">Both</a>
-  </nav>
-</div>
+{# Market switcher moved to the top bar (§11.1) — persistent on every page; it
+   still filters this screen (reloads on change, reading the ir_market cookie). #}
 
 {# Otto's read — the nightly AI digest; a summary of our own rules, labeled so (§1, §4) #}
 <section class="card">

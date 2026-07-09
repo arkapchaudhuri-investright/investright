@@ -23,6 +23,23 @@
       </summary>
       <div class="settings-scrim" aria-hidden="true"></div>
       <div class="settings-panel">
+        {# Account (Phase 8). Login is optional — it only unlocks a per-user
+           watchlist (+ notes). Signed in: name + Sign out; else: sign-in links. #}
+        <div class="set-row set-account">
+          {% if current_user %}
+          <span class="set-label acct-name" title="{{ current_user['email'] }}">{{ current_user['name'] or current_user['email'] }}</span>
+          <form action="{{ url_for('auth.logout') }}" method="post" class="acct-form">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <button type="submit" class="linkbtn">Sign out</button>
+          </form>
+          {% else %}
+          <span class="set-label">Account</span>
+          <span class="acct-links">
+            <a href="{{ url_for('auth.login') }}">Sign in</a>
+            <a href="{{ url_for('auth.register') }}">Create</a>
+          </span>
+          {% endif %}
+        </div>
         {% if show_fx %}
         <div class="set-row">
           <span class="set-label">Currency</span>
@@ -41,10 +58,11 @@
                class="{{ 'active' if theme == 'dark' }}">☾</a>
           </nav>
         </div>
-        {# Market: client-only preference (localStorage, no accounts yet). Drives
-           the home search autocomplete filter + the default display currency.
-           JS-managed (unlike the server-linked currency/theme) — see base script. #}
-        <div class="set-row">
+        {# Market: client-only preference (localStorage), the ONLY place it lives
+           now (§11 corrected). Shared .market-seg class wired by the base script;
+           it writes localStorage + the ccy cookie and reloads to apply the default
+           currency + the /today filter. data-tour hook points the tour here. #}
+        <div class="set-row" data-tour="market">
           <span class="set-label">Market</span>
           <nav class="seg market-seg" aria-label="Market">
             <a href="#" data-market="US" title="United States (NYSE/NASDAQ)">US</a>
@@ -53,8 +71,12 @@
           </nav>
         </div>
         {% if show_fx %}
+        {# Today's $→₹ rate, shown here at the point the currency is chosen (§11).
+           Always carries the date it's from; flags when it's a stale last-good. #}
         <div class="set-fx" {% if fx_stale %}title="Yahoo unreachable today — using the {{ fx_stale }} rate"{% endif %}>
-          {% if fx %}$1 = ₹{{ '%.2f'|format(fx) }}{% if fx_stale %} <span class="fx-stale">({{ fx_stale }})</span>{% endif %}
+          {% if fx %}$1 = ₹{{ '%.2f'|format(fx) }}
+            {% if fx_stale %}<span class="fx-stale">(as of {{ fx_stale }})</span>
+            {% elif fx_on_label %}<span class="set-fx-on">as of {{ fx_on_label }}</span>{% endif %}
           {% else %}FX rate unavailable{% endif %}
         </div>
         {% endif %}

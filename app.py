@@ -4,26 +4,43 @@ Run: .venv/bin/python app.py  →  http://localhost:8700
 import hmac
 import json
 import os
+import secrets
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from urllib.parse import unquote
 
-from flask import (Flask, abort, flash, g, make_response, redirect,
-                   render_template, request, url_for)
+from flask import (Flask, abort, flash, g, jsonify, make_response, redirect,
+                   render_template, request, session, url_for)
 
+import digest
 import fetch
+import logos
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
-from db import get_conn, init_db, log_event, save_note, save_snapshot
+from auth import bp as auth_bp, current_user, login_required
+from db import (add_user_watch, get_conn, get_user_note, init_db, log_event,
+                remove_user_watch, save_snapshot, save_user_note, user_watches)
 
 app = Flask(__name__)
-app.secret_key = "investright-local-only"
+# Session signing key from .env (§10.0) — refresh→digest's loader put it in the
+# environment at import. Falls back to a dev-only constant if unset so local
+# runs still work; production MUST set SECRET_KEY in the VM .env.
+app.secret_key = os.environ.get("SECRET_KEY") or "investright-local-only"
+# Session cookie hardening (§10.0). Secure defaults ON (prod is HTTPS via Caddy);
+# the __main__ dev server flips it off so login works over http://localhost.
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=(os.environ.get("SESSION_COOKIE_SECURE", "1") == "1"),
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
+app.register_blueprint(auth_bp)
 
 # Ensure the SQLite schema exists at import time, not just under the dev server's
-# __main__ block — gunicorn imports this module without running __main__, so a
-# newly-added table (e.g. Phase 6c's `events`) would otherwise be missing in
-# production until the nightly refresh's init_db() ran. init_db is idempotent
-# (CREATE IF NOT EXISTS + additive migrations), so calling it here is safe.
+# __main__ block — gunicorn imports this module without running __main__, so
+# newly-added tables (Phase 6c's `events`, Phase 8's users/user_watchlist/
+# user_notes) would otherwise be missing in production until the nightly
+# refresh's init_db() ran. Idempotent (CREATE IF NOT EXISTS + additive migrations).
 init_db()
 
 # Plain-English graph explainers for the deep-dive 💡 bulbs (Phase 7). Exposed
@@ -47,6 +64,27 @@ def _persist_visitor(resp):
     if request.cookies.get("vid") != getattr(g, "vid", None):
         resp.set_cookie("vid", g.vid, max_age=365 * 24 * 3600, samesite="Lax")
     return resp
+
+
+@app.before_request
+def _csrf_protect():
+    """Reject cross-site POSTs (§10.0). Every POST form carries a hidden `csrf`
+    input matching the per-session token; SameSite=Lax is the first line of
+    defence, this token is belt-and-braces."""
+    if request.method == "POST":
+        token = session.get("csrf")
+        if not token or not hmac.compare_digest(request.form.get("csrf", ""), token):
+            abort(400)
+
+
+@app.context_processor
+def inject_csrf():
+    """Per-session CSRF token, minted lazily on the first render and exposed to
+    every POST form as `csrf_token`."""
+    token = session.get("csrf")
+    if not token:
+        token = session["csrf"] = secrets.token_urlsafe(32)
+    return {"csrf_token": token}
 
 
 def _log(action, ticker=None):
@@ -129,23 +167,32 @@ def home():
     if ccy not in ("USD", "INR"):
         ccy = "USD"
     fx, fx_on = get_usdinr()
-    with get_conn() as conn:
-        rows = conn.execute("""
-            SELECT s.*, n.fetched_at, n.price, n.prev_close, n.change_pct,
-                   n.market_cap, n.pe, n.div_yield, n.wk52_low, n.wk52_high
-            FROM watchlist w
-            JOIN stocks s ON s.ticker = w.ticker
-            LEFT JOIN snapshots n ON n.ticker = w.ticker
-            ORDER BY w.added_at""").fetchall()
+    # Watchlist is per-account now (§10.4): logged-in shows the user's own list;
+    # logged-out shows an empty sign-in CTA (search / analyze / Today stay open).
+    user = current_user()
+    rows = []
+    if user:
+        with get_conn() as conn:
+            rows = conn.execute("""
+                SELECT s.*, n.fetched_at, n.price, n.prev_close, n.change_pct,
+                       n.market_cap, n.pe, n.div_yield, n.wk52_low, n.wk52_high
+                FROM user_watchlist w
+                JOIN stocks s ON s.ticker = w.ticker
+                LEFT JOIN snapshots n ON n.ticker = w.ticker
+                WHERE w.user_id = ?
+                ORDER BY w.added_at""", (user["id"],)).fetchall()
     rows = [convert_row(dict(r), ccy, fx) for r in rows]
     as_of = max((r["fetched_at"] for r in rows if r["fetched_at"]), default=None)
     if as_of:
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
     fx_stale = (datetime.fromisoformat(fx_on).strftime("%-d %b")
                 if fx_on and fx_on != date.today().isoformat() else None)
+    # Date the rate is from (fresh or stale) — shown inline at the point of
+    # conversion when displaying ₹ prices (§11.3).
+    fx_on_label = datetime.fromisoformat(fx_on).strftime("%-d %b") if fx_on else None
     resp = make_response(render_template(
         "home.html", rows=rows, as_of=as_of, greeting=greeting(),
-        ccy=ccy, fx=fx, fx_stale=fx_stale, show_fx=True))
+        ccy=ccy, fx=fx, fx_stale=fx_stale, fx_on_label=fx_on_label, show_fx=True))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ccy, max_age=180 * 24 * 3600)
     _log("view")
@@ -160,6 +207,10 @@ def _ingest_stock(symbol):
     meta = fetch.lookup(symbol)
     if not meta:
         return None
+    try:  # cache the company logo now so the deep-dive shows it immediately
+        logos.ensure(meta["ticker"], meta.get("website"))
+    except Exception:
+        pass
     snap = fetch.snapshot(symbol)
     now = datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
@@ -191,22 +242,22 @@ _NOT_FOUND = ("Otto couldn't find “{}” on Yahoo — check the symbol? "
 
 
 @app.post("/add")
+@login_required
 def add():
+    user = current_user()
     symbol = request.form.get("symbol", "").strip().upper()
     if not symbol:
         return redirect(url_for("home"))
     with get_conn() as conn:
-        if conn.execute("SELECT 1 FROM watchlist WHERE ticker=?", (symbol,)).fetchone():
+        if user_watches(conn, user["id"], symbol):
             flash(f"{symbol} is already on your watchlist.", "info")
             return redirect(url_for("home"))
     meta = _ingest_stock(symbol)
     if not meta:
         flash(_NOT_FOUND.format(symbol), "error")
         return redirect(url_for("home"))
-    now = datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
-        conn.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?,?)",
-                     (meta["ticker"], now))
+        add_user_watch(conn, user["id"], meta["ticker"])   # per-user + global union
         try:  # fold the newcomer into /today's ranking (DB-only, instant)
             refresh_job.run_screener(conn)
         except Exception:
@@ -238,16 +289,16 @@ def analyze():
 
 
 @app.post("/remove")
+@login_required
 def remove():
+    user = current_user()
     ticker = request.form.get("ticker", "")
     _log("remove", ticker)
+    # Only drop the ticker from THIS user's list. Shared reference data (stocks /
+    # snapshots) and the global union stay — other users, peers, and /today may
+    # still need them, and the nightly refresh keeps covering the union.
     with get_conn() as conn:
-        conn.execute("DELETE FROM watchlist WHERE ticker=?", (ticker,))
-        conn.execute("DELETE FROM stocks WHERE ticker=?", (ticker,))  # cascades to snapshots
-        try:  # close the rank gap the cascade just left in /today
-            refresh_job.run_screener(conn)
-        except Exception:
-            pass
+        remove_user_watch(conn, user["id"], ticker)
     return redirect(url_for("home"))
 
 
@@ -388,6 +439,7 @@ def _float_arg(name):
 def stock(ticker):
     """Deep-dive — reads DB only (§8.1). Yahoo can be down and this still renders."""
     ticker = ticker.upper()
+    user = current_user()
     with get_conn() as conn:
         s = conn.execute("SELECT * FROM stocks WHERE ticker=?", (ticker,)).fetchone()
         if not s:
@@ -400,9 +452,10 @@ def stock(ticker):
         dcf_row = conn.execute("SELECT * FROM dcf WHERE ticker=?", (ticker,)).fetchone()
         news = [dict(r) for r in conn.execute(
             "SELECT * FROM news WHERE ticker=? ORDER BY published_at DESC LIMIT 8", (ticker,))]
-        note = conn.execute("SELECT * FROM notes WHERE ticker=?", (ticker,)).fetchone()
-        on_watch = conn.execute(
-            "SELECT 1 FROM watchlist WHERE ticker=?", (ticker,)).fetchone() is not None
+        note = get_user_note(conn, user["id"], ticker) if user else None
+        on_watch = bool(user) and conn.execute(
+            "SELECT 1 FROM user_watchlist WHERE user_id=? AND ticker=?",
+            (user["id"], ticker)).fetchone() is not None
 
         # Competitors strip (§4.9) — hand-curated map, scores from saved checks.
         peers = []
@@ -468,6 +521,7 @@ def stock(ticker):
     _log("view", ticker)
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
+        logo=logos.find(ticker),
         ccy=s["currency"], dcf=dcf, price=price, overridden=overridden,
         checks_by_axis=checks_by_axis, axis_names=dict(metrics.AXES),
         axis_detail=axis_detail, top6=top6, applicable_n=len(applicable),
@@ -485,28 +539,118 @@ def stock(ticker):
 
 
 @app.post("/stock/<ticker>/note")
+@login_required
 def save_stock_note(ticker):
+    user = current_user()
     ticker = ticker.upper()
     with get_conn() as conn:
         if conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
-            save_note(conn, ticker, request.form.get("body", "").strip())
+            save_user_note(conn, user["id"], ticker, request.form.get("body", "").strip())
     flash("Saved your note.", "ok")
     return redirect(url_for("stock", ticker=ticker))
 
 
-@app.post("/stock/<ticker>/watch")
-def toggle_watch(ticker):
-    """Add/remove from watchlist without leaving the deep-dive."""
+def _stock_context(conn, ticker):
+    """A compact text digest of everything we've saved on `ticker`, fed to Otto
+    (the free LLM) as grounding for a user's question. DB-only, no fetching."""
+    s = conn.execute("SELECT * FROM stocks WHERE ticker=?", (ticker,)).fetchone()
+    if not s:
+        return None
+    snap = conn.execute("SELECT * FROM snapshots WHERE ticker=?", (ticker,)).fetchone()
+    checks = [dict(r) for r in conn.execute(
+        "SELECT axis, label, passed, detail FROM health_checks WHERE ticker=?", (ticker,))]
+    for c in checks:
+        c["passed"] = None if c["passed"] is None else bool(c["passed"])
+    dcf = conn.execute("SELECT * FROM dcf WHERE ticker=?", (ticker,)).fetchone()
+    funds = [dict(r) for r in conn.execute(
+        "SELECT * FROM fundamentals WHERE ticker=? ORDER BY fiscal_year", (ticker,))]
+    news = [r["title"] for r in conn.execute(
+        "SELECT title FROM news WHERE ticker=? ORDER BY published_at DESC LIMIT 4", (ticker,))]
+    ins = conn.execute(
+        "SELECT SUM(action='buy') buys, SUM(action='sell') sells FROM insider_tx "
+        "WHERE ticker=? AND filed_at >= date('now','-90 day')", (ticker,)).fetchone()
+
+    cur = s["currency"]
+    scores = metrics.axis_scores(checks)
+    lines = [f"Company: {s['name']} ({ticker}) on {s['exchange']}. Prices in {cur}."]
+    if snap:
+        lines.append(
+            f"Price {snap['price']}, change today {snap['change_pct']}%. "
+            f"P/E {snap['pe']}, P/B {snap['pb']}, P/S {snap['ps']}, EPS {snap['eps']}, "
+            f"dividend yield {snap['div_yield']}%, market cap {snap['market_cap']}, "
+            f"52-week range {snap['wk52_low']}–{snap['wk52_high']}.")
+    if scores:
+        axis_label = dict(metrics.AXES)
+        lines.append("Snowflake axis scores (share of checks passed): " + ", ".join(
+            f"{axis_label.get(k, k)} {round(v * 100)}%" for k, v in scores.items()))
+    if dcf:
+        d = dict(dcf)
+        lines.append(
+            f"Our DCF fair value {round(d['fair_value'], 2) if d['fair_value'] else 'n/a'} "
+            f"{cur} (estimate from historical growth, not an analyst forecast); "
+            f"upside vs price {d['upside_pct']}%. Assumptions: growth "
+            f"{d['growth_used']}, discount {d['discount_rate']}, terminal {d['terminal_growth']}.")
+    passed = [c for c in checks if c["passed"] is True]
+    failed = [c for c in checks if c["passed"] is False]
+    if passed:
+        lines.append("Checks PASSED: " + "; ".join(
+            f"{c['label']} ({c['detail']})" if c["detail"] else c["label"] for c in passed))
+    if failed:
+        lines.append("Checks FAILED: " + "; ".join(
+            f"{c['label']} ({c['detail']})" if c["detail"] else c["label"] for c in failed))
+    if funds:
+        recent = funds[-5:]
+        lines.append("Recent fundamentals (fiscal year: revenue / net income / free cash flow): "
+                     + "; ".join(f"{f['fiscal_year']}: {f.get('revenue')} / "
+                                 f"{f.get('net_income')} / {f.get('fcf')}" for f in recent))
+    if ins and (ins["buys"] or ins["sells"]):
+        lines.append(f"Insider trades last 90 days: {ins['buys'] or 0} buys, "
+                     f"{ins['sells'] or 0} sells.")
+    if news:
+        lines.append("Recent headlines: " + " | ".join(news))
+    return "\n".join(lines)
+
+
+@app.post("/stock/<ticker>/ask")
+def ask_otto(ticker):
+    """Ask-Otto chatbot (Phase 9): answer a question about this stock via the free
+    LLM, grounded in our saved metrics. Open to guests (no login). Returns JSON;
+    any failure (no key, quota, network) degrades to a friendly message, never 500."""
     ticker = ticker.upper()
-    now = datetime.now().isoformat(timespec="seconds")
+    question = (request.form.get("question") or "").strip()[:500]
+    if not question:
+        return jsonify(error="Ask Otto something about this stock first."), 400
+    with get_conn() as conn:
+        context = _stock_context(conn, ticker)
+    if context is None:
+        abort(404)
+    _log("ask", ticker)
+    try:
+        answer = digest.ask(context, question)
+        return jsonify(answer=answer)
+    except Exception:
+        return jsonify(answer="Otto can't reach his brain right now — the free AI "
+                       "service is unset or busy. The numbers on this page still "
+                       "tell the story. (Not investment advice.)"), 200
+
+
+@app.post("/stock/<ticker>/watch")
+@login_required
+def toggle_watch(ticker):
+    """Add/remove from the current user's watchlist without leaving the deep-dive."""
+    user = current_user()
+    ticker = ticker.upper()
     with get_conn() as conn:
         if not conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
             abort(404)
-        if conn.execute("SELECT 1 FROM watchlist WHERE ticker=?", (ticker,)).fetchone():
-            conn.execute("DELETE FROM watchlist WHERE ticker=?", (ticker,))
+        if user_watches(conn, user["id"], ticker):
+            remove_user_watch(conn, user["id"], ticker)
         else:
-            conn.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?,?)",
-                         (ticker, now))
+            add_user_watch(conn, user["id"], ticker)   # per-user + global union
+            try:
+                refresh_job.run_screener(conn)
+            except Exception:
+                pass
     return redirect(url_for("stock", ticker=ticker))
 
 
@@ -530,4 +674,10 @@ def bigmoney(value, currency="USD"):
 
 
 if __name__ == "__main__":
-    app.run(port=8700, debug=True)   # schema is ensured at import (init_db above)
+    import sys
+    # Local HTTP dev: allow the session cookie over http://localhost (prod keeps
+    # Secure on via Caddy's HTTPS). Optional port arg for running a second copy.
+    app.config["SESSION_COOKIE_SECURE"] = False
+    init_db()
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8700
+    app.run(port=port, debug=True)

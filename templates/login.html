@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Sign in · InvestRight{% endblock %}
+{% block content %}
+<section class="hero auth-hero">
+  {% with mood = 'happy' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Welcome back</h1>
+  <p class="sub">Sign in to see your watchlist.</p>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+  {% endwith %}
+
+  <form class="auth-form" method="post" action="{{ url_for('auth.login') }}" autocomplete="on">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>Email
+      <input type="email" name="email" value="{{ email }}" required autofocus autocomplete="email">
+    </label>
+    <label>Password
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button type="submit" class="btn-analyze auth-go">Sign in</button>
+  </form>
+
+  <p class="auth-alt">New here?
+    <a href="{{ url_for('auth.register', next=next) }}">Create a free account</a></p>
+</section>
+{% endblock %}

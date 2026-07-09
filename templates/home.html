@@ -9,12 +9,28 @@
   <h1 class="serif" id="greet">{{ greeting }}</h1>
   <p class="sub" id="greet-sub">Which stock are we looking at today?</p>
 
-  {# First-visit welcome popup — asks a name once, remembered in localStorage.
-     Shown as a modal <dialog> only when no name is stored yet (see script). #}
+  {# First-visit welcome popup. Two steps: (1) choose how to start — create an
+     account, continue as a guest, or sign in; (2) guests give a name + market.
+     Otto sits on top (no wave emoji). Shown only when not logged in and no guest
+     name is stored yet (see script). #}
   <dialog id="name-dialog" class="name-dialog">
-    <form id="name-form" method="dialog" autocomplete="off">
-      <div class="nd-wave" aria-hidden="true">👋</div>
+    <div class="nd-otto">{% with mood = 'happy', size = 74 %}{% include "_otto.html" %}{% endwith %}</div>
+
+    {# Step 1 — pick a path #}
+    <div id="nd-choice" class="nd-step">
       <h2 class="serif" id="nd-title">Welcome to InvestRight</h2>
+      <p class="nd-sub">Calm, plain-English stock research — for the US and India.</p>
+      <div class="nd-actions">
+        <a class="name-go" href="{{ url_for('auth.register', next=url_for('home')) }}">Create an account</a>
+        <button type="button" class="nd-secondary" id="nd-guest-btn">Continue as guest</button>
+      </div>
+      <p class="nd-alt">Already have an account?
+        <a href="{{ url_for('auth.login', next=url_for('home')) }}">Sign in</a></p>
+      <p class="nd-foot">Change currency, theme &amp; market anytime from the ⚙ gear, top-right.</p>
+    </div>
+
+    {# Step 2 — guest: name + market (only shown after "Continue as guest") #}
+    <form id="name-form" class="nd-step" method="dialog" autocomplete="off" hidden>
       <p class="nd-sub">What should I call you?</p>
       <input id="name-input" type="text" maxlength="24" spellcheck="false"
              placeholder="Your name" aria-label="Your name">
@@ -25,22 +41,14 @@
         <label><input type="radio" name="market" value="BOTH" checked><span>Both</span></label>
       </div>
       <button type="submit" class="name-go">Let’s go →</button>
+      <p class="nd-foot">You can change your market anytime from the ⚙ gear.</p>
     </form>
   </dialog>
 
-  {# Market switcher on the hero (Phase 7) — client-only (localStorage), shared
-     .market-seg class so base.html's script wires clicks + active state. Filters
-     the search autocomplete and the /today screen; sets the default currency. #}
-  <div class="hero-market" data-tour="market">
-    <span class="hm-label">Investing in</span>
-    <nav class="seg market-seg" aria-label="Market">
-      <a href="#" data-market="US">🇺🇸 US</a>
-      <a href="#" data-market="IN">🇮🇳 India</a>
-      <a href="#" data-market="BOTH">Both</a>
-    </nav>
-  </div>
+  {# Market switcher lives only in the ⚙ gear now (§11 corrected) — no hero/top-bar copy. #}
 
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <div class="search-bar" data-tour="search">
       <input id="symbol" name="symbol" type="text" spellcheck="false"
              placeholder="Search a ticker to analyze — AAPL, RELIANCE.NS, TCS.BO…"
@@ -55,18 +63,8 @@
     {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
   {% endwith %}
 
-  {% if rows %}
-  <div class="chips">
-    {% for r in rows %}
-    <a class="chip" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}
-      {% if r['change_pct'] is not none %}
-      <span class="{{ 'up' if r['change_pct'] > 0 else 'down' if r['change_pct'] < 0 else 'flat' }}">
-        {{ '%+.1f'|format(r['change_pct']) }}%</span>
-      {% endif %}
-    </a>
-    {% endfor %}
-  </div>
-  {% endif %}
+  {# Watchlist pulse chips removed (§11.4) — the watchlist table/cards below
+     already show the same tickers + change; the chip strip was redundant. #}
 </section>
 
 <section id="watchlist" class="card" data-tour="watchlist">
@@ -74,6 +72,7 @@
   <div class="card-head">
     <h2>Your watchlist</h2>
     <form action="{{ url_for('refresh') }}" method="post" class="refresh-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
       {% if as_of %}<span class="asof">as of {{ as_of }}</span>{% endif %}
       <button type="submit" class="ghost">↻ Refresh</button>
     </form>
@@ -110,6 +109,7 @@
         <td>
           <form action="{{ url_for('remove') }}" method="post"
                 onsubmit="return confirm('Remove {{ r['ticker'] }} from your watchlist?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
             <input type="hidden" name="ticker" value="{{ r['ticker'] }}">
             <button class="x" aria-label="Remove {{ r['ticker'] }}">×</button>
           </form>
@@ -155,6 +155,7 @@
           <a href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
           <form action="{{ url_for('remove') }}" method="post"
                 onsubmit="return confirm('Remove {{ r['ticker'] }} from your watchlist?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
             <input type="hidden" name="ticker" value="{{ r['ticker'] }}">
             <button class="x" aria-label="Remove {{ r['ticker'] }}">× Remove</button>
           </form>
@@ -163,9 +164,16 @@
     </details>
     {% endfor %}
   </div>
-  {% else %}
-  <p class="empty serif">Otto's dozing — the watchlist is empty.<br>
+  {% elif current_user %}
+  <p class="empty serif">Otto's dozing — your watchlist is empty.<br>
     <span class="empty-sub">Add your first ticker above to wake him up.</span></p>
+  {% else %}
+  {# Logged out: watchlist is per-account now (§10.4). Search / Analyze / Today
+     all still work without an account — only saving a list needs one. #}
+  <p class="empty serif">Sign in to build your watchlist.<br>
+    <span class="empty-sub"><a href="{{ url_for('auth.login') }}">Sign in</a> or
+      <a href="{{ url_for('auth.register') }}">create a free account</a> to save
+      stocks — searching and Today work without one.</span></p>
   {% endif %}
 </section>
 
@@ -199,19 +207,37 @@
   var form = document.getElementById('name-form');
   var input = document.getElementById('name-input');
   var title = document.getElementById('nd-title');
+  // Logged-in visitors are greeted by their ACCOUNT name (§10.5 Tier B) and
+  // never see the "what's your name" popup; their account name/market also seed
+  // localStorage so the autocomplete + Today filter follow the account.
+  var ACCOUNT = {{ ({'name': (current_user['name'] or ''), 'market': (current_user['market'] or '')} if current_user else None) | tojson }};
   var name = '';
   try { name = (localStorage.getItem('ir_name') || '').trim(); } catch (e) {}
+  if (ACCOUNT) {
+    name = (ACCOUNT.name || '').trim();
+    try {
+      if (name) localStorage.setItem('ir_name', name);
+      if (ACCOUNT.market) localStorage.setItem('ir_market', ACCOUNT.market);
+    } catch (e) {}
+  }
   function paint() {
-    greetEl.textContent = name ? (g + ', ' + name + ' 👋') : (g + ' 👋');
+    greetEl.textContent = name ? (g + ', ' + name) : g;
   }
   paint();
-  // First visit (no name yet): open the welcome popup over the home page.
-  if (!name && dlg && typeof dlg.showModal === 'function') {
-    title.textContent = g + ' 👋';
-    requestAnimationFrame(function () {
-      dlg.showModal();
-      setTimeout(function () { input.focus(); }, 60);
+  // First visit (not logged in, no guest name yet): show the welcome popup on
+  // step 1 (create account / continue as guest / sign in). "Continue as guest"
+  // reveals the name + market step below.
+  var choice = document.getElementById('nd-choice');
+  var guestBtn = document.getElementById('nd-guest-btn');
+  if (guestBtn && form) {
+    guestBtn.addEventListener('click', function () {
+      if (choice) choice.hidden = true;
+      form.hidden = false;
+      setTimeout(function () { input.focus(); }, 40);
     });
+  }
+  if (!ACCOUNT && !name && dlg && typeof dlg.showModal === 'function') {
+    requestAnimationFrame(function () { dlg.showModal(); });
   }
   function setCookie(k, val) {
     document.cookie = k + '=' + encodeURIComponent(val) + ';path=/;max-age=' +
@@ -251,14 +277,12 @@
   var steps = [
     { sel: '[data-tour="search"]',   title: 'Search any stock',
       text: 'Type a ticker — AAPL, RELIANCE.NS, TCS.BO — and hit Analyze for a full breakdown.' },
-    { sel: '[data-tour="market"]',   title: 'Pick your market',
-      text: 'United States, India, or Both. This filters your suggestions and the Today screen, and sets your currency.' },
     { sel: '[data-tour="watchlist"]', title: 'Your watchlist',
-      text: 'Stars you save land here with live prices — tap any row for the full analysis.' },
+      text: 'Stars you save land here with live prices — tap any row for the full analysis. Sign in to keep your own list.' },
     { sel: '[data-tour="today"]',    title: "Today's ideas",
       text: "Otto ranks interesting stocks each night with plain-English reasons. It's a screen, not advice." },
-    { sel: '[data-tour="settings"]', title: 'Settings live here',
-      text: 'Switch currency, light/dark theme, and market any time from this gear.' }
+    { sel: '[data-tour="settings"]', title: 'Everything lives in the gear',
+      text: 'Your market (US / India / Both), currency, the live $→₹ rate, light/dark theme, and your account all live behind this gear.' }
   ];
   var overlay = document.getElementById('tour');
   if (!overlay) return;

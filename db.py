@@ -128,6 +128,35 @@ CREATE TABLE IF NOT EXISTS insider_tx (
     url        TEXT,                    -- SEC filing index page
     fetched_at TEXT NOT NULL
 );
+-- Accounts (Phase 8). Optional login — the public site stays open (§10.0); an
+-- account only unlocks a per-user watchlist (+ notes in Tier B). Email is stored
+-- lower-cased; only a password *hash* is kept (Werkzeug PBKDF2), never the raw.
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    email         TEXT UNIQUE NOT NULL,   -- lower-cased; unverified in v1 (§10.6)
+    password_hash TEXT NOT NULL,
+    name          TEXT,
+    market        TEXT,
+    created_at    TEXT NOT NULL
+);
+-- Per-user watchlist membership. The global `watchlist` table stays as the
+-- union of every tracked ticker the nightly refresh must fetch (+ what /today
+-- screens); this table is who-tracks-what for the home page (§10.2/§10.4).
+CREATE TABLE IF NOT EXISTS user_watchlist (
+    user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticker   TEXT NOT NULL REFERENCES stocks(ticker) ON DELETE CASCADE,
+    added_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, ticker)
+);
+-- Per-user decision journal (Phase 8 Tier B). The old global `notes` table is
+-- left in place (unused for new writes) — no migration, everyone starts fresh.
+CREATE TABLE IF NOT EXISTS user_notes (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticker     TEXT NOT NULL REFERENCES stocks(ticker) ON DELETE CASCADE,
+    body       TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, ticker)
+);
 -- Activity log (Phase 6c). Pre-accounts there's no real identity, so this is
 -- best-effort: `visitor` is an anonymous per-browser cookie UUID and `name`/
 -- `market` are self-reported (mirrored from the visitor's localStorage into
@@ -247,6 +276,57 @@ def save_digest(conn, body, model, picks):
 def save_note(conn, ticker, body):
     conn.execute("INSERT OR REPLACE INTO notes (ticker, body, updated_at) VALUES (?,?,?)",
                  (ticker, body, _now()))
+
+
+def save_user_note(conn, user_id, ticker, body):
+    conn.execute(
+        "INSERT OR REPLACE INTO user_notes (user_id, ticker, body, updated_at) "
+        "VALUES (?,?,?,?)", (user_id, ticker, body, _now()))
+
+
+def get_user_note(conn, user_id, ticker):
+    return conn.execute("SELECT * FROM user_notes WHERE user_id=? AND ticker=?",
+                        (user_id, ticker)).fetchone()
+
+
+def create_user(conn, email, password_hash, name=None, market=None):
+    """Insert a new account (email pre-lower-cased by the caller). Returns the
+    new user id. Raises sqlite3.IntegrityError if the email is already taken."""
+    cur = conn.execute(
+        "INSERT INTO users (email,password_hash,name,market,created_at) "
+        "VALUES (?,?,?,?,?)", (email, password_hash, name, market, _now()))
+    return cur.lastrowid
+
+
+def get_user_by_email(conn, email):
+    return conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+
+
+def get_user_by_id(conn, uid):
+    return conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+
+
+def add_user_watch(conn, user_id, ticker):
+    """Add a ticker to a user's watchlist AND to the global union (so the nightly
+    refresh + /today keep covering it). Idempotent."""
+    now = _now()
+    conn.execute("INSERT OR IGNORE INTO user_watchlist (user_id,ticker,added_at) "
+                 "VALUES (?,?,?)", (user_id, ticker, now))
+    conn.execute("INSERT OR IGNORE INTO watchlist (ticker,added_at) VALUES (?,?)",
+                 (ticker, now))
+
+
+def remove_user_watch(conn, user_id, ticker):
+    """Drop a ticker from one user's watchlist. Leaves shared reference data and
+    the global union intact (other users / peers / refresh may still need it)."""
+    conn.execute("DELETE FROM user_watchlist WHERE user_id=? AND ticker=?",
+                 (user_id, ticker))
+
+
+def user_watches(conn, user_id, ticker):
+    return conn.execute(
+        "SELECT 1 FROM user_watchlist WHERE user_id=? AND ticker=?",
+        (user_id, ticker)).fetchone() is not None
 
 
 def log_event(conn, action, visitor=None, name=None, market=None,

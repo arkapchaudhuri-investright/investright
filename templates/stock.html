@@ -18,6 +18,18 @@
   <div class="head-otto">{% include "_otto.html" %}</div>
   <div class="head-main">
     <div class="head-row">
+      {# Company logo (Phase 9) — cached locally at ingest; monogram of the
+         company initials if we couldn't fetch a mark. #}
+      {% set _words = s['name'].split() %}
+      {% set _initials = (_words[0][0] ~ (_words[1][0] if _words|length > 1 else ''))|upper %}
+      <span class="head-logo">
+        {% if logo %}
+        <img src="{{ url_for('static', filename='logos/' + logo) }}"
+             alt="{{ s['name'] }} logo" width="40" height="40" loading="lazy">
+        {% else %}
+        <span class="logo-mono" aria-hidden="true">{{ _initials }}</span>
+        {% endif %}
+      </span>
       <h1>{{ s['name'] }}</h1>
       <span class="tick">{{ s['ticker'] }}</span>
       <span class="xchg">{{ s['exchange'] }}</span>
@@ -37,6 +49,7 @@
     </div>
   </div>
   <form class="head-star" action="{{ url_for('toggle_watch', ticker=s['ticker']) }}" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <button type="submit" class="star {{ 'on' if on_watch }}"
             aria-label="{{ 'Remove from watchlist' if on_watch else 'Add to watchlist' }}">
       {{ '★ On watchlist' if on_watch else '☆ Add to watchlist' }}
@@ -404,11 +417,101 @@
   {% with msgs = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
   {% endwith %}
+  {% if current_user %}
   <form method="post" action="{{ url_for('save_stock_note', ticker=s['ticker']) }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <textarea name="body" class="notes-box" rows="4"
       placeholder="Why are you watching {{ s['name'].split(' ')[0] }}? Your thesis, your price, what would change your mind…">{{ note['body'] if note else '' }}</textarea>
     <div class="notes-actions"><button type="submit" class="ghost">Save note</button></div>
   </form>
+  {% else %}
+  <p class="empty-sub notes-signin">
+    <a href="{{ url_for('auth.login', next=request.path) }}">Sign in</a> to keep a
+    private decision journal on this stock — only you can see your notes.</p>
+  {% endif %}
 </section>
+
+{# ── Ask Otto (Phase 9) — floating chatbot, bottom-right. Answers questions
+   about THIS stock via the free LLM, grounded in our saved metrics. Open to
+   guests too; explains the numbers, never advises (§1). #}
+<div class="ask-otto" id="ask-otto"
+     data-ask-url="{{ url_for('ask_otto', ticker=s['ticker']) }}"
+     data-csrf="{{ csrf_token }}">
+  <button type="button" class="ao-launch" id="ao-launch"
+          aria-label="Ask Otto about {{ s['ticker'] }}">
+    <span class="ao-launch-otto">{% with mood = 'happy', size = 40 %}{% include "_otto.html" %}{% endwith %}</span>
+    <span class="ao-launch-text">Ask&nbsp;Otto</span>
+  </button>
+  <div class="ao-panel" id="ao-panel" role="dialog" aria-label="Ask Otto" hidden>
+    <div class="ao-head">
+      <span class="ao-head-otto">{% with mood = 'happy', size = 30 %}{% include "_otto.html" %}{% endwith %}</span>
+      <div class="ao-head-txt"><b>Ask Otto</b><span>about {{ s['name'] }}</span></div>
+      <button type="button" class="ao-close" id="ao-close" aria-label="Close">×</button>
+    </div>
+    <div class="ao-log" id="ao-log">
+      <div class="ao-msg ao-otto"><p>Hi! I can explain {{ s['name'].split(' ')[0] }}'s
+        numbers — valuation, health, the dividend, the fair-value gap. What would you like to know?</p></div>
+      <div class="ao-chips">
+        <button type="button" class="ao-chip">Is it cheap?</button>
+        <button type="button" class="ao-chip">How healthy is the balance sheet?</button>
+        <button type="button" class="ao-chip">Is the dividend safe?</button>
+      </div>
+    </div>
+    <form class="ao-form" id="ao-form" autocomplete="off">
+      <input type="text" id="ao-input" maxlength="500"
+             placeholder="Ask about {{ s['ticker'] }}…" aria-label="Your question">
+      <button type="submit" class="ao-send" aria-label="Send">→</button>
+    </form>
+    <p class="ao-disclaim">Otto explains the numbers on this page — not investment advice.</p>
+  </div>
+</div>
+<script>
+// Ask Otto — floating Q&A about this stock (Phase 9). Posts the question to the
+// server, which grounds the free LLM in our saved metrics and returns JSON. No
+// dependencies. Degrades to a friendly message if the AI is unset/busy.
+(function () {
+  var root = document.getElementById('ask-otto');
+  if (!root) return;
+  var launch = document.getElementById('ao-launch'),
+      panel = document.getElementById('ao-panel'),
+      closeBtn = document.getElementById('ao-close'),
+      log = document.getElementById('ao-log'),
+      form = document.getElementById('ao-form'),
+      input = document.getElementById('ao-input');
+  var url = root.dataset.askUrl, csrf = root.dataset.csrf, busy = false;
+  function openPanel() { root.classList.add('open'); panel.hidden = false; setTimeout(function () { input.focus(); }, 60); }
+  function closePanel() { root.classList.remove('open'); panel.hidden = true; }
+  function scroll() { log.scrollTop = log.scrollHeight; }
+  function addMsg(text, who) {
+    var d = document.createElement('div'); d.className = 'ao-msg ao-' + who;
+    var p = document.createElement('p'); p.textContent = text; d.appendChild(p);
+    log.appendChild(d); scroll(); return d;
+  }
+  function addTyping() {
+    var d = document.createElement('div'); d.className = 'ao-msg ao-otto';
+    d.innerHTML = '<span class="ao-typing"><i></i><i></i><i></i></span>';
+    log.appendChild(d); scroll(); return d;
+  }
+  function send(q) {
+    q = (q || '').trim();
+    if (busy || !q) return;
+    busy = true; addMsg(q, 'user'); input.value = '';
+    var typing = addTyping();
+    var body = new URLSearchParams(); body.set('csrf', csrf); body.set('question', q);
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+      .then(function (r) { return r.json().catch(function () { return { answer: 'Otto tripped over a wire — try again in a moment.' }; }); })
+      .then(function (j) { typing.remove(); addMsg(j.answer || j.error || 'Otto had no answer.', 'otto'); })
+      .catch(function () { typing.remove(); addMsg("Otto couldn't reach the server — check your connection.", 'otto'); })
+      .finally(function () { busy = false; input.focus(); });
+  }
+  launch.addEventListener('click', openPanel);
+  closeBtn.addEventListener('click', closePanel);
+  form.addEventListener('submit', function (e) { e.preventDefault(); send(input.value); });
+  Array.prototype.forEach.call(document.querySelectorAll('.ao-chip'), function (c) {
+    c.addEventListener('click', function () { send(c.textContent); });
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !panel.hidden) closePanel(); });
+})();
+</script>
 
 {% endblock %}
