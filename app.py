@@ -36,9 +36,11 @@ app.config.update(
 )
 app.register_blueprint(auth_bp)
 
-# Ensure the schema exists at import time so gunicorn (which never runs the
-# __main__ block) picks up new tables on deploy — the latent fix flagged after
-# Phase 6c, now needed for the Phase 8 users/user_watchlist tables. Idempotent.
+# Ensure the SQLite schema exists at import time, not just under the dev server's
+# __main__ block — gunicorn imports this module without running __main__, so
+# newly-added tables (Phase 6c's `events`, Phase 8's users/user_watchlist/
+# user_notes) would otherwise be missing in production until the nightly
+# refresh's init_db() ran. Idempotent (CREATE IF NOT EXISTS + additive migrations).
 init_db()
 
 # Plain-English graph explainers for the deep-dive 💡 bulbs (Phase 7). Exposed
