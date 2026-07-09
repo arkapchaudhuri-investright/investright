@@ -560,6 +560,15 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
     the old handoff note (only #6 had been closed); it was superseded by the merged #8
     and also carried the §11 top-bar market switcher that Phase 9 deliberately
     reversed, so merging it would have regressed the UI. Closed with that reasoning.
+  - **Bugfix found in the prod journal while verifying the deploy** (#21, not a
+    regression — a Phase 9 bug). `POST /stock/<t>/ask` **500'd** for any company with
+    an all-n/a snowflake axis: `_stock_context()` did `round(v * 100)` over axis
+    scores, but a non-dividend payer has no dividend checks to pass or fail, so that
+    axis scores `None`. It blew up while *building the prompt*, before Gemini was
+    called — so Phase 9's "never 500s" degrade never engaged. Hit live on TTD + CXM;
+    a sweep of every tracked ticker showed AMZN was affected too. Fixed by filtering
+    None axes, the same guard `metrics.snowflake()` (metrics.py:306) already makes.
+    **Lesson: any new consumer of `metrics.axis_scores()` must handle a None axis.**
 
 ---
 
