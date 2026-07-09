@@ -584,8 +584,13 @@ def _stock_context(conn, ticker):
             f"52-week range {snap['wk52_low']}–{snap['wk52_high']}.")
     if scores:
         axis_label = dict(metrics.AXES)
-        lines.append("Snowflake axis scores (share of checks passed): " + ", ".join(
-            f"{axis_label.get(k, k)} {round(v * 100)}%" for k, v in scores.items()))
+        # An axis whose checks are all n/a scores None — a company paying no
+        # dividend has no dividend checks to pass or fail. Drop those rather
+        # than multiply None, the same guard metrics.snowflake() already makes.
+        rated = {k: v for k, v in scores.items() if v is not None}
+        if rated:
+            lines.append("Snowflake axis scores (share of checks passed): " + ", ".join(
+                f"{axis_label.get(k, k)} {round(v * 100)}%" for k, v in rated.items()))
     if dcf:
         d = dict(dcf)
         lines.append(
