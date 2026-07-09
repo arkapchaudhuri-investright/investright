@@ -12,15 +12,27 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from db import create_user, get_user_by_email, get_user_by_id
+from db import create_user, get_user_by_email, get_user_by_id, set_password
 
 bp = Blueprint("auth", __name__)
 
 
+def _start_session(user, remember=True):
+    """Begin a logged-in session. `stok` pins it to the account's current
+    session_token, so rotating that token (change-password) kills this session
+    and every other one. session.clear() also drops the old CSRF token — it is
+    re-minted on the next render."""
+    session.clear()
+    session["uid"] = user["id"]
+    session["stok"] = user["session_token"]
+    session.permanent = remember
+
+
 def current_user():
     """The logged-in user's row as a dict, or None. Cached on flask.g per request
-    so repeated calls (view + template) hit the DB once. Clears a stale session
-    (uid pointing at a deleted account)."""
+    so repeated calls (view + template) hit the DB once. Clears a stale session —
+    one pointing at a deleted account, or carrying a session token that's been
+    rotated out from under it (password changed elsewhere)."""
     if "user" in g.__dict__:
         return g.user
     uid = session.get("uid")
@@ -29,10 +41,12 @@ def current_user():
         from db import get_conn
         with get_conn() as conn:
             row = get_user_by_id(conn, uid)
-        if row:
-            g.user = dict(row)
-        else:
+        if not row:
             session.pop("uid", None)      # account gone → drop the dead session
+        elif row["session_token"] and session.get("stok") != row["session_token"]:
+            session.clear()               # token rotated → this session is void
+        else:
+            g.user = dict(row)
     return g.user
 
 
@@ -114,9 +128,7 @@ def register():
                     user = dict(get_user_by_id(conn, uid))
                     _adopt_identity(conn, user)
             if not err:
-                session.clear()
-                session["uid"] = uid
-                session.permanent = True
+                _start_session(user, remember=True)
                 flash("Welcome to InvestRight — your account is ready.", "ok")
                 return redirect(_safe_next(request.form.get("next")))
         flash(err, "error")
@@ -138,12 +150,10 @@ def login():
         with get_conn() as conn:
             row = get_user_by_email(conn, email)
         if row and check_password_hash(row["password_hash"], pw):
-            session.clear()
-            session["uid"] = row["id"]
             # Remembered ⇒ a persistent cookie living PERMANENT_SESSION_LIFETIME
             # (30d). Otherwise a session cookie the browser drops on close —
             # the safer default on a shared machine (Tier C, §10.5).
-            session.permanent = remember
+            _start_session(row, remember=remember)
             flash(f"Signed in — welcome back{', ' + row['name'] if row['name'] else ''}.",
                   "ok")
             return redirect(_safe_next(request.form.get("next")))
@@ -156,7 +166,49 @@ def login():
 
 @bp.post("/logout")
 def logout():
-    session.pop("uid", None)
+    session.clear()                       # drops uid + stok + the CSRF token
     g.__dict__.pop("user", None)
     flash("Signed out.", "info")
     return redirect(url_for("home"))
+
+
+@bp.get("/account")
+@login_required
+def account():
+    """Account settings: change password (and, further down the page, the
+    irreversible bits)."""
+    return render_template("account.html", user=current_user())
+
+
+@bp.post("/account/password")
+@login_required
+def change_password():
+    from db import get_conn
+    user = current_user()
+    cur = request.form.get("current_password") or ""
+    new = request.form.get("new_password") or ""
+    new2 = request.form.get("new_password2") or ""
+
+    if not check_password_hash(user["password_hash"], cur):
+        err = "That isn't your current password."
+    elif len(new) < 8:
+        err = "Use a new password of at least 8 characters."
+    elif new != new2:
+        err = "The two new passwords don't match."
+    elif new == cur:
+        err = "That's already your password — pick a different one."
+    else:
+        err = None
+
+    if err:
+        flash(err, "error")
+        return redirect(url_for("auth.account"))
+
+    with get_conn() as conn:
+        token = set_password(conn, user["id"], generate_password_hash(new))
+    # Rotating the token voided *this* session too — re-pin it so the person who
+    # just changed their password stays signed in, while other devices drop out.
+    session["stok"] = token
+    g.__dict__.pop("user", None)
+    flash("Password changed. Any other devices have been signed out.", "ok")
+    return redirect(url_for("auth.account"))

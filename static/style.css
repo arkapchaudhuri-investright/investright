@@ -175,6 +175,15 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 }
 .opt { color: var(--muted); opacity: .7; font-weight: 400; font-size: 12px; }
 
+/* account settings page */
+.acct-page { max-width: 420px; }
+.acct-h2 {
+  font-size: 14px; font-weight: 600; color: var(--text); text-align: left;
+  margin: 26px 0 2px; padding-top: 18px; border-top: 1px solid var(--hairline);
+}
+a.acct-name { color: var(--text); text-decoration: none; }
+a.acct-name:hover { color: var(--accent); text-decoration: underline; }
+
 /* hero */
 .hero { text-align: center; padding: 40px 0 28px; }
 .otto { display: inline-block; }

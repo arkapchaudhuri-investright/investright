@@ -7,6 +7,7 @@ Phase 4 ("Today") adds: screener (nightly ranked picks) and digest (the AI
 summary of them — kept by date so last-good survives an API outage).
 """
 import json
+import secrets
 import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -137,7 +138,11 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     name          TEXT,
     market        TEXT,
-    created_at    TEXT NOT NULL
+    created_at    TEXT NOT NULL,
+    -- Mirrored into the signed-cookie session as `stok`. Rotating it invalidates
+    -- every session for this account — the only way to log other devices out
+    -- when the session store is a client-side cookie (Tier C change-password).
+    session_token TEXT
 );
 -- Per-user watchlist membership. The global `watchlist` table stays as the
 -- union of every tracked ticker the nightly refresh must fetch (+ what /today
@@ -289,13 +294,31 @@ def get_user_note(conn, user_id, ticker):
                         (user_id, ticker)).fetchone()
 
 
+def rotate_session_token(conn, user_id):
+    """Mint a fresh session token, invalidating every existing session for this
+    account (they carry the old one). Returns the new token for the caller to
+    put in the current session."""
+    tok = secrets.token_urlsafe(24)
+    conn.execute("UPDATE users SET session_token=? WHERE id=?", (tok, user_id))
+    return tok
+
+
 def create_user(conn, email, password_hash, name=None, market=None):
     """Insert a new account (email pre-lower-cased by the caller). Returns the
     new user id. Raises sqlite3.IntegrityError if the email is already taken."""
     cur = conn.execute(
         "INSERT INTO users (email,password_hash,name,market,created_at) "
         "VALUES (?,?,?,?,?)", (email, password_hash, name, market, _now()))
+    rotate_session_token(conn, cur.lastrowid)
     return cur.lastrowid
+
+
+def set_password(conn, user_id, password_hash):
+    """Change the password AND rotate the session token, so sessions on other
+    devices stop working. Returns the new token."""
+    conn.execute("UPDATE users SET password_hash=? WHERE id=?",
+                 (password_hash, user_id))
+    return rotate_session_token(conn, user_id)
 
 
 def get_user_by_email(conn, email):
@@ -354,6 +377,15 @@ def _migrate(conn):
     for col in ("pb", "ps", "eps", "industry_pe"):
         if col not in have:
             conn.execute(f"ALTER TABLE snapshots ADD COLUMN {col} REAL")
+
+    # users.session_token (Tier C). Accounts created before this column existed
+    # get one now; anyone signed in at that moment is signed out once, because
+    # their cookie predates the token. One-off, and only for existing accounts.
+    ucols = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
+    if "session_token" not in ucols:
+        conn.execute("ALTER TABLE users ADD COLUMN session_token TEXT")
+    for r in conn.execute("SELECT id FROM users WHERE session_token IS NULL").fetchall():
+        rotate_session_token(conn, r["id"])
 
 
 def init_db():
