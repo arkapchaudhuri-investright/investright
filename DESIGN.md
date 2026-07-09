@@ -489,6 +489,34 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
   change/reset password, throttling, delete-account) deferred.** NEEDS on deploy:
   `SECRET_KEY` in the VM's out-of-band `.env` (else prod sessions break); do NOT set
   `SESSION_COOKIE_SECURE=0` there (prod is HTTPS via Caddy).
+- **Phase 9 — onboarding revamp + logos + Ask Otto** (2026-07-08). Per new
+  direction; a few points **supersede §11**. (1) **Welcome popup is now two steps:**
+  choose **Create an account / Continue as guest / Sign in** (guest → the existing
+  "what should I call you" name + market ask). **Otto sits on top** of the popup and
+  the **👋 wave emoji is removed everywhere** (popup + greeting). Account/Sign-in link
+  to the Phase 8 `/register` `/login`. (2) **Market selection is now gear-only**
+  (reverses §11's top-bar switcher): market, currency, light/dark theme, and today's
+  **$→₹ rate (dated, "as of …")** all live behind the ⚙ gear and nowhere else — hero,
+  Today, and top-bar copies removed; the inline watchlist rate note dropped. The
+  guided tour drops its separate market step and its settings step now names all of
+  these. Onboarding + tour still *mention* that these live in the gear. (3) **Company
+  logos** on every deep-dive header — new `logos.py` caches a mark at ingest (Clearbit
+  API is dead, so it uses gstatic faviconV2 128px PNG, DuckDuckGo icon fallback;
+  tiny/globe responses rejected), served locally (offline-safe, §8.0); a monogram of
+  the initials is the always-available fallback. Wired into `_ingest_stock`,
+  `refresh.ensure_stock` + `save_deep`; `static/logos/` gitignored (repopulates via
+  refresh / any `/analyze`). (4) **Ask Otto** — a floating bottom-right chatbot on the
+  deep-dive (Otto with a gentle attention-bounce) that answers questions about *that*
+  stock. New `POST /stock/<t>/ask` grounds the free LLM (`digest.ask` → Gemini/Groq,
+  never Claude) in `_stock_context()` — the saved snapshot, axis scores, DCF, passed/
+  failed checks, fundamentals, insiders, news — and returns JSON; open to guests,
+  explains the numbers, never advises (§1), degrades to a friendly line with no key/
+  quota (never 500s). Verified on :8701 desktop + mobile, light + dark, no console
+  errors: onboarding 3-way choice + guest step, gear holds market/currency/theme/rate,
+  AAPL logo renders (white plate, both themes) with monogram fallback, Ask Otto answers
+  (chips + free text + typing dots), all routes 200, `/ask` rejects a missing CSRF
+  token (400). **NEEDS on deploy (same as Phase 8):** `SECRET_KEY` in the VM `.env`;
+  the existing `GEMINI_API_KEY` (powers the digest) also powers Ask Otto in prod.
 
 ---
 
