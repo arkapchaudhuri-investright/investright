@@ -12,10 +12,26 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from db import (create_user, delete_user, get_user_by_email, get_user_by_id,
-                set_password)
+from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
+                clear_login_failures, create_user, delete_user,
+                get_user_by_email, get_user_by_id, login_failures,
+                record_login_failure, set_password)
 
 bp = Blueprint("auth", __name__)
+
+
+# Hashed once at import. A miss on the email still pays for one hash check, so
+# "no such account" and "wrong password" take the same time — otherwise the
+# response latency tells an attacker which emails are registered.
+_DUMMY_HASH = generate_password_hash("not-a-real-password")
+
+
+def client_ip():
+    """The visitor's IP. Behind Caddy the socket peer is always 127.0.0.1, so
+    prefer the first hop of X-Forwarded-For (Caddy sets it; nothing else can
+    reach gunicorn, which listens on loopback only)."""
+    xff = request.headers.get("X-Forwarded-For", "")
+    return xff.split(",")[0].strip() if xff else request.remote_addr
 
 
 def _start_session(user, remember=True):
@@ -148,9 +164,27 @@ def login():
         email = (request.form.get("email") or "").strip().lower()
         pw = request.form.get("password") or ""
         remember = bool(request.form.get("remember"))
+        ip = client_ip()
+
         with get_conn() as conn:
+            by_email, by_ip = login_failures(conn, email, ip)
+            # Check the limit *before* touching the password, so a locked-out
+            # guesser learns nothing and costs us no hashing work.
+            if by_email >= LOGIN_MAX_PER_EMAIL or by_ip >= LOGIN_MAX_PER_IP:
+                flash(f"Too many sign-in attempts. Wait {LOGIN_WINDOW_MIN} minutes "
+                      "and try again.", "error")
+                return render_template("login.html", email=email, remember=remember,
+                                       next=request.form.get("next", "")), 429
+
             row = get_user_by_email(conn, email)
-        if row and check_password_hash(row["password_hash"], pw):
+            ok = (check_password_hash(row["password_hash"], pw) if row
+                  else (check_password_hash(_DUMMY_HASH, pw) and False))
+            if ok:
+                clear_login_failures(conn, email, ip)
+            else:
+                record_login_failure(conn, email, ip)
+
+        if ok:
             # Remembered ⇒ a persistent cookie living PERMANENT_SESSION_LIFETIME
             # (30d). Otherwise a session cookie the browser drops on close —
             # the safer default on a shared machine (Tier C, §10.5).
@@ -158,6 +192,7 @@ def login():
             flash(f"Signed in — welcome back{', ' + row['name'] if row['name'] else ''}.",
                   "ok")
             return redirect(_safe_next(request.form.get("next")))
+        # Deliberately the same message whether the email exists or not.
         flash("Email or password didn't match. Try again.", "error")
         return render_template("login.html", email=email, remember=remember,
                                next=request.form.get("next", ""))
