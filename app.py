@@ -9,9 +9,10 @@ import uuid
 from datetime import date, datetime, timedelta
 from urllib.parse import unquote
 
-from flask import (Flask, abort, flash, g, make_response, redirect,
+from flask import (Flask, abort, flash, g, jsonify, make_response, redirect,
                    render_template, request, session, url_for)
 
+import digest
 import fetch
 import logos
 import metrics
@@ -545,6 +546,90 @@ def save_stock_note(ticker):
             save_user_note(conn, user["id"], ticker, request.form.get("body", "").strip())
     flash("Saved your note.", "ok")
     return redirect(url_for("stock", ticker=ticker))
+
+
+def _stock_context(conn, ticker):
+    """A compact text digest of everything we've saved on `ticker`, fed to Otto
+    (the free LLM) as grounding for a user's question. DB-only, no fetching."""
+    s = conn.execute("SELECT * FROM stocks WHERE ticker=?", (ticker,)).fetchone()
+    if not s:
+        return None
+    snap = conn.execute("SELECT * FROM snapshots WHERE ticker=?", (ticker,)).fetchone()
+    checks = [dict(r) for r in conn.execute(
+        "SELECT axis, label, passed, detail FROM health_checks WHERE ticker=?", (ticker,))]
+    for c in checks:
+        c["passed"] = None if c["passed"] is None else bool(c["passed"])
+    dcf = conn.execute("SELECT * FROM dcf WHERE ticker=?", (ticker,)).fetchone()
+    funds = [dict(r) for r in conn.execute(
+        "SELECT * FROM fundamentals WHERE ticker=? ORDER BY fiscal_year", (ticker,))]
+    news = [r["title"] for r in conn.execute(
+        "SELECT title FROM news WHERE ticker=? ORDER BY published_at DESC LIMIT 4", (ticker,))]
+    ins = conn.execute(
+        "SELECT SUM(action='buy') buys, SUM(action='sell') sells FROM insider_tx "
+        "WHERE ticker=? AND filed_at >= date('now','-90 day')", (ticker,)).fetchone()
+
+    cur = s["currency"]
+    scores = metrics.axis_scores(checks)
+    lines = [f"Company: {s['name']} ({ticker}) on {s['exchange']}. Prices in {cur}."]
+    if snap:
+        lines.append(
+            f"Price {snap['price']}, change today {snap['change_pct']}%. "
+            f"P/E {snap['pe']}, P/B {snap['pb']}, P/S {snap['ps']}, EPS {snap['eps']}, "
+            f"dividend yield {snap['div_yield']}%, market cap {snap['market_cap']}, "
+            f"52-week range {snap['wk52_low']}–{snap['wk52_high']}.")
+    if scores:
+        axis_label = dict(metrics.AXES)
+        lines.append("Snowflake axis scores (share of checks passed): " + ", ".join(
+            f"{axis_label.get(k, k)} {round(v * 100)}%" for k, v in scores.items()))
+    if dcf:
+        d = dict(dcf)
+        lines.append(
+            f"Our DCF fair value {round(d['fair_value'], 2) if d['fair_value'] else 'n/a'} "
+            f"{cur} (estimate from historical growth, not an analyst forecast); "
+            f"upside vs price {d['upside_pct']}%. Assumptions: growth "
+            f"{d['growth_used']}, discount {d['discount_rate']}, terminal {d['terminal_growth']}.")
+    passed = [c for c in checks if c["passed"] is True]
+    failed = [c for c in checks if c["passed"] is False]
+    if passed:
+        lines.append("Checks PASSED: " + "; ".join(
+            f"{c['label']} ({c['detail']})" if c["detail"] else c["label"] for c in passed))
+    if failed:
+        lines.append("Checks FAILED: " + "; ".join(
+            f"{c['label']} ({c['detail']})" if c["detail"] else c["label"] for c in failed))
+    if funds:
+        recent = funds[-5:]
+        lines.append("Recent fundamentals (fiscal year: revenue / net income / free cash flow): "
+                     + "; ".join(f"{f['fiscal_year']}: {f.get('revenue')} / "
+                                 f"{f.get('net_income')} / {f.get('fcf')}" for f in recent))
+    if ins and (ins["buys"] or ins["sells"]):
+        lines.append(f"Insider trades last 90 days: {ins['buys'] or 0} buys, "
+                     f"{ins['sells'] or 0} sells.")
+    if news:
+        lines.append("Recent headlines: " + " | ".join(news))
+    return "\n".join(lines)
+
+
+@app.post("/stock/<ticker>/ask")
+def ask_otto(ticker):
+    """Ask-Otto chatbot (Phase 9): answer a question about this stock via the free
+    LLM, grounded in our saved metrics. Open to guests (no login). Returns JSON;
+    any failure (no key, quota, network) degrades to a friendly message, never 500."""
+    ticker = ticker.upper()
+    question = (request.form.get("question") or "").strip()[:500]
+    if not question:
+        return jsonify(error="Ask Otto something about this stock first."), 400
+    with get_conn() as conn:
+        context = _stock_context(conn, ticker)
+    if context is None:
+        abort(404)
+    _log("ask", ticker)
+    try:
+        answer = digest.ask(context, question)
+        return jsonify(answer=answer)
+    except Exception:
+        return jsonify(answer="Otto can't reach his brain right now — the free AI "
+                       "service is unset or busy. The numbers on this page still "
+                       "tell the story. (Not investment advice.)"), 200
 
 
 @app.post("/stock/<ticker>/watch")
