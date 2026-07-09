@@ -134,19 +134,23 @@ def login():
         from db import get_conn
         email = (request.form.get("email") or "").strip().lower()
         pw = request.form.get("password") or ""
+        remember = bool(request.form.get("remember"))
         with get_conn() as conn:
             row = get_user_by_email(conn, email)
         if row and check_password_hash(row["password_hash"], pw):
             session.clear()
             session["uid"] = row["id"]
-            session.permanent = True
+            # Remembered ⇒ a persistent cookie living PERMANENT_SESSION_LIFETIME
+            # (30d). Otherwise a session cookie the browser drops on close —
+            # the safer default on a shared machine (Tier C, §10.5).
+            session.permanent = remember
             flash(f"Signed in — welcome back{', ' + row['name'] if row['name'] else ''}.",
                   "ok")
             return redirect(_safe_next(request.form.get("next")))
         flash("Email or password didn't match. Try again.", "error")
-        return render_template("login.html", email=email,
+        return render_template("login.html", email=email, remember=remember,
                                next=request.form.get("next", ""))
-    return render_template("login.html", email="",
+    return render_template("login.html", email="", remember=True,
                            next=request.args.get("next", ""))
 
 

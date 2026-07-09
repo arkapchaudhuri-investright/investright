@@ -160,6 +160,11 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   padding: 11px 13px; color: var(--text); font-size: 15px;
 }
 .auth-form input:focus { outline: none; border-color: var(--accent); }
+/* Checkbox rows sit horizontally, against .auth-form label's column default. */
+.auth-form label.auth-check {
+  flex-direction: row; align-items: center; gap: 9px; cursor: pointer; margin-top: -2px;
+}
+.auth-form .auth-check input { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); }
 .auth-go { width: 100%; margin-top: 4px; }
 .auth-alt { color: var(--muted); font-size: 14px; margin-top: 16px; }
 .auth-alt a { color: var(--accent); text-decoration: none; }

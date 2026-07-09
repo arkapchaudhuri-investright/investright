@@ -19,6 +19,10 @@
     <label>Password
       <input type="password" name="password" required autocomplete="current-password">
     </label>
+    <label class="auth-check">
+      <input type="checkbox" name="remember" value="1" {% if remember %}checked{% endif %}>
+      <span>Stay signed in for 30 days</span>
+    </label>
     <button type="submit" class="btn-analyze auth-go">Sign in</button>
   </form>
 
