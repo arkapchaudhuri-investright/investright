@@ -103,6 +103,8 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   padding: 8px 2px;   /* honest tap height without changing the look */
 }
 .navlink:hover { color: var(--text); }
+/* You-are-here: the current page's nav link stops pretending to be a button. */
+.navlink.nav-on { color: var(--text); }
 .fx-stale { color: var(--amber); }
 .seg {
   display: inline-flex; border: 1px solid var(--hairline);
