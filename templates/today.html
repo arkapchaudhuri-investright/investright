@@ -33,7 +33,9 @@
   <p class="digest-body">{{ digest['body'] }}</p>
   <p class="asof perf-note">Written by {{ digest['model'] }} on {{ digest['date_label'] }},
     summarizing the rule-based screener output below — it reads our arithmetic, it doesn't
-    do research. Not investment advice.</p>
+    do research. Not investment advice.
+    {% if scope == 'mine' %}Otto writes one digest a night, covering the
+    <b>whole</b> screen — so it may mention stocks your watchlist filter hides.{% endif %}</p>
   {% else %}
   <p class="asof">No AI digest saved yet. Otto writes one each night once a free Gemini
     (or Groq) key sits in <code>.env</code> — see the README. The screener below doesn't
@@ -44,7 +46,24 @@
 {# Tonight's screen — ranked from rules the cron already saved; no request-time math (§8.0) #}
 <section class="card">
   <div class="card-head"><h2>Tonight's screen</h2>
-    <span class="asof">{{ picks|length }} tickers · watchlist ★ + peers</span></div>
+    <span class="asof">{{ picks|length }} tickers ·
+      {% if scope == 'mine' %}your watchlist only{% else %}watchlist ★ + peers{% endif %}</span></div>
+
+  {# Scope toggle — plain links so it works with JS off (§12.2); only an account
+     has a watchlist to narrow to, so guests never see it. #}
+  {% if current_user %}
+  <div class="scope-row">
+    <div class="seg" role="group" aria-label="Which stocks to screen">
+      <a href="{{ url_for('today', scope='all') }}"
+         class="{{ 'active' if scope != 'mine' }}"
+         {% if scope != 'mine' %}aria-current="true"{% endif %}>All tracked</a>
+      <a href="{{ url_for('today', scope='mine') }}"
+         class="{{ 'active' if scope == 'mine' }}"
+         {% if scope == 'mine' %}aria-current="true"{% endif %}>My watchlist</a>
+    </div>
+  </div>
+  {% endif %}
+
   {% if picks %}
   <ol class="scr-list">
     {% for p in picks %}
@@ -64,8 +83,10 @@
       <div class="scr-main">
         <div class="scr-name">
           <a class="tick tick-link" href="{{ url_for('stock', ticker=p['ticker']) }}">{{ p['ticker'] }}</a>
-          {% if p['is_watchlist'] %}<span class="scr-star" title="On your watchlist">★</span>
-          {% else %}<span class="xchg">peer</span>{% endif %}
+          {# ★ is yours. "peer" means nobody tracks it — it rode along for comparison.
+             A ticker someone *else* watches gets neither: is_watchlist is the global union. #}
+          {% if p['mine'] %}<span class="scr-star" title="On your watchlist">★</span>
+          {% elif not p['is_watchlist'] %}<span class="xchg">peer</span>{% endif %}
           <span class="name">{{ p['name'] }}</span>
         </div>
         {% if p['rank'] == 1 and p['reasons'] %}
@@ -114,6 +135,16 @@
       Every input is a saved rule output you can inspect on the stock's own page —
       there's no AI in the ranking, and hover over a score for its breakdown.</p>
   </details>
+  {% elif scope == 'mine' and mine_count == 0 %}
+  <p class="empty serif">Your watchlist is empty.<br>
+    <span class="empty-sub">Star a stock from its page — or switch to
+      <b>All tracked</b> to see what Otto screened tonight.</span></p>
+  {% elif scope == 'mine' %}
+  <p class="empty serif">Nothing on your watchlist made tonight's screen.<br>
+    <span class="empty-sub">Otto ranked {{ screened }} ticker{{ '' if screened == 1 else 's' }}
+      {% if market != 'BOTH' %}and your market filter is set to
+      {{ 'India' if market == 'IN' else 'US' }} — {% endif %}switch to
+      <b>All tracked</b> to see them.</span></p>
   {% elif market and market != 'BOTH' %}
   <p class="empty serif">No {{ 'Indian' if market == 'IN' else 'US' }} stocks in tonight's screen.<br>
     <span class="empty-sub">Switch the market above to <b>Both</b>, or add a

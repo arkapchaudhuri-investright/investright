@@ -381,21 +381,43 @@ def today():
     # the shown list still gets the #1 hero treatment.
     market = (request.cookies.get("ir_market") or "BOTH").upper()
 
+    # Scope: the whole tracked universe, or only this account's watchlist. The
+    # querystring wins over the cookie so the toggle is a plain link (no JS),
+    # and a logged-out visitor always collapses back to "all" — ?scope=mine
+    # means nothing without an account to own the list.
+    user = current_user()
+    scope = (request.args.get("scope")
+             or request.cookies.get("ir_today_scope") or "all").lower()
+    if scope != "mine" or not user:
+        scope = "all"
+
     def _in_market(tk):
         india = tk.endswith(".NS") or tk.endswith(".BO")
         return True if market == "BOTH" else (india if market == "IN" else not india)
 
     with get_conn() as conn:
-        picks = [dict(r) for r in conn.execute("""
+        rows = [dict(r) for r in conn.execute("""
             SELECT sc.*, s.name, s.currency, s.exchange, n.price, n.change_pct
             FROM screener sc
             JOIN stocks s ON s.ticker = sc.ticker
             LEFT JOIN snapshots n ON n.ticker = sc.ticker
             ORDER BY sc.rank""")]
-        picks = [p for p in picks if _in_market(p["ticker"])]
+        # Membership comes from user_watchlist, not screener.is_watchlist — that
+        # column tracks the *global* union and only refreshes overnight, so a
+        # ticker starred today would otherwise miss its own screen.
+        mine = {r["ticker"] for r in conn.execute(
+            "SELECT ticker FROM user_watchlist WHERE user_id=?", (user["id"],))} \
+            if user else set()
+
+        picks = [p for p in rows if _in_market(p["ticker"])]
+        if scope == "mine":
+            picks = [p for p in picks if p["ticker"] in mine]
         for i, p in enumerate(picks, 1):
             p["rank"] = i
         for p in picks:
+            # `screener.is_watchlist` is the *global* union — it says the ticker is
+            # tracked by someone, not by you. The ★ means yours.
+            p["mine"] = p["ticker"] in mine
             p["reasons"] = json.loads(p["reasons_json"] or "[]")
             p["components"] = json.loads(p["components_json"] or "{}")
             checks = [{"axis": c["axis"],
@@ -417,19 +439,26 @@ def today():
         # has been failing and we're showing last-good (§8.0) — say so.
         dig["stale"] = (date.today() - d).days > 1
 
+    # From the unfiltered rows: when a filter empties the list, the screener
+    # still ran, and saying so beats implying the cron never fired.
     as_of = None
-    if picks and picks[0]["computed_at"]:
-        as_of = (datetime.fromisoformat(picks[0]["computed_at"])
+    if rows and rows[0]["computed_at"]:
+        as_of = (datetime.fromisoformat(rows[0]["computed_at"])
                  .astimezone().strftime("%-d %b, %-I:%M %p"))
 
     top_score = picks[0]["score"] if picks else None
     mood = ("sleepy" if not picks
             else "happy" if top_score >= 55 else "neutral")
-    return render_template(
+    resp = make_response(render_template(
         "today.html", picks=picks, digest=dig, as_of=as_of, mood=mood,
         takeaway=metrics.today_takeaway(picks), market=market,
         date_label=date.today().strftime("%A, %-d %B"),
-        weights=metrics.SCREEN_WEIGHTS, upside_cap=metrics.UPSIDE_CAP)
+        weights=metrics.SCREEN_WEIGHTS, upside_cap=metrics.UPSIDE_CAP,
+        scope=scope, mine_count=len(mine), screened=len(rows)))
+    if request.args.get("scope"):
+        resp.set_cookie("ir_today_scope", scope, max_age=60 * 60 * 24 * 365,
+                        samesite="Lax")
+    return resp
 
 
 def _float_arg(name):

@@ -91,6 +91,8 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 }
 .seg a.active { background: var(--accent); color: #fff; }
 .seg a:not(.active):hover { color: var(--text); }
+/* Scope toggle on /today — sits under the card head, above the ranked list. */
+.scope-row { margin: -4px 0 16px; }
 .wl-toggle {
   color: var(--muted); text-decoration: none; font-size: 13.5px;
   padding: 6px 12px; border: 1px solid var(--hairline); border-radius: 999px;
