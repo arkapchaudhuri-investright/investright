@@ -21,6 +21,19 @@
   --shadow: rgba(0, 0, 0, .4);
   --shadow-pop: rgba(0, 0, 0, .5);   /* floating surfaces: menus, dialogs, chat */
   --wash: rgba(233, 230, 221, .05);  /* row-hover tint — theme-aware, unlike a hardcoded rgba */
+  /* Spacing rhythm + type ramp (phase 1). New rules reach for these instead of
+     magic numbers; existing rules migrate opportunistically as they're touched.
+     The ramp names the sizes the sheet actually uses most, so adopting a token
+     is a no-op visually. Theme-independent, so they live only in :root. */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 28px;
+  --fs-xs: 11.5px;   /* chips, fine print */
+  --fs-sm: 12.5px;   /* .asof, captions */
+  --fs-body: 13.5px; /* secondary UI text */
+  --fs-md: 15px;     /* body / inputs / buttons */
+  --fs-lg: 17px;     /* takeaways, empty states */
+  --fs-xl: 22px;     /* page + dialog titles */
+  --fs-hero: 30px;   /* the home greeting */
 }
 
 /* ---- Light theme (DESIGN.md §5: "light supported via CSS variables") ----
@@ -88,12 +101,12 @@ body {
 }
 .serif { font-family: var(--serif); font-weight: 500; }
 
-main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
+main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 
 /* top bar */
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
-  max-width: 880px; margin: 0 auto; padding: 18px 20px;
+  max-width: 880px; margin: 0 auto; padding: 18px var(--space-5);
 }
 .brand { font-family: var(--serif); font-size: 23px; font-weight: 400; letter-spacing: .01em; }
 .brand-accent { color: var(--accent); }
@@ -239,9 +252,9 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .btn-danger:hover { filter: brightness(1.08); }
 
 /* hero */
-.hero { text-align: center; padding: 40px 0 28px; }
+.hero { text-align: center; padding: 40px 0 var(--space-6); }
 .otto { display: inline-block; }
-.hero h1 { font-size: 30px; margin: 14px 0 4px; }
+.hero h1 { font-size: var(--fs-hero); margin: 14px 0 var(--space-1); }
 .sub { color: var(--muted); margin: 0 0 26px; }
 /* First-visit welcome popup (no login; name stored in localStorage). Native
    <dialog> — modal, with a tinted ::backdrop dimming the home page behind it. */
@@ -346,7 +359,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 /* card + table */
 .card {
   background: var(--card); border: 1px solid var(--hairline);
-  border-radius: var(--radius); padding: 20px 22px; margin-top: 18px;
+  border-radius: var(--radius); padding: var(--space-5) 22px; margin-top: 18px;
 }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .card-head h2 { font-size: 16px; font-weight: 600; margin: 0; }
