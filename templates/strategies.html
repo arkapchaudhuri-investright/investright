@@ -92,6 +92,10 @@
   </div>
   <p class="head-take serif">{{ s.take }}</p>
   <p class="strat-hist">{{ s.history }}</p>
+  {% if s.link %}
+  <p class="strat-src"><a class="explain-link" href="{{ s.link[0] }}"
+     target="_blank" rel="noopener noreferrer">Read more: {{ s.link[1] }} ↗</a></p>
+  {% endif %}
   <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
     <span class="asof">what's working</span></h3>
   <p class="strat-read">{{ s.markets[market].read }}</p>
@@ -128,6 +132,10 @@
       <span class="asof">{{ fw.role }}</span></span>
   </div>
   <p class="strat-hist">{{ fw.history }}</p>
+  {% if fw.link %}
+  <p class="strat-src"><a class="explain-link" href="{{ fw.link[0] }}"
+     target="_blank" rel="noopener noreferrer">Read more: {{ fw.link[1] }} ↗</a></p>
+  {% endif %}
   <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
     <span class="asof">how it's holding up</span></h3>
   <p class="strat-read">{{ fw.markets[market].read }}</p>
