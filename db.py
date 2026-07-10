@@ -208,6 +208,20 @@ CREATE TABLE IF NOT EXISTS events (
     -- activity history, but it must stop pointing at the person.
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
+
+-- Monthly rule-based picks for /strategies ("Otto's current matches").
+-- Written by strategy_screen.run() (cron side, ~every 30 days); the page only
+-- reads. One batch at a time — run() replaces it wholesale.
+CREATE TABLE IF NOT EXISTS strategy_picks (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_date TEXT NOT NULL,           -- YYYY-MM-DD the sweep ran
+    strategy   TEXT NOT NULL,           -- strategies.py id (capex, canslim, …)
+    market     TEXT NOT NULL,           -- US | IN
+    rank       INTEGER NOT NULL,
+    ticker     TEXT NOT NULL,
+    name       TEXT,
+    why        TEXT NOT NULL            -- the numbers that selected it, in words
+);
 """
 
 

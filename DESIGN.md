@@ -680,6 +680,24 @@ desktop + 375px, light + dark, no console errors. No features, no new deps.
     generates in the Gemini app from the prompt kit in the session notes.
   - Honesty preserved: page-top note says hand-curated editorial, dated, not
     the screener, not advice.
+- **#40 monthly strategy picks ("Otto's current matches").** /strategies now
+  *shifts with new information*: **`strategy_screen.py`** measures the curated
+  ~105-ticker universe (static/tickers.js) via yfinance and applies one
+  transparent arithmetic rule per strategy/framework (momentum = 6-mo return +
+  near 52-w high; Zulu = PEG<1 on 15–60% growth — spectacular growth excluded
+  as cyclical recovery; Darvas = within 3% of the 5-yr high; SEPA = volatility
+  contraction above the 200-day; etc.). Top 3–5 per (strategy, market) land in
+  the new **`strategy_picks`** table; each pick's why-line is generated from
+  the numbers that selected it. **Cadence:** nightly refresh re-sweeps only
+  when the batch is 30+ days old (`is_stale`); a sweep failure never dents the
+  refresh. Template shows computed matches ("computed <date> · refreshes
+  ~every 30 days" + a plain-English screen description); the hand-written
+  editorial examples remain only where a rule finds <3 matches — which
+  honestly matches the essays (US momentum/SEPA/value screens run thin).
+  Ask Otto's grounding now includes the live picks. No AI in the ranking.
+  Gotcha: "Consumer **Defen**sive" matched a loose `defen` regex — the capex
+  rule now gates on sector first. `TATAMOTORS.NS` is dead on Yahoo
+  (post-demerger rename) — tickers.js could use a refresh someday.
 
 ---
 

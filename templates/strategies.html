@@ -23,22 +23,49 @@
   age: what re-rated yesterday is rarely cheap today. Every ticker below opens Otto's
   numbers-first deep dive — check the snowflake before you believe the story.</p>
 
-{% macro stock_rows(m) %}
+{% macro tick_chip(t) %}
+{% if t in known %}
+<a class="srow-tick" href="{{ url_for('stock', ticker=t) }}">{{ t }}</a>
+{% else %}
+{# Unknown to the DB yet — route through /analyze, which ingests then
+   redirects to the deep-dive (the search bar's own flow). #}
+<form method="post" action="{{ url_for('analyze') }}" class="srow-form">
+  <input type="hidden" name="csrf" value="{{ csrf_token }}">
+  <button type="submit" class="srow-tick" name="symbol" value="{{ t }}"
+          title="Fetches {{ t }} first — takes a moment">{{ t }}</button>
+</form>
+{% endif %}
+{% endmacro %}
+
+{# Otto's current matches — the monthly rule-based batch (strategy_screen.py).
+   Each why-line IS the calculation that selected the stock. #}
+{% macro otto_matches(sid) %}
+{% set cur = picks.get(sid) %}
+{% if cur %}
+<h3 class="axis-h">Otto's current matches
+  <span class="asof">computed {{ picks_date }} · refreshes ~every 30 days</span></h3>
+<ul class="srows">
+  {% for p in cur %}
+  <li class="srow">
+    {{ tick_chip(p.ticker) }}
+    <span class="srow-body"><b class="srow-name">{{ p.name }}</b>
+      <span class="srow-why">{{ p.why }}</span></span>
+  </li>
+  {% endfor %}
+</ul>
+<p class="asof perf-note">{{ methods[sid] }} Screened within our curated
+  ~100-ticker universe — not the whole market. Rule output, not advice.</p>
+{% endif %}
+{% endmacro %}
+
+{% macro stock_rows(m, label=None) %}
 {% if m.stocks or m.funds %}
+{% if label %}<h3 class="axis-h">{{ label }}
+  <span class="asof">hand-picked, July 2026</span></h3>{% endif %}
 <ul class="srows">
   {% for t, n, why in m.stocks %}
   <li class="srow">
-    {% if t in known %}
-    <a class="srow-tick" href="{{ url_for('stock', ticker=t) }}">{{ t }}</a>
-    {% else %}
-    {# Unknown to the DB yet — route through /analyze, which ingests then
-       redirects to the deep-dive (the search bar's own flow). #}
-    <form method="post" action="{{ url_for('analyze') }}" class="srow-form">
-      <input type="hidden" name="csrf" value="{{ csrf_token }}">
-      <button type="submit" class="srow-tick" name="symbol" value="{{ t }}"
-              title="Fetches {{ t }} first — takes a moment">{{ t }}</button>
-    </form>
-    {% endif %}
+    {{ tick_chip(t) }}
     <span class="srow-body"><b class="srow-name">{{ n }}</b>
       <span class="srow-why">{{ why }}</span></span>
   </li>
@@ -68,7 +95,11 @@
   <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
     <span class="asof">what's working</span></h3>
   <p class="strat-read">{{ s.markets[market].read }}</p>
-  {{ stock_rows(s.markets[market]) }}
+  {{ otto_matches(s.id) }}
+  {# The editorial examples stay only while the rule finds fewer than 3. #}
+  {% if (picks.get(s.id) or [])|length < 3 %}
+  {{ stock_rows(s.markets[market], label='Editorial examples' if picks.get(s.id) else None) }}
+  {% endif %}
 </section>
 {% endfor %}
 
@@ -100,7 +131,10 @@
   <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
     <span class="asof">how it's holding up</span></h3>
   <p class="strat-read">{{ fw.markets[market].read }}</p>
-  {{ stock_rows(fw.markets[market]) }}
+  {{ otto_matches(fw.id) }}
+  {% if (picks.get(fw.id) or [])|length < 3 %}
+  {{ stock_rows(fw.markets[market], label='Editorial examples' if picks.get(fw.id) else None) }}
+  {% endif %}
 </section>
 {% endfor %}
 

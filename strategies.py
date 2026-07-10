@@ -334,9 +334,11 @@ BOTTOM_LINE = {
 }
 
 
-def ask_context(market):
+def ask_context(market, picks=None):
     """Ground Ask Otto in this page's content, market-first. Same shape as the
-    stock context: plain text lines the LLM can quote from."""
+    stock context: plain text lines the LLM can quote from. `picks` = current
+    strategy_screen rows for this market, so Otto can discuss the live monthly
+    matches, not just the editorial examples."""
     label = "India" if market == "IN" else "the US"
     lines = [
         f"PAGE: InvestRight's Models & Strategies field guide, currently viewing {label}.",
@@ -358,6 +360,14 @@ def ask_context(market):
                      f"{fw['history']} In {label}: {m['read']}")
         for t, n, why in m.get("stocks", []):
             lines.append(f"  example: {t} ({n}) — {why}")
+    if picks:
+        lines.append(
+            "CURRENT MONTHLY MATCHES (rule-based screen over our curated "
+            "~100-ticker universe, refreshed ~every 30 days; the reason after "
+            "each ticker is the calculation that selected it):")
+        for p in picks:
+            lines.append(f"  {p['strategy']} #{p['rank']}: {p['ticker']} "
+                         f"({p['name']}) — {p['why']}")
     lines.append("BOTTOM LINE US: " + BOTTOM_LINE["US"])
     lines.append("BOTTOM LINE INDIA: " + BOTTOM_LINE["IN"])
     return "\n".join(lines)
