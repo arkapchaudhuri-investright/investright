@@ -489,6 +489,35 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .star:hover { border-color: var(--accent); color: var(--accent); }
 .star.on { color: var(--accent); border-color: var(--accent); background: rgba(29,158,117,.1); }
 
+/* Price trend (deep-dive widget 1b) — same inline-SVG language as the rest. */
+.trend-chart { display: block; width: 100%; height: 150px; margin-top: 6px; }
+.trend-verdict { font-size: 15px; margin: 2px 0 4px; }
+.trend-verdict b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.trend-fill-up { fill: rgba(63, 190, 142, .12); }
+.trend-fill-down { fill: rgba(229, 100, 95, .10); }
+/* The 1D tab is a <button> living inside the .seg pill row of links. */
+.seg button {
+  padding: 8px 14px; font-size: 13px; color: var(--muted); background: none;
+  border: 0; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.seg button:hover { color: var(--text); }
+.seg button.active { background: var(--accent-deep); color: #fff; }
+.trend-seg { flex: none; }
+
+/* What investors think (widget 1c) — consensus meter + signal chips. */
+.senti-verdict { font-size: 15px; margin: 2px 0 14px; }
+.senti-track {
+  position: relative; height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, rgba(63,190,142,.6), rgba(156,152,137,.35), rgba(229,100,95,.6));
+}
+.senti-dot {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text); border: 3px solid var(--bg);
+}
+.senti-target { margin: 12px 0 0; }
+.senti-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+
 /* Snowflake */
 .snowflake-wrap { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; margin-top: 6px; }
 .snowflake { width: 340px; max-width: 100%; height: auto; }

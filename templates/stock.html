@@ -57,6 +57,106 @@
   </form>
 </section>
 
+{# 1b · Price trend — daily closes from the nightly refresh; ranges are plain
+   links (server-rendered, works with JS off). 1D is progressive enhancement:
+   a live intraday fetch drawn client-side. #}
+<section class="card" id="trend">
+  <div class="card-head"><h2>Price trend</h2>
+    <nav class="seg trend-seg" aria-label="Trend range">
+      <button type="button" id="trend-1d" title="Today, live from Yahoo">1D</button>
+      {% for key, label in (('1m','1M'), ('6m','6M'), ('1y','1Y'), ('5y','5Y'), ('max','Max')) %}
+      <a href="{{ url_for('stock', ticker=s['ticker'], range=key) }}#trend"
+         class="{{ 'active' if rng == key }}"
+         {% if rng == key %}aria-current="true"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+  {% if trend %}
+  <p class="trend-verdict"><b id="trend-chg" class="{{ trend.dir }}">{{ '%+.1f'|format(trend.change_pct) }}%</b>
+    <span class="asof" id="trend-cap">over {{ rng_label }}</span></p>
+  <svg id="trend-svg" class="trend-chart" viewBox="0 0 {{ trend.width }} {{ trend.height }}"
+       preserveAspectRatio="none" role="img"
+       aria-label="{{ s['name'] }} price line, {{ trend.first[0] }} to {{ trend.last[0] }}">
+    <polygon id="trend-area" points="{{ trend.area }}" class="trend-fill-{{ trend.dir }}"/>
+    <polyline id="trend-line" points="{{ trend.points }}" fill="none"
+              stroke="var(--{{ trend.dir }})" stroke-width="1.8"
+              vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+  </svg>
+  <div class="perf-legend">
+    <span id="trend-l">{{ trend.first[0] }} · {{ trend.first[1]|money(ccy) }}</span>
+    <span id="trend-r">{{ trend.last[0] }} · {{ trend.last[1]|money(ccy) }}</span>
+  </div>
+  <script>
+  // 1D tab: fetch today's 5-minute bars live and redraw the same SVG. The
+  // other ranges stay server-rendered links — this is enhancement only.
+  (function () {
+    var btn = document.getElementById('trend-1d');
+    if (!btn || !window.fetch) return;
+    var sym = {{ ('₹' if ccy == 'INR' else '$')|tojson }};
+    var money = function (v) { return sym + v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+    btn.addEventListener('click', function () {
+      btn.disabled = true; btn.textContent = '…';
+      fetch('{{ url_for("spark_json", ticker=s["ticker"]) }}')
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          btn.disabled = false; btn.textContent = '1D';
+          var cap = document.getElementById('trend-cap');
+          if (j.error) { cap.textContent = j.error; return; }
+          document.querySelectorAll('.trend-seg .active').forEach(function (a) { a.classList.remove('active'); });
+          btn.classList.add('active');
+          var line = document.getElementById('trend-line'), area = document.getElementById('trend-area');
+          line.setAttribute('points', j.points); area.setAttribute('points', j.area);
+          line.setAttribute('stroke', 'var(--' + j.dir + ')');
+          area.setAttribute('class', 'trend-fill-' + j.dir);
+          var chg = document.getElementById('trend-chg');
+          chg.textContent = (j.change_pct >= 0 ? '+' : '') + j.change_pct.toFixed(1) + '%';
+          chg.className = j.dir;
+          cap.textContent = 'today (5-minute bars, live)';
+          document.getElementById('trend-l').textContent = j.first[0] + ' · ' + money(j.first[1]);
+          document.getElementById('trend-r').textContent = j.last[0] + ' · ' + money(j.last[1]);
+        })
+        .catch(function () { btn.disabled = false; btn.textContent = '1D'; });
+    });
+  })();
+  </script>
+  {% else %}
+  <p class="asof">No saved price history for {{ s['ticker'] }} yet — the chart lands
+    with the next refresh (or hit ↻ on the watchlist page).</p>
+  {% endif %}
+</section>
+
+{# 1c · What investors think — analyst consensus (Yahoo, nightly), insider
+   activity (SEC), and this site's own reader signals. Sentiment, not advice. #}
+<section class="card">
+  <div class="card-head"><h2>What investors think</h2>
+    <span class="asof">analysts · insiders · InvestRight readers</span></div>
+  {% if senti.rec_mean %}
+  <p class="senti-verdict">Analyst consensus:
+    <b class="{{ 'up' if senti.rec_mean <= 2.5 else 'down' if senti.rec_mean >= 3.5 else '' }}">{{ senti.rec_key|title }}</b>
+    {% if senti.analyst_n %}<span class="asof">· {{ senti.analyst_n }} analysts</span>{% endif %}</p>
+  <div class="senti-track" role="img"
+       aria-label="Analyst consensus {{ senti.rec_key }} — {{ senti.gauge_pct }}% of the way from strong buy to sell">
+    <span class="senti-dot" style="left: {{ senti.gauge_pct }}%"></span>
+  </div>
+  <div class="fv-legend"><span>Strong buy</span><span>Hold</span><span>Sell</span></div>
+  {% if senti.target_mean %}
+  <p class="asof senti-target">Average 12-month target {{ senti.target_mean|money(ccy) }} —
+    <b class="{{ 'up' if senti.target_pct > 0 else 'down' }}">{{ '%+.1f'|format(senti.target_pct) }}%</b> vs today.</p>
+  {% endif %}
+  {% else %}
+  <p class="asof">Analyst consensus lands with the next nightly refresh.</p>
+  {% endif %}
+  <div class="senti-chips">
+    {% if is_us %}
+    <span class="reason {{ 'reason-insider' if ins_buys > ins_sells }}">insiders: {{ ins_buys }} buy{{ 's' if ins_buys != 1 }} · {{ ins_sells }} sale{{ 's' if ins_sells != 1 }} in recent filings</span>
+    {% endif %}
+    <span class="reason">★ on {{ senti.watchers }} InvestRight watchlist{{ 's' if senti.watchers != 1 }}</span>
+    <span class="reason">{{ senti.views30 }} reader visit{{ 's' if senti.views30 != 1 }} here in 30 days</span>
+  </div>
+  <p class="asof perf-note">Consensus and targets are Yahoo Finance's analyst aggregate;
+    reader numbers are this site's own activity. Sentiment, not advice.</p>
+</section>
+
 {% if not has_data %}
 <section class="card">
   <p class="empty serif">Otto's still crunching {{ s['name'].split(' ')[0] }}'s numbers.<br>

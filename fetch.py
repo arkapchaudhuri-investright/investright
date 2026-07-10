@@ -66,11 +66,46 @@ def snapshot(symbol):
             rate = info.get("dividendRate") or info.get("trailingAnnualDividendRate")
             if rate:
                 snap["div_yield"] = round(rate / price * 100, 2)
+            # Analyst consensus (sentiment widget): Yahoo's aggregated ratings.
+            snap["rec_key"] = info.get("recommendationKey")
+            snap["rec_mean"] = info.get("recommendationMean")   # 1 strong buy … 5 sell
+            snap["analyst_n"] = info.get("numberOfAnalystOpinions")
+            snap["target_mean"] = info.get("targetMeanPrice")
         except Exception:
             pass
         return snap
     except Exception:
         return None
+
+
+def price_history(symbol, period="max"):
+    """Daily closes as [(YYYY-MM-DD, close)], oldest first; [] on failure.
+    Feeds the deep-dive trend chart — full history at ingest, a short top-up
+    nightly (see refresh.py)."""
+    try:
+        hist = yf.Ticker(symbol).history(period=period, interval="1d",
+                                         auto_adjust=True)
+        if hist is None or hist.empty:
+            return []
+        closes = hist["Close"].dropna()
+        return [(idx.strftime("%Y-%m-%d"), round(float(c), 4))
+                for idx, c in closes.items()]
+    except Exception:
+        return []
+
+
+def intraday(symbol):
+    """Today's 5-minute closes as [(HH:MM, close)] — the 1D trend tab. Fetched
+    live per request (read-only; never written to the DB)."""
+    try:
+        hist = yf.Ticker(symbol).history(period="1d", interval="5m")
+        if hist is None or hist.empty:
+            return []
+        closes = hist["Close"].dropna()
+        return [(idx.strftime("%H:%M"), round(float(c), 4))
+                for idx, c in closes.items()]
+    except Exception:
+        return []
 
 
 def fx_rate(pair="USDINR=X"):
