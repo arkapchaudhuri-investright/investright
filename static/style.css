@@ -992,11 +992,14 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
 .strat-fw-head { padding-top: 34px; }
 .strat-fw-head h2 { font-size: 24px; margin: 0 0 6px; }
 
-/* Founder plate: generated portrait when present, monogram medallion else. */
+/* Founder plate: real photo when present (circle, black & white — Arka's
+   spec), monogram medallion else. Grayscale via CSS so one asset works in
+   both themes; the accent ring ties the portraits to the brand. */
 .fndr { display: flex; align-items: center; gap: 14px; margin: 14px 0 2px; }
 .fndr-img {
-  width: 84px; height: 84px; border-radius: 14px; object-fit: cover;
-  border: 1px solid var(--hairline); background: #F5EEDC; flex: none;
+  width: 84px; height: 84px; border-radius: 50%; object-fit: cover;
+  border: 2px solid var(--accent); background: #F5EEDC; flex: none;
+  filter: grayscale(1) contrast(1.05);
 }
 .fndr-mono {
   width: 64px; height: 64px; border-radius: 50%; flex: none;
