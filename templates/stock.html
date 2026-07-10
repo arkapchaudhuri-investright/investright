@@ -119,7 +119,7 @@
     {% else %}Roughly in line with our estimate.{% endif %}
   </p>
   <div class="fv-bar">
-    <div class="fv-fill" style="width: {{ (100 * price / scale)|round(1) }}%"></div>
+    <div class="fv-fill{{ ' fv-over' if upside < 0 }}" style="width: {{ (100 * price / scale)|round(1) }}%"></div>
     <div class="fv-fair" style="left: {{ (100 * fair / scale)|round(1) }}%"
          title="Our fair-value estimate"></div>
   </div>
