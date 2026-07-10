@@ -87,6 +87,9 @@
 }
 
 * { box-sizing: border-box; }
+/* One type system everywhere: form controls don't inherit fonts by default,
+   so buttons/inputs could render in the UA's own face. Now they can't. */
+button, input, select, textarea { font-family: inherit; }
 /* Keyboard focus — one visible ring on every interactive element (WCAG 2.4.7).
    Mouse users keep the quieter border-colour cues; :focus-visible is the
    keyboard / assistive-tech path, so nothing flashes on click. */
@@ -471,7 +474,9 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   background: var(--accent); color: #fff; font-family: var(--serif);
   font-size: 30px; font-weight: 600; letter-spacing: .02em;
 }
-.head-row h1 { font-size: 22px; margin: 0; font-weight: 600; }
+/* Page titles read in the serif voice on every page — the deep-dive and
+   /today were the last two sans holdouts. */
+.head-row h1 { font-size: 23px; margin: 0; font-weight: 500; font-family: var(--serif); }
 .head-row .tick { font-weight: 600; color: var(--muted); }
 .head-take { color: var(--text); font-size: 17px; margin: 8px 0 12px; line-height: 1.4; }
 .head-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
