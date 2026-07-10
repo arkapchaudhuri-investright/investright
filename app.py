@@ -696,6 +696,14 @@ def toggle_watch(ticker):
     return redirect(url_for("stock", ticker=ticker))
 
 
+@app.template_filter("exch")
+def exch(value):
+    """Yahoo's exchange tags are sub-market codes (NasdaqGS = "Global Select",
+    NasdaqGM = "Global Market") — visitors just need the exchange's name."""
+    return {"nasdaqgs": "NASDAQ", "nasdaqgm": "NASDAQ", "nasdaqcm": "NASDAQ"}.get(
+        (value or "").lower(), value or "")
+
+
 @app.template_filter("money")
 def money(value, currency="USD"):
     if value is None:

@@ -111,8 +111,14 @@
           {% endif %}
         </span>
         {% endif %}
-        <span class="scr-score"
-              title="fundamentals {{ p['components'].get('fundamentals') }}/{{ weights['fundamentals'] }} · value gap {{ p['components'].get('value_gap') }}/{{ weights['value_gap'] }} · insiders {{ p['components'].get('insiders') }}/{{ weights['insiders'] }} · dividend {{ p['components'].get('dividend') }}/{{ weights['dividend'] }}">
+        {% set breakdown = "fundamentals %s/%s · value gap %s/%s · insiders %s/%s · dividend %s/%s"|format(
+             p['components'].get('fundamentals'), weights['fundamentals'],
+             p['components'].get('value_gap'), weights['value_gap'],
+             p['components'].get('insiders'), weights['insiders'],
+             p['components'].get('dividend'), weights['dividend']) %}
+        {# title = mouse tooltip; aria-label = screen readers, which never see title #}
+        <span class="scr-score" title="{{ breakdown }}"
+              aria-label="Score {{ p['score']|round|int }} of 100 — {{ breakdown }}">
           <b class="{{ 'score-hi' if p['score'] >= 70 else 'score-lo' if p['score'] < 40 else '' }}">{{ p['score']|round|int }}</b><span class="asof">/100</span></span>
         {# score anatomy at a glance — full track = 100, one segment per component (§5 color = meaning) #}
         <span class="sbar" aria-hidden="true">
@@ -133,7 +139,8 @@
       is stretching), net open-market insider buying over the last 90 days up to
       {{ weights['insiders'] }}, and dividend quality up to {{ weights['dividend'] }}.
       Every input is a saved rule output you can inspect on the stock's own page —
-      there's no AI in the ranking, and hover over a score for its breakdown.</p>
+      there's no AI in the ranking. On a computer, hovering over a score shows its
+      breakdown; the little bar under each score draws the same split.</p>
   </details>
   {% elif scope == 'mine' and mine_count == 0 %}
   <p class="empty serif">Your watchlist is empty.<br>

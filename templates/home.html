@@ -87,7 +87,7 @@
       <tr id="row-{{ r['ticker'] }}">
         <td>
           <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
-          <span class="xchg">{{ r['exchange'] }}</span>
+          <span class="xchg">{{ r['exchange']|exch }}</span>
           <div class="name">{{ r['name'] }}</div>
           <a class="row-cta" href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
         </td>
@@ -300,6 +300,14 @@
     try { localStorage.setItem('ir_toured', '1'); } catch (e) {}
     window.removeEventListener('resize', place);
   }
+  // Keyboard support: the overlay swallows clicks but used to let Tab wander
+  // the page behind it. Esc skips; Tab cycles between Skip and Next.
+  overlay.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { done(); return; }
+    if (e.key !== 'Tab') return;
+    e.preventDefault();
+    (document.activeElement === nextBtn ? skipBtn : nextBtn).focus();
+  });
   function place() {
     var step = plan[idx];
     var el = document.querySelector(step.sel);
@@ -339,6 +347,7 @@
     overlay.hidden = false;
     overlay.setAttribute('aria-hidden', 'false');
     place();
+    nextBtn.focus();   // keyboard users land inside the bubble, not behind it
   }
   nextBtn.addEventListener('click', advance);
   skipBtn.addEventListener('click', done);

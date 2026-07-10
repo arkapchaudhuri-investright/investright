@@ -32,7 +32,7 @@
     <div class="head-row">
       <h1>{{ s['name'] }}</h1>
       <span class="tick">{{ s['ticker'] }}</span>
-      <span class="xchg">{{ s['exchange'] }}</span>
+      <span class="xchg">{{ s['exchange']|exch }}</span>
     </div>
     <p class="head-take serif">{{ takeaway }}</p>
     <div class="head-price">
@@ -440,7 +440,8 @@
      data-ask-url="{{ url_for('ask_otto', ticker=s['ticker']) }}"
      data-csrf="{{ csrf_token }}">
   <button type="button" class="ao-launch" id="ao-launch"
-          aria-label="Ask Otto about {{ s['ticker'] }}">
+          aria-label="Ask Otto about {{ s['ticker'] }}"
+          aria-expanded="false" aria-controls="ao-panel">
     <span class="ao-launch-otto">{% with mood = 'happy', size = 40 %}{% include "_otto.html" %}{% endwith %}</span>
     <span class="ao-launch-text">Ask&nbsp;Otto</span>
   </button>
@@ -481,8 +482,16 @@
       form = document.getElementById('ao-form'),
       input = document.getElementById('ao-input');
   var url = root.dataset.askUrl, csrf = root.dataset.csrf, busy = false;
-  function openPanel() { root.classList.add('open'); panel.hidden = false; setTimeout(function () { input.focus(); }, 60); }
-  function closePanel() { root.classList.remove('open'); panel.hidden = true; }
+  function openPanel() {
+    root.classList.add('open'); panel.hidden = false;
+    launch.setAttribute('aria-expanded', 'true');
+    setTimeout(function () { input.focus(); }, 60);
+  }
+  function closePanel() {
+    root.classList.remove('open'); panel.hidden = true;
+    launch.setAttribute('aria-expanded', 'false');
+    launch.focus();   // hand focus back where the panel came from
+  }
   function scroll() { log.scrollTop = log.scrollHeight; }
   function addMsg(text, who) {
     var d = document.createElement('div'); d.className = 'ao-msg ao-' + who;
