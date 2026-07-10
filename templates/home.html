@@ -46,16 +46,20 @@
 
   {# Market switcher lives only in the ⚙ gear now (§11 corrected) — no hero/top-bar copy. #}
 
+  {# Google-style hero: the field stands alone, the two actions sit beneath it
+     as calm siblings. Enter still analyzes — the first submit button wins. #}
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <div class="search-bar" data-tour="search">
       <input id="symbol" name="symbol" type="text" spellcheck="false"
              placeholder="Which stock are we looking at today?"
              aria-label="Which stock are we looking at today? Search a ticker to analyze">
-      <button type="submit" class="btn-analyze">Analyze</button>
       <ul id="suggest" class="suggest" hidden></ul>
     </div>
-    <button type="submit" class="btn-watch" formaction="{{ url_for('add') }}">☆ Add to watchlist</button>
+    <div class="search-actions">
+      <button type="submit" class="btn-analyze">Analyze</button>
+      <button type="submit" class="btn-watch" formaction="{{ url_for('add') }}">☆ Add to watchlist</button>
+    </div>
   </form>
 
   {% with msgs = get_flashed_messages(with_categories=true) %}
