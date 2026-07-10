@@ -25,6 +25,9 @@
     <a class="navlink{{ ' nav-on' if request.path == url_for('today') }}"
        {% if request.path == url_for('today') %}aria-current="page"{% endif %}
        href="{{ url_for('today') }}" data-tour="today">Today</a>
+    <a class="navlink{{ ' nav-on' if request.path == url_for('strategies_page') }}"
+       {% if request.path == url_for('strategies_page') %}aria-current="page"{% endif %}
+       href="{{ url_for('strategies_page') }}">Strategies</a>
     <a class="navlink{{ ' nav-on' if request.path == url_for('team') }}"
        {% if request.path == url_for('team') %}aria-current="page"{% endif %}
        href="{{ url_for('team') }}">Team</a>

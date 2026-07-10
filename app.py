@@ -17,6 +17,7 @@ import fetch
 import logos
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
+import strategies as strategies_content   # aliased: /strategies view owns the short name
 from auth import bp as auth_bp, client_ip, current_user, login_required
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 add_user_watch, get_conn, get_user_note, init_db, log_event,
@@ -333,6 +334,45 @@ def refresh():
 def team():
     """Meet Our Team (§4-style static page). No DB — content lives in the template."""
     return render_template("team.html")
+
+
+@app.route("/strategies")
+def strategies_page():
+    """Models & Strategies — a hand-curated field guide (strategies.py) on how
+    the leading playbooks behaved recently, US vs India. Editorial content, not
+    screener output; every stock chip drops into the normal deep-dive flow.
+    Market comes from ?market= (the on-page toggle) else the ir_market cookie."""
+    market = request.args.get("market") or request.cookies.get("ir_market") or "US"
+    market = "IN" if market == "IN" else "US"
+    with get_conn() as conn:
+        known = {r["ticker"] for r in conn.execute("SELECT ticker FROM stocks")}
+    # Founder portraits are optional uploads (static/founders/<img>.png) — the
+    # template falls back to a monogram medallion for any that are missing.
+    founders_dir = os.path.join(app.static_folder, "founders")
+    portraits = set(os.listdir(founders_dir)) if os.path.isdir(founders_dir) else set()
+    _log("view")
+    return render_template(
+        "strategies.html", market=market, known=known, portraits=portraits,
+        strategies=strategies_content.STRATEGIES, frameworks=strategies_content.FRAMEWORKS,
+        icons=strategies_content.ICONS, bottom_line=strategies_content.BOTTOM_LINE[market])
+
+
+@app.post("/strategies/ask")
+def ask_strategies():
+    """Ask-Otto for the strategies page — same degrade-friendly shape as the
+    per-stock route, grounded in the page's own editorial content."""
+    question = (request.form.get("question") or "").strip()[:500]
+    if not question:
+        return jsonify(error="Ask Otto about a strategy first."), 400
+    market = "IN" if request.args.get("market") == "IN" else "US"
+    _log("ask")
+    try:
+        answer = digest.ask(strategies_content.ask_context(market), question)
+        return jsonify(answer=answer)
+    except Exception:
+        return jsonify(answer="Otto can't reach his brain right now — the free AI "
+                       "service is unset or busy. The strategy notes on this page "
+                       "still tell the story. (Not investment advice.)"), 200
 
 
 @app.route("/admin")

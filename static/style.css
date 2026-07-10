@@ -963,3 +963,61 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
   @keyframes ao-blink { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 }
 @media (max-width: 560px) { .ask-otto { right: 12px; bottom: 12px; } }
+
+/* ── Models & Strategies (/strategies) — editorial field guide ───────────── */
+.strat-seg { margin-top: 18px; }
+.strat-note {
+  max-width: 62ch; margin: 4px auto 0; text-align: center; line-height: 1.55;
+}
+.strat-card .card-head h2 { display: inline-flex; align-items: center; gap: 10px; }
+.strat-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  color: var(--accent); background: rgba(29, 158, 117, .1);
+}
+.strat-hist { font-size: 14px; color: var(--muted); line-height: 1.6; margin: 4px 0 0; }
+.strat-read { font-size: 14.5px; line-height: 1.6; margin: 6px 0 0; }
+.strat-fw-head { padding-top: 34px; }
+.strat-fw-head h2 { font-size: 24px; margin: 0 0 6px; }
+
+/* Founder plate: generated portrait when present, monogram medallion else. */
+.fndr { display: flex; align-items: center; gap: 14px; margin: 14px 0 2px; }
+.fndr-img {
+  width: 84px; height: 84px; border-radius: 14px; object-fit: cover;
+  border: 1px solid var(--hairline); background: #F5EEDC; flex: none;
+}
+.fndr-mono {
+  width: 64px; height: 64px; border-radius: 50%; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-deep); color: #fff; font-size: 24px; font-weight: 600;
+}
+.fndr-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fndr-meta b { font-size: 15.5px; }
+
+/* Stock rows: ticker chip → deep dive, name, one-line "why it fits". */
+.srows { list-style: none; margin: 12px 0 0; padding: 0; }
+.srow {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--hairline);
+}
+.srow:last-child { border-bottom: 0; }
+.srow-form { margin: 0; flex: none; }
+.srow-tick {
+  display: inline-block; flex: none; min-width: 92px; text-align: center;
+  font: 600 12.5px var(--sans); letter-spacing: .02em; cursor: pointer;
+  color: var(--accent); background: rgba(29, 158, 117, .08);
+  border: 1px solid rgba(29, 158, 117, .35); border-radius: 999px;
+  padding: 6px 10px; text-decoration: none; white-space: nowrap;
+}
+.srow-tick:hover { background: var(--accent-deep); border-color: var(--accent-deep); color: #fff; }
+.srow-tick.srow-flat {
+  color: var(--muted); background: var(--bg); border-color: var(--hairline);
+  cursor: default; min-width: 0;
+}
+.srow-body { min-width: 0; }
+.srow-name { font-weight: 600; font-size: 14px; margin-right: 6px; }
+.srow-why { color: var(--muted); font-size: 13px; line-height: 1.5; }
+@media (max-width: 560px) {
+  .srow { flex-wrap: wrap; gap: 8px 12px; }
+  .strat-card .card-head h2 { align-items: flex-start; }
+}
