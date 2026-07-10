@@ -209,6 +209,16 @@ CREATE TABLE IF NOT EXISTS events (
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Daily closing prices for the deep-dive trend chart (Phase: trend widget).
+-- Backfilled with Yahoo's full history at ingest, topped up nightly by the
+-- refresh job. Web reads only.
+CREATE TABLE IF NOT EXISTS price_history (
+    ticker TEXT NOT NULL REFERENCES stocks(ticker) ON DELETE CASCADE,
+    d      TEXT NOT NULL,               -- YYYY-MM-DD (exchange local)
+    close  REAL NOT NULL,
+    PRIMARY KEY (ticker, d)
+);
+
 -- Monthly rule-based picks for /strategies ("Otto's current matches").
 -- Written by strategy_screen.run() (cron side, ~every 30 days); the page only
 -- reads. One batch at a time — run() replaces it wholesale.
@@ -227,7 +237,8 @@ CREATE TABLE IF NOT EXISTS strategy_picks (
 
 SNAP_COLS = ("ticker", "fetched_at", "price", "prev_close", "change_pct",
              "market_cap", "pe", "div_yield", "wk52_low", "wk52_high",
-             "pb", "ps", "eps", "industry_pe")
+             "pb", "ps", "eps", "industry_pe",
+             "rec_key", "rec_mean", "analyst_n", "target_mean")
 
 FUND_COLS = ("ticker", "fiscal_year", "revenue", "net_income", "fcf",
              "total_assets", "total_liab", "current_assets", "current_liab",
@@ -244,6 +255,13 @@ def save_snapshot(conn, snap):
         f"INSERT OR REPLACE INTO snapshots ({','.join(SNAP_COLS)}) "
         f"VALUES ({','.join('?' * len(SNAP_COLS))})",
         [snap.get(c) for c in SNAP_COLS])
+
+
+def save_price_history(conn, ticker, rows):
+    """Upsert (date, close) rows for the deep-dive trend chart."""
+    conn.executemany(
+        "INSERT OR REPLACE INTO price_history (ticker, d, close) VALUES (?, ?, ?)",
+        [(ticker, d, c) for d, c in rows])
 
 
 def save_fundamentals(conn, ticker, rows, source="yfinance"):
@@ -541,6 +559,11 @@ def _migrate(conn):
     for col in ("pb", "ps", "eps", "industry_pe"):
         if col not in have:
             conn.execute(f"ALTER TABLE snapshots ADD COLUMN {col} REAL")
+    # Analyst-sentiment fields (trend/sentiment widgets): Yahoo's consensus.
+    for col, typ in (("rec_key", "TEXT"), ("rec_mean", "REAL"),
+                     ("analyst_n", "INTEGER"), ("target_mean", "REAL")):
+        if col not in have:
+            conn.execute(f"ALTER TABLE snapshots ADD COLUMN {col} {typ}")
 
     # users.session_token (Tier C). Accounts created before this column existed
     # get one now; anyone signed in at that moment is signed out once, because

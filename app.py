@@ -22,8 +22,8 @@ import strategy_screen
 from auth import bp as auth_bp, client_ip, current_user, login_required
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 add_user_watch, get_conn, get_user_note, init_db, log_event,
-                recent_login_failures, remove_user_watch, save_snapshot,
-                save_user_note, user_watches)
+                recent_login_failures, remove_user_watch, save_price_history,
+                save_snapshot, save_user_note, user_watches)
 
 app = Flask(__name__)
 # Session signing key from .env (§10.0) — refresh→digest's loader put it in the
@@ -269,6 +269,12 @@ def _ingest_stock(symbol):
                 pass
         try:  # deep data so the /stock page works immediately, not only post-cron
             refresh_job.save_deep(conn, meta["ticker"])
+        except Exception:
+            pass
+        try:  # full price history so the trend chart works immediately too
+            rows = fetch.price_history(meta["ticker"], "max")
+            if rows:
+                save_price_history(conn, meta["ticker"], rows)
         except Exception:
             pass
     return meta
@@ -604,6 +610,21 @@ def stock(ticker):
             "SELECT * FROM insider_tx WHERE ticker=? ORDER BY filed_at DESC LIMIT 10",
             (ticker,))]
 
+        # Trend widget: saved daily closes, windowed by ?range= (1D is a live
+        # JSON fetch client-side — see /stock/<t>/spark.json).
+        hist = conn.execute(
+            "SELECT d, close FROM price_history WHERE ticker=? ORDER BY d",
+            (ticker,)).fetchall()
+
+        # Sentiment widget: this site's own reader signals.
+        watchers = conn.execute(
+            "SELECT COUNT(*) c FROM user_watchlist WHERE ticker=?",
+            (ticker,)).fetchone()["c"]
+        views30 = conn.execute(
+            "SELECT COUNT(*) c FROM events WHERE ticker=? AND "
+            "action IN ('view','analyze','ask') AND ts >= datetime('now','-30 days')",
+            (ticker,)).fetchone()["c"]
+
     # SQLite stores passed as 1/0/NULL → back to bool/None for the template.
     for c in checks:
         c["passed"] = None if c["passed"] is None else bool(c["passed"])
@@ -642,6 +663,30 @@ def stock(ticker):
     if snap and snap["fetched_at"]:
         as_of = datetime.fromisoformat(snap["fetched_at"]).astimezone().strftime("%-d %b, %-I:%M %p")
 
+    # Trend window (trading days ≈ 21/month). "max" = every close we have.
+    rng = request.args.get("range", "1y")
+    spans = {"1m": 21, "6m": 126, "1y": 252, "5y": 1260, "max": None}
+    if rng not in spans:
+        rng = "1y"
+    sel = hist if spans[rng] is None else hist[-spans[rng]:]
+    trend = metrics.trend_chart([(r["d"], r["close"]) for r in sel])
+    rng_label = {"1m": "the last month", "6m": "six months", "1y": "one year",
+                 "5y": "five years", "max": "all saved history"}[rng]
+
+    # Sentiment: Yahoo's analyst consensus (nightly snapshot) + our readers.
+    sd = dict(snap) if snap else {}
+    senti = {
+        "rec_key": (sd.get("rec_key") or "").replace("_", " "),
+        "rec_mean": sd.get("rec_mean"),
+        "analyst_n": sd.get("analyst_n"),
+        "target_mean": sd.get("target_mean"),
+        "target_pct": (round(100 * (sd["target_mean"] / price - 1), 1)
+                       if sd.get("target_mean") and price else None),
+        "gauge_pct": (round(100 * (sd["rec_mean"] - 1) / 4, 1)
+                      if sd.get("rec_mean") else None),
+        "watchers": watchers, "views30": views30,
+    }
+
     _log("view", ticker)
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
@@ -659,7 +704,27 @@ def stock(ticker):
         ins_buys=sum(1 for i in insiders if i["action"] == "buy"),
         ins_sells=sum(1 for i in insiders if i["action"] == "sell"),
         is_us="." not in ticker,
+        trend=trend, rng=rng, rng_label=rng_label, senti=senti,
         news=news, note=dict(note) if note else None, on_watch=on_watch, as_of=as_of)
+
+
+@app.route("/stock/<ticker>/spark.json")
+def spark_json(ticker):
+    """Live intraday closes for the 1D trend tab. The one live fetch on the
+    deep-dive — read-only (no DB write on a GET, §3), and any failure returns
+    a friendly error instead of a 500."""
+    ticker = ticker.upper()
+    with get_conn() as conn:
+        if not conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
+            abort(404)
+    points = fetch.intraday(ticker)
+    if len(points) < 2:
+        return jsonify(error="No intraday prices right now — the market may be closed.")
+    chart = metrics.trend_chart(points)
+    return jsonify(points=chart["points"], area=chart["area"],
+                   width=chart["width"], height=chart["height"],
+                   dir=chart["dir"], change_pct=chart["change_pct"],
+                   first=chart["first"], last=chart["last"])
 
 
 @app.post("/stock/<ticker>/note")

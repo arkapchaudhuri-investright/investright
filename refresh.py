@@ -19,8 +19,8 @@ import fetch
 import logos
 import metrics
 from db import (get_conn, init_db, save_checks, save_dcf, save_digest,
-                save_fundamentals, save_insiders, save_news, save_screener,
-                save_snapshot)
+                save_fundamentals, save_insiders, save_news,
+                save_price_history, save_screener, save_snapshot)
 
 
 def peer_symbols(symbols):
@@ -189,6 +189,21 @@ def main():
         for snap in snaps:
             save_snapshot(conn, snap)
     failed = sorted(set(symbols) - {s["ticker"] for s in snaps})
+
+    # Daily closes for the trend chart: full backfill the first time a ticker
+    # shows up, a one-month top-up after (weekends/holidays make gaps; the
+    # upsert doesn't care). Failures just keep yesterday's chart.
+    for sym in everyone:
+        try:
+            with get_conn() as conn:
+                seen = conn.execute("SELECT 1 FROM price_history WHERE ticker=? LIMIT 1",
+                                    (sym,)).fetchone()
+            rows = fetch.price_history(sym, "1mo" if seen else "max")
+            if rows:
+                with get_conn() as conn:
+                    save_price_history(conn, sym, rows)
+        except Exception as e:
+            print(f"  price history failed for {sym}: {e}")
 
     deep_ok = 0
     for sym in everyone:

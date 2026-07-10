@@ -383,6 +383,32 @@ def takeaway(name, dcf, scores):
 
 
 # --- past-performance bar charts (Tier B, §8.5) ----------------------------
+def trend_chart(points, width=560, height=150, pad=5):
+    """Geometry for the deep-dive price trend line (inline SVG, like every
+    chart here). `points` = [(label, close)] oldest-first, any cadence —
+    daily closes for 1M…Max, 5-minute bars for the live 1D tab.
+    Returns polyline + area-fill coordinates and the window's change."""
+    points = [(d, c) for d, c in points if c is not None]
+    if len(points) < 2:
+        return None
+    closes = [c for _, c in points]
+    lo, hi = min(closes), max(closes)
+    span = (hi - lo) or (hi or 1) * 0.01          # flat series still draws
+    n = len(points)
+    xs = lambda i: pad + (width - 2 * pad) * i / (n - 1)
+    ys = lambda c: pad + (height - 2 * pad) * (1 - (c - lo) / span)
+    pts = " ".join(f"{xs(i):.1f},{ys(c):.1f}" for i, (_, c) in enumerate(points))
+    change = 100.0 * (closes[-1] - closes[0]) / closes[0] if closes[0] else 0.0
+    return {
+        "width": width, "height": height, "points": pts,
+        "area": f"{xs(0):.1f},{height - pad} {pts} {xs(n - 1):.1f},{height - pad}",
+        "lo": lo, "hi": hi,
+        "first": points[0], "last": points[-1],
+        "change_pct": round(change, 2),
+        "dir": "up" if change >= 0 else "down",
+    }
+
+
 def bar_chart(years, values, benchmark_growth=None, width=280, height=90, pad=14,
               n_projected=0):
     """Geometry for a revenue/earnings/FCF bar chart, computed in Python so the
