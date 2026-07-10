@@ -66,6 +66,20 @@
     </div>
   </form>
 
+  {# Popular right now — the tickers visitors are actually looking at, straight
+     from the activity log (not a hardcoded list). One tap opens the deep dive. #}
+  {% if trending %}
+  <div class="hero-trending">
+    <span class="hero-trending-label">Popular right now</span>
+    <div class="hero-chips">
+      {% for t in trending %}
+      <a class="hero-chip" href="{{ url_for('stock', ticker=t['ticker']) }}"
+         title="{{ t['name'] }}">{{ t['ticker'] }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   {% with msgs = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
   {% endwith %}

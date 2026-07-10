@@ -391,8 +391,30 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   min-width: 200px; min-height: 46px; padding: 11px 22px;
   font-size: 14.5px; text-align: center;
 }
-/* Home is search-only now — let the hero breathe like a landing page. */
-.hero-home { padding-top: max(40px, 10vh); }
+/* Home is search-only now — center the whole hero in the viewport so it reads
+   like a calm landing page, not a top-weighted form. main is a flex column
+   (sticky footer), so the hero centers within the space above the footer. */
+.hero-home {
+  min-height: calc(100vh - 210px);
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 24px 0;
+}
+.hero-home .otto { margin-bottom: 4px; }
+
+/* Popular-right-now quick-search chips under the hero actions. */
+.hero-trending { margin-top: 30px; text-align: center; }
+.hero-trending-label {
+  display: block; color: var(--muted); font-size: 12px;
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
+}
+.hero-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.hero-chip {
+  border: 1px solid var(--hairline); border-radius: 999px;
+  padding: 7px 15px; font-size: 13.5px; font-weight: 600;
+  color: var(--text); text-decoration: none; font-variant-numeric: tabular-nums;
+  transition: border-color .15s ease, color .15s ease;
+}
+.hero-chip:hover { border-color: var(--accent); color: var(--accent); }
 .search-bar input {
   flex: 1; background: var(--card); color: var(--text);
   border: 1px solid var(--edge); border-radius: var(--radius);

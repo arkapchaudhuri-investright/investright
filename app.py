@@ -197,10 +197,19 @@ def _fx_ctx():
 
 @app.route("/")
 def home():
-    # Clean, Google-calm home: just the greeting, the search and the two
-    # actions. The watchlist itself lives on /watchlist now.
+    # Clean, Google-calm home: greeting, search, two actions — plus a quiet
+    # "popular right now" row of the most-looked-at tickers (real activity, not
+    # a hardcoded list), each a one-tap shortcut into its deep dive.
     ctx = _fx_ctx()
-    resp = make_response(render_template("home.html", greeting=greeting(), **ctx))
+    with get_conn() as conn:
+        trending = [dict(r) for r in conn.execute(
+            "SELECT e.ticker, s.name FROM events e JOIN stocks s ON s.ticker = e.ticker "
+            "WHERE e.ticker IS NOT NULL AND e.ticker != '' "
+            "AND e.action IN ('view','analyze','add') "
+            "AND e.ts >= datetime('now','-30 days') "
+            "GROUP BY e.ticker ORDER BY COUNT(*) DESC LIMIT 6")]
+    resp = make_response(render_template(
+        "home.html", greeting=greeting(), trending=trending, **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
     _log("view")
