@@ -15,7 +15,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 clear_login_failures, create_user, delete_user,
                 get_user_by_email, get_user_by_id, login_failures,
-                record_login_failure, set_password)
+                record_login_failure, rotate_session_token, set_password)
 
 bp = Blueprint("auth", __name__)
 
@@ -247,6 +247,24 @@ def change_password():
     session["stok"] = token
     g.__dict__.pop("user", None)
     flash("Password changed. Any other devices have been signed out.", "ok")
+    return redirect(url_for("auth.account"))
+
+
+@bp.post("/account/signout-others")
+@login_required
+def signout_others():
+    """Rotate the account's session token, which voids every session pinned to
+    the old one — a lost phone, a library machine. This device is re-pinned to
+    the new token, exactly as change_password does, so the person who clicked
+    stays where they are. No password prompt: they're already authenticated, and
+    demanding one here would only train people to type it more often."""
+    from db import get_conn
+    user = current_user()
+    with get_conn() as conn:
+        token = rotate_session_token(conn, user["id"])
+    session["stok"] = token
+    g.__dict__.pop("user", None)
+    flash("Signed out on every other device. This one stays signed in.", "ok")
     return redirect(url_for("auth.account"))
 
 

@@ -33,6 +33,10 @@
   .vid { color: var(--muted); font-variant-numeric: tabular-nums; }
   .adm-tbl .acct { color: var(--accent); max-width: 180px; overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap; }
+  .adm-h2 { font-size: 15px; margin: 30px 0 4px; }
+  .pill.fail { color: var(--down); border-color: var(--down); }
+  .adm-none { color: var(--muted); font-size: 13px; margin: 10px 0 0;
+    border: 1px dashed var(--hairline); border-radius: 12px; padding: 14px 16px; }
 </style>
 </head>
 <body>
@@ -81,6 +85,34 @@
     </table>
   </div>
   {% if not events %}<p class="note" style="margin-top:16px">No events yet.</p>{% endif %}
+
+  <h2 class="adm-h2 serif">Failed sign-ins</h2>
+  <p class="note">Sign-in throttling: an email is locked out after
+    <b>{{ max_email }}</b> failures, an IP after <b>{{ max_ip }}</b>, each within a
+    rolling <b>{{ login_window }}-minute</b> window. This is <b>not an audit trail</b> —
+    rows here are pruned once they age past that window, and a correct password
+    immediately clears every failure for that email and IP. An empty table is the
+    normal, healthy state; a full one means someone is guessing right now.</p>
+
+  {% if failures %}
+  <div class="adm-wrap">
+    <table class="adm-tbl">
+      <thead><tr><th>When</th><th>Result</th><th>Email tried</th><th>IP</th></tr></thead>
+      <tbody>
+        {% for f in failures %}
+        <tr>
+          <td>{{ f['ts_local'] }}</td>
+          <td><span class="pill fail">failed</span></td>
+          <td class="acct" title="{{ f['email'] }}">{{ f['email'] or '—' }}</td>
+          <td class="vid">{{ f['ip'] or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="adm-none">No failed sign-ins on file. Nobody is being locked out.</p>
+  {% endif %}
 </div>
 </body>
 </html>

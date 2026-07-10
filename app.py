@@ -18,8 +18,10 @@ import logos
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
 from auth import bp as auth_bp, client_ip, current_user, login_required
-from db import (add_user_watch, get_conn, get_user_note, init_db, log_event,
-                remove_user_watch, save_snapshot, save_user_note, user_watches)
+from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
+                add_user_watch, get_conn, get_user_note, init_db, log_event,
+                recent_login_failures, remove_user_watch, save_snapshot,
+                save_user_note, user_watches)
 
 app = Flask(__name__)
 # Session signing key from .env (§10.0) — refresh→digest's loader put it in the
@@ -355,15 +357,18 @@ def admin():
             "SELECT ticker, COUNT(*) n FROM events "
             "WHERE ticker IS NOT NULL AND ticker != '' "
             "GROUP BY ticker ORDER BY n DESC LIMIT 10")]
+        failures = recent_login_failures(conn)
     # UTC timestamps → the server's local clock for readability.
-    for e in events:
+    for e in events + failures:
         try:
             e["ts_local"] = (datetime.fromisoformat(e["ts"])
                              .astimezone().strftime("%-d %b %H:%M"))
         except Exception:
             e["ts_local"] = e["ts"]
     return render_template("admin.html", events=events, total=total,
-                           visitors=visitors, top=top, key=key)
+                           visitors=visitors, top=top, key=key,
+                           failures=failures, login_window=LOGIN_WINDOW_MIN,
+                           max_email=LOGIN_MAX_PER_EMAIL, max_ip=LOGIN_MAX_PER_IP)
 
 
 @app.route("/today")

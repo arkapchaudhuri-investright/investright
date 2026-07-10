@@ -32,6 +32,17 @@
     infrastructure on a $0 budget), so pick something you'll keep.
   </p>
 
+  <h2 class="acct-h2">Signed in elsewhere?</h2>
+  <form class="auth-form" method="post" action="{{ url_for('auth.signout_others') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <p class="auth-note acct-inline-note">
+      Ends your session on every other browser and device — a phone you no longer
+      have, a machine you forgot to sign out of. This device stays signed in, and
+      your password doesn't change.
+    </p>
+    <button type="submit" class="btn-analyze auth-go">Sign out on other devices</button>
+  </form>
+
   <h2 class="acct-h2 danger-h2">Delete account</h2>
   <details class="danger-zone">
     <summary>Delete my account</summary>

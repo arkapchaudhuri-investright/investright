@@ -415,6 +415,17 @@ def clear_login_failures(conn, email, ip):
     conn.execute("DELETE FROM login_attempts WHERE email=? OR ip=?", (email, ip))
 
 
+def recent_login_failures(conn, limit=50):
+    """Failed sign-ins still on file, newest first — for the /admin panel.
+    Read-only: unlike login_failures() this never prunes, because the web app
+    doesn't write (§3). So this is only ever a *recent* slice, never an audit
+    trail — a correct password clears that email and IP, and the next sign-in
+    attempt prunes everything past the window."""
+    return [dict(r) for r in conn.execute(
+        "SELECT email, ip, ts FROM login_attempts ORDER BY ts DESC LIMIT ?",
+        (limit,))]
+
+
 def log_event(conn, action, visitor=None, name=None, market=None,
               ticker=None, path=None, ua=None, ip=None, user_id=None):
     """Append one activity-log row (Phase 6c). Best-effort — callers wrap this in
