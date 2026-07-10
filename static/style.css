@@ -350,6 +350,9 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .ghost:hover { border-color: var(--accent); color: var(--accent); }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
+/* Belt-and-braces: if the table ever outgrows the card again, scroll the card
+   internally — never the whole page (§ no h-scroll). */
+#watchlist { overflow-x: auto; }
 th {
   text-align: left; color: var(--muted); font-weight: 500; font-size: 12px;
   text-transform: uppercase; letter-spacing: .05em;
@@ -393,7 +396,7 @@ footer {
 .tick-link { color: var(--text); text-decoration: none; }
 .tick-link:hover { color: var(--accent); }
 /* Explicit "full analysis" CTA on each desktop watchlist row (§ homepage). */
-.row-cta { display: inline-block; margin-top: 5px; color: var(--accent); font-size: 12px; text-decoration: none; }
+.row-cta { display: inline-block; margin-top: 5px; color: var(--accent); font-size: 12px; text-decoration: none; white-space: nowrap; }
 .row-cta:hover { text-decoration: underline; }
 
 /* micro-motion — rows ease in, all behind reduced-motion (DESIGN.md §5) */
@@ -655,9 +658,15 @@ a.peer:hover { border-color: var(--accent); }
 .sbar-insider { background: var(--up); opacity: .65; }
 .sbar-div { background: var(--accent); opacity: .65; }
 @media (max-width: 560px) {
-  .scr-row { flex-wrap: wrap; }
-  .scr-rank { width: 18px; }
-  .scr-right { flex-direction: row; width: 100%; justify-content: space-between; align-items: baseline; }
+  /* Phone layout: rank + text left, mini-snowflake right (like the price in
+     the watchlist cards), score row full-width below. Everything tops-aligned
+     so the rank no longer floats in dead space beside tall wrapped rows. */
+  .scr-row { flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+  .scr-rank { width: 18px; order: 0; padding-top: 2px; }
+  .scr-main { order: 1; flex: 1; min-width: 0; }
+  .scr-row .peer-snow { order: 2; width: 40px; height: 40px; }
+  .scr-top .peer-snow { width: 48px; height: 48px; }
+  .scr-right { order: 3; flex-direction: row; width: 100%; justify-content: space-between; align-items: baseline; }
 }
 
 /* micro-motion: snowflake eases in, fair-value bar fills (DESIGN.md §5) */
@@ -728,9 +737,19 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
      their own line(s) instead of overflowing the viewport (§ no h-scroll). */
   .topbar { flex-wrap: wrap; row-gap: 10px; padding: 14px 16px; }
   .topnav { flex-wrap: wrap; justify-content: flex-end; gap: 14px; }
-  /* Watchlist → iOS-Stocks-style collapsible cards on phones: a minimized row
-     (ticker · name · price · change pill) that taps open to reveal the rest.
-     Desktop table is hidden here; expand/collapse is native <details>, no JS. */
+  /* Card headers ("Your watchlist · as of · ↻ Refresh") wrapped mid-title on
+     phones — give the title its own line and let the rest follow tidily. */
+  .card-head { flex-wrap: wrap; row-gap: 6px; }
+  .card-head h2 { flex: 1; white-space: nowrap; }
+}
+
+/* Watchlist → iOS-Stocks-style collapsible cards on smaller screens: a
+   minimized row (ticker · name · price · change pill) that taps open to reveal
+   the rest. Desktop table is hidden here; expand/collapse is native <details>,
+   no JS. 720px, not 560: between 561–700px the 8-column table overflowed the
+   card and gave the page a horizontal scroll — large phones and small tablets
+   get the cards too. */
+@media (max-width: 720px) {
   #watchlist table { display: none; }
   .wl-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
   .wl-card { border: 1px solid var(--hairline); border-radius: 12px; background: var(--card); }
