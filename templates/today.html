@@ -15,11 +15,17 @@
       {% if as_of %}<span class="asof">screener last ran {{ as_of }} · refreshed nightly</span>
       {% else %}<span class="asof">rankings land with the nightly refresh</span>{% endif %}
     </div>
+    {# Market toggle — same US/India shape as /strategies, plus Both (the whole
+       tracked universe). Plain links, persists to the ir_market cookie. #}
+    <nav class="seg today-mkt-seg" aria-label="Which market to screen">
+      {% for key, label in (('US', '🇺🇸 US'), ('IN', '🇮🇳 India'), ('BOTH', 'Both')) %}
+      <a href="{{ url_for('today', market=key) }}"
+         class="{{ 'active' if market == key }}"
+         {% if market == key %}aria-current="true"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
   </div>
 </section>
-
-{# Market switcher moved to the top bar (§11.1) — persistent on every page; it
-   still filters this screen (reloads on change, reading the ir_market cookie). #}
 
 {# Otto's read — the nightly AI digest; a summary of our own rules, labeled so (§1, §4) #}
 <section class="card">
