@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 
-<section class="hero">
-  {% with mood = 'sleepy' if not rows else 'happy' %}{% include "_otto.html" %}{% endwith %}
+<section class="hero hero-home">
+  {% with mood = 'happy' %}{% include "_otto.html" %}{% endwith %}
   {# Greeting is personalised client-side: time-of-day from the VISITOR's clock
      (server {{ greeting }} is the no-JS fallback) + a name they type once,
      remembered in localStorage. Upgrades to a real account later. #}
@@ -66,118 +66,7 @@
     {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
   {% endwith %}
 
-  {# Watchlist pulse chips removed (§11.4) — the watchlist table/cards below
-     already show the same tickers + change; the chip strip was redundant. #}
-</section>
-
-<section id="watchlist" class="card" data-tour="watchlist">
-  {% if rows %}
-  <div class="card-head">
-    <h2>Your watchlist</h2>
-    <form action="{{ url_for('refresh') }}" method="post" class="refresh-form">
-      <input type="hidden" name="csrf" value="{{ csrf_token }}">
-      {% if as_of %}<span class="asof">as of {{ as_of }}</span>{% endif %}
-      <button type="submit" class="ghost">↻ Refresh</button>
-    </form>
-  </div>
-  <table>
-    <thead><tr>
-      <th>Stock</th><th class="num">Price</th><th class="num">Today</th>
-      <th class="num">Mkt cap</th><th class="num">P/E</th><th class="num">Yield</th>
-      <th>52-week range</th><th></th>
-    </tr></thead>
-    <tbody>
-      {% for r in rows %}
-      <tr id="row-{{ r['ticker'] }}">
-        <td>
-          <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
-          <span class="xchg">{{ r['exchange']|exch }}</span>
-          <div class="name">{{ r['name'] }}</div>
-          <a class="row-cta" href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
-        </td>
-        <td class="num">{{ r['price']|money(r['currency']) }}</td>
-        <td class="num {{ 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' }}">
-          {{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</td>
-        <td class="num">{{ r['market_cap']|bigmoney(r['currency']) }}</td>
-        <td class="num">{{ '%.1f'|format(r['pe']) if r['pe'] else '—' }}</td>
-        <td class="num">{{ '%.2f%%'|format(r['div_yield']) if r['div_yield'] else '—' }}</td>
-        <td>
-          {% if r['wk52_low'] and r['wk52_high'] and r['wk52_high'] > r['wk52_low'] %}
-          {% set pos = 100 * (r['price'] - r['wk52_low']) / (r['wk52_high'] - r['wk52_low']) %}
-          <div class="range" title="52w low {{ r['wk52_low']|money(r['currency']) }} · high {{ r['wk52_high']|money(r['currency']) }}">
-            <div class="range-track"><span class="range-dot" style="left:{{ [0, [pos, 100]|min]|max|round(1) }}%"></span></div>
-          </div>
-          {% else %}—{% endif %}
-        </td>
-        <td>
-          <form action="{{ url_for('remove') }}" method="post"
-                onsubmit="return confirm('Remove {{ r['ticker'] }} from your watchlist?')">
-            <input type="hidden" name="csrf" value="{{ csrf_token }}">
-            <input type="hidden" name="ticker" value="{{ r['ticker'] }}">
-            <button class="x" aria-label="Remove {{ r['ticker'] }}">×</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  {# Mobile only: iOS-Stocks-style collapsible cards (desktop uses the table above).
-     Minimized = ticker · name · price · change pill; tap to reveal the rest. #}
-  <div class="wl-cards">
-    {% for r in rows %}
-    {% set dir = 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' %}
-    <details class="wl-card">
-      <summary class="wl-summary">
-        <span class="wl-id">
-          <span class="wl-tk">{{ r['ticker'] }}</span>
-          <span class="wl-nm">{{ r['name'] }}</span>
-        </span>
-        <span class="wl-px">
-          <span class="wl-price">{{ r['price']|money(r['currency']) }}</span>
-          <span class="wl-chg {{ dir }}">{{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</span>
-        </span>
-        <span class="wl-chev" aria-hidden="true">⌄</span>
-      </summary>
-      <div class="wl-detail">
-        <div class="wl-metrics">
-          <div><span>Mkt cap</span><b>{{ r['market_cap']|bigmoney(r['currency']) }}</b></div>
-          <div><span>P/E</span><b>{{ '%.1f'|format(r['pe']) if r['pe'] else '—' }}</b></div>
-          <div><span>Yield</span><b>{{ '%.2f%%'|format(r['div_yield']) if r['div_yield'] else '—' }}</b></div>
-        </div>
-        {% if r['wk52_low'] and r['wk52_high'] and r['wk52_high'] > r['wk52_low'] %}
-        {% set pos = 100 * (r['price'] - r['wk52_low']) / (r['wk52_high'] - r['wk52_low']) %}
-        <div class="wl-rangewrap">
-          <span class="rl">52-week range</span>
-          <div class="range" title="52w low {{ r['wk52_low']|money(r['currency']) }} · high {{ r['wk52_high']|money(r['currency']) }}">
-            <div class="range-track"><span class="range-dot" style="left:{{ [0, [pos, 100]|min]|max|round(1) }}%"></span></div>
-          </div>
-        </div>
-        {% endif %}
-        <div class="wl-actions">
-          <a href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
-          <form action="{{ url_for('remove') }}" method="post"
-                onsubmit="return confirm('Remove {{ r['ticker'] }} from your watchlist?')">
-            <input type="hidden" name="csrf" value="{{ csrf_token }}">
-            <input type="hidden" name="ticker" value="{{ r['ticker'] }}">
-            <button class="x" aria-label="Remove {{ r['ticker'] }}">× Remove</button>
-          </form>
-        </div>
-      </div>
-    </details>
-    {% endfor %}
-  </div>
-  {% elif current_user %}
-  <p class="empty serif">Otto's dozing — your watchlist is empty.<br>
-    <span class="empty-sub">Add your first ticker above to wake him up.</span></p>
-  {% else %}
-  {# Logged out: watchlist is per-account now (§10.4). Search / Analyze / Today
-     all still work without an account — only saving a list needs one. #}
-  <p class="empty serif">Sign in to build your watchlist.<br>
-    <span class="empty-sub"><a href="{{ url_for('auth.login') }}">Sign in</a> or
-      <a href="{{ url_for('auth.register') }}">create a free account</a> to save
-      stocks — searching and Today work without one.</span></p>
-  {% endif %}
+  {# The watchlist itself lives on /watchlist now — home stays search-only. #}
 </section>
 
 {# First-run guided tour (Phase 7) — Otto in a scholar cap walks new visitors
@@ -281,7 +170,7 @@
     { sel: '[data-tour="search"]',   title: 'Search any stock',
       text: 'Type a ticker — AAPL, RELIANCE.NS, TCS.BO — and hit Analyze for a full breakdown.' },
     { sel: '[data-tour="watchlist"]', title: 'Your watchlist',
-      text: 'Stars you save land here with live prices — tap any row for the full analysis. Sign in to keep your own list.' },
+      text: 'Stars you save get their own page — tap here anytime for live prices and the full list. Sign in to keep yours.' },
     { sel: '[data-tour="today"]',    title: "Today's ideas",
       text: "Otto ranks interesting stocks each night with plain-English reasons. It's a screen, not advice." },
     { sel: '[data-tour="settings"]', title: 'Everything lives in the gear',
