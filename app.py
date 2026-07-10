@@ -471,8 +471,12 @@ def today():
     # Filter the screen to the visitor's chosen market (Phase 7). Market is a
     # per-browser preference mirrored into the ir_market cookie; India tickers
     # carry a .NS/.BO suffix. Ranks are renumbered after filtering so the top of
-    # the shown list still gets the #1 hero treatment.
-    market = (request.cookies.get("ir_market") or "BOTH").upper()
+    # the shown list still gets the #1 hero treatment. A ?market= querystring
+    # (the visible US/India/Both toggle) wins over the cookie and persists it,
+    # same pattern as /strategies and the scope toggle below — plain links, no JS.
+    market = (request.args.get("market") or request.cookies.get("ir_market") or "BOTH").upper()
+    if market not in ("US", "IN", "BOTH"):
+        market = "BOTH"
 
     # Scope: the whole tracked universe, or only this account's watchlist. The
     # querystring wins over the cookie so the toggle is a plain link (no JS),
@@ -550,6 +554,9 @@ def today():
         scope=scope, mine_count=len(mine), screened=len(rows)))
     if request.args.get("scope"):
         resp.set_cookie("ir_today_scope", scope, max_age=60 * 60 * 24 * 365,
+                        samesite="Lax")
+    if request.args.get("market"):        # toggle persists like the gear's market
+        resp.set_cookie("ir_market", market, max_age=60 * 60 * 24 * 365,
                         samesite="Lax")
     return resp
 
