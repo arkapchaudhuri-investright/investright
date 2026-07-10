@@ -616,6 +616,41 @@ dark, no console errors) and deployed on merge.
     passwords rejected without burning the token, dead relay → 200 not 500, old
     password stops working and the new one starts.
 
+### 2026-07-09 (3rd pass) — UI/UX polish session (#28–#36)
+Audit-first (findings approved before code), then seven PRs, each verified
+desktop + 375px, light + dark, no console errors. No features, no new deps.
+- **#28 focus + forms:** global `:focus-visible` ring; removed six `outline:none`
+  traps; new `--edge` token so inputs have ≥3:1 borders; auth CTAs un-squashed
+  (were 420×17px — `.btn-analyze`'s `padding:0` relied on the search bar's flex).
+- **#29 contrast (all measured):** light `--muted`/`--accent`/`--amber` nudged to
+  clear AA (accent `#178a66`→`#15805f`, honouring the lock's *intent*); new
+  `--accent-deep` under small white text (active pills, badge, tour Next, chat
+  bubbles); mobile change pills → tinted chips (white-on-up was 2.34:1);
+  `.btn-danger` fixed `#c0403c`. **Large CTAs stay brand `#1D9E75` at 3.39:1 —
+  accepted, revisit only with Arka.**
+- **#30 snowflake:** left axis label ("Dividend 100%") no longer clipped —
+  viewBox `-58…`→`-72 -8 330 216`.
+- **#31 tablet gap:** table→cards breakpoint 560→720px (561–700px used to
+  h-scroll the page); `#watchlist` overflow guard; /today phone rows reworked
+  (rank+text left, mini-snowflake top-right, score row below).
+- **#32 touch targets:** every small control ≥~36px (✕ was 26×24, gear 34, nav
+  links 22px tall) via padding/negative margins — visual language unchanged.
+- **#33 theme sweep:** FV bar goes **amber when price > estimate** (§5 colour =
+  meaning; green stays for undervalued); `.empty-sub a` branded (was browser
+  blue); `--shadow-pop`/`--wash` tokens (light-mode shadows + visible hover);
+  **Otto favicon** (inline SVG data URI) + `theme-color` metas synced by the
+  toggle.
+- **#34 /admin extends base.html** via new `{% block head %}` — follows the
+  theme cookie now, keeps noindex + its page-scoped styles.
+- **#35 interaction a11y:** tour is keyboard-usable (focus into bubble, Tab
+  cycles, Esc skips); Ask Otto launcher `aria-expanded` + focus return; /today
+  score `title` mirrored to `aria-label` (+ copy stops promising hover on
+  touch); nav marks current page; `|exch` filter (NasdaqGS→NASDAQ); team name
+  is an `h2`.
+- **#36 tokens phase 1:** `--space-*` + `--fs-*` ramp in `:root`; shell (main/
+  topbar/card/hero) migrated as same-value no-ops. **Convention: new CSS uses
+  tokens; old rules migrate when touched — never as one big rewrite.**
+
 ---
 
 ## 10. Phase 8 build spec (accounts) — for the next session
