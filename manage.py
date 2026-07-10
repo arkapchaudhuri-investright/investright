@@ -7,6 +7,8 @@ default to a dry run; pass --apply to write.
     python manage.py migrate-watchlist --email you@example.com            # preview
     python manage.py migrate-watchlist --email you@example.com --apply    # commit
     python manage.py set-password --email you@example.com --apply         # prompts
+    python manage.py backup --apply                                       # local only
+    python manage.py backup --email you@gmail.com --apply                 # + offsite
 
 migrate-watchlist (DESIGN §10.3): Phase 8 made the watchlist per-user, which
 stranded the pre-accounts global `watchlist`/`notes` rows — they belong to
@@ -14,29 +16,145 @@ whoever was using the site before accounts existed. This copies them into that
 person's account. The global `watchlist` table is left untouched: it is still
 the union of tickers the nightly refresh fetches and /today screens (§10.4).
 
-set-password (DESIGN §10.6): there is no self-serve password reset — no email
-infrastructure on a $0 budget — so a forgotten password means the owner resets
-it here, which is exactly what the register page promises. Resetting also
+set-password (DESIGN §10.6): the manual password reset. Still the fallback when
+no SMTP relay is configured, and the way in if you lock yourself out. Resetting
 rotates the account's session token, signing out every device.
+
+backup (DESIGN §12.7): the DB is the only thing here that can't be rebuilt from
+code — accounts, watchlists and notes. Takes a consistent snapshot with SQLite's
+online backup API (a plain file copy of a live DB can tear), reads it back with
+PRAGMA integrity_check, gzips it, and rotates. With --email it also sends an
+AES-256-encrypted copy offsite, because a backup on the same disk as the
+original is not a backup.
 """
 import argparse
 import getpass
-import shutil
+import gzip
+import os
+import sqlite3
+import subprocess
 import sys
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
 from db import DB_PATH, get_conn, get_user_by_email, set_password
 
 
+def _snapshot(dest):
+    """Copy the live DB with SQLite's online backup API, not shutil.
+
+    gunicorn may be mid-write, and a plain file copy of a live SQLite database
+    can capture a torn page or miss the WAL. conn.backup() takes a consistent
+    snapshot under the same locks SQLite uses itself.
+    """
+    src = sqlite3.connect(DB_PATH)
+    dst = sqlite3.connect(dest)
+    try:
+        with dst:
+            src.backup(dst)
+    finally:
+        dst.close()
+        src.close()
+
+
+def _verify(path):
+    """A backup nobody has read back is a rumour. Returns True if SQLite says
+    the copy is intact."""
+    conn = sqlite3.connect(path)
+    try:
+        return conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    finally:
+        conn.close()
+
+
 def _backup():
-    """Copy the SQLite file next to itself before any write. Cheap insurance —
-    this is a hand-run job against a live DB."""
+    """Snapshot the DB next to itself before any write. Cheap insurance — these
+    commands are hand-run against a live database."""
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     dest = DB_PATH.with_suffix(f".db.bak-{stamp}")
-    shutil.copy2(DB_PATH, dest)
+    _snapshot(dest)
     return dest
+
+
+def _encrypt(src, dest, passphrase):
+    """AES-256 via the openssl CLI. The passphrase goes through the environment,
+    never argv — argv is world-readable in `ps`."""
+    subprocess.run(
+        ["openssl", "enc", "-aes-256-cbc", "-pbkdf2", "-iter", "200000",
+         "-salt", "-pass", "env:IR_BACKUP_PASS", "-in", str(src), "-out", str(dest)],
+        check=True, env={**os.environ, "IR_BACKUP_PASS": passphrase})
+
+
+def backup(dir_, keep, email, apply_):
+    out = Path(dir_)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    target = out / f"investright-{stamp}.db.gz"
+    passphrase = os.environ.get("BACKUP_PASSPHRASE")
+
+    # Refuse to put an unencrypted DB — password hashes, email addresses, private
+    # notes — into an inbox. Local copies stay in place, protected by file perms.
+    if email and not passphrase:
+        sys.exit("Refusing to email an unencrypted database. Set BACKUP_PASSPHRASE "
+                 "in .env first, and keep a copy of it somewhere that is NOT this "
+                 "machine — without it the backup is unreadable.")
+
+    # Prune oldest-first so that after this run's file lands there are exactly
+    # `keep` of them. Timestamped names sort chronologically. The max(0, ...)
+    # matters: `[:-keep + 1]` silently prunes nothing when keep == 1.
+    existing = sorted(out.glob("investright-*.db.gz")) if out.is_dir() else []
+    doomed = existing[:max(0, len(existing) - keep + 1)] if keep else []
+
+    print(f"source     : {DB_PATH} ({DB_PATH.stat().st_size:,} bytes)")
+    print(f"destination: {target}")
+    print(f"retention  : keep {keep} → {len(existing)} on disk, "
+          f"{len(doomed)} would be pruned")
+    print(f"offsite    : {'email to ' + email if email else 'none (local only)'}"
+          f"{' (encrypted)' if email else ''}")
+    if not apply_:
+        print("\nDRY RUN — nothing written. Re-run with --apply.")
+        return
+
+    out.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        raw = Path(tmp) / "snapshot.db"
+        _snapshot(raw)
+        if not _verify(raw):
+            sys.exit("Snapshot failed PRAGMA integrity_check — refusing to keep it. "
+                     "The live DB may be damaged; investigate before overwriting "
+                     "any good backup.")
+        with open(raw, "rb") as fh, gzip.open(target, "wb") as gz:
+            gz.writelines(fh)
+        print(f"\nwrote {target} ({target.stat().st_size:,} bytes, integrity ok)")
+
+        if email:
+            import mailer
+            if not mailer.enabled():
+                sys.exit("SMTP isn't configured (SMTP_* in .env), so there's "
+                         "nowhere to send it. The local backup above is kept.")
+            enc = Path(tmp) / f"{target.name}.enc"
+            _encrypt(target, enc, passphrase)
+            ok = mailer.send(
+                email, f"InvestRight backup {stamp}",
+                f"Encrypted SQLite backup of investright.db, taken {stamp}.\n\n"
+                "Decrypt with:\n\n"
+                f"    openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \\\n"
+                f"      -in {enc.name} -out backup.db.gz\n"
+                "    gunzip backup.db.gz\n\n"
+                "The passphrase is BACKUP_PASSPHRASE from the server's .env. If "
+                "you don't have it somewhere other than that server, this file is "
+                "worthless — go copy it into your password manager now.\n",
+                attachment=(enc.name, enc.read_bytes()))
+            print(f"emailed {enc.name} ({enc.stat().st_size:,} bytes) to {email}"
+                  if ok else "EMAIL FAILED — local backup kept; see the log above.")
+            if not ok:
+                sys.exit(1)
+
+    for old in doomed:
+        old.unlink()
+        print(f"pruned {old.name}")
 
 
 def migrate_watchlist(email, apply_):
@@ -138,11 +256,22 @@ def main():
     p.add_argument("--apply", action="store_true",
                    help="actually write (default is a dry run)")
 
+    b = sub.add_parser("backup", help="atomic, verified snapshot of the SQLite DB")
+    b.add_argument("--dir", default=str(DB_PATH.parent / "backups"),
+                   help="where the rotating .db.gz copies live")
+    b.add_argument("--keep", type=int, default=14, help="how many to retain (default 14)")
+    b.add_argument("--email", help="also mail an encrypted copy here (needs "
+                                   "BACKUP_PASSPHRASE + SMTP_* in .env)")
+    b.add_argument("--apply", action="store_true",
+                   help="actually write (default is a dry run)")
+
     args = ap.parse_args()
     if args.cmd == "migrate-watchlist":
         migrate_watchlist(args.email, args.apply)
     elif args.cmd == "set-password":
         set_user_password(args.email, args.password, args.apply)
+    elif args.cmd == "backup":
+        backup(args.dir, args.keep, args.email, args.apply)
 
 
 if __name__ == "__main__":

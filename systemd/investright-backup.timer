@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the InvestRight DB backup nightly
+
+[Timer]
+# 30 min after the 22:00 refresh, so the backup captures that night's data.
+OnCalendar=*-*-* 22:30:00
+# A reboot or a sleeping host must not silently skip a night.
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

@@ -45,9 +45,10 @@ def enabled():
     return _cfg() is not None
 
 
-def send(to, subject, body):
+def send(to, subject, body, attachment=None):
     """Send one plain-text message. Returns True on success.
 
+    `attachment` is an optional (filename, bytes) pair, sent as an opaque blob.
     Never raises: a dead relay must not 500 a page or, worse, tell the caller
     whether the address existed. Failures land in the gunicorn log.
     """
@@ -59,6 +60,10 @@ def send(to, subject, body):
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(body)
+    if attachment:
+        name, blob = attachment
+        msg.add_attachment(blob, maintype="application", subtype="octet-stream",
+                           filename=name)
     try:
         ctx = ssl.create_default_context()
         if cfg["port"] == 465:                      # implicit TLS

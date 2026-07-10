@@ -893,3 +893,34 @@ admin CLI; dry-run by default, `--apply` to write)
 - **Throttling state belongs in SQLite,** not memory: gunicorn runs 2 workers.
 - **Don't reintroduce a top-bar market switcher.** Phase 9 moved market, currency,
   theme and the $→₹ rate into the ⚙ gear *only*; §11 above is historical.
+
+### 12.7 Backups and alerting
+`data/investright.db` is **the only thing here that can't be rebuilt from code.**
+Prices, fundamentals and news all re-fetch; accounts, watchlists and notes do not.
+It is ~400 KB.
+
+- **`manage.py backup`** takes a *consistent* snapshot with SQLite's online backup
+  API. Do **not** `cp` a live database — gunicorn may be mid-write, and a plain copy
+  can tear a page or miss the WAL. The snapshot is read back with
+  `PRAGMA integrity_check` before it is kept: a backup nobody has verified is a
+  rumour. Then gzip (~88 KB), then rotate to `--keep` (default 14).
+- **`--email` sends an encrypted copy offsite.** A backup on the same disk as the
+  original is not a backup — it dies with the VM. AES-256 via `openssl` (passphrase
+  passed through the environment, never argv, which is world-readable in `ps`),
+  attached to a mail through the same `mailer.py` the password reset uses. **It
+  refuses to email an unencrypted DB** — that file holds password hashes, email
+  addresses and private notes.
+- **`BACKUP_PASSPHRASE` must exist somewhere that is not the VM.** If it only lives
+  in `/opt/investright/.env` and the VM is lost, every offsite backup is
+  undecryptable noise. Password manager. Now.
+- **`alert.py` + `investright-alert@.service`** email when a unit fails, wired by
+  `OnFailure=investright-alert@%n.service`. A nightly job that fails silently is
+  worse than none: the site cheerfully serves yesterday's numbers (§8.0 last-good)
+  and nobody notices. `alert.py` always exits 0 — it runs *because* something already
+  broke, and an alerter that fails too helps no one.
+- Unit files live in `systemd/`. They are **not** installed by `deploy.sh` (that only
+  pulls + restarts) — copy them to `/etc/systemd/system/` by hand, once. The refresh
+  drop-in carries its install commands in its own header comment.
+- **Restore:** `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in X.enc -out X.gz`
+  → `gunzip X.gz` → stop `investright` → move over `data/investright.db` → start.
+  Verified end-to-end (encrypt → mail → decrypt → `integrity_check ok` → real rows).
