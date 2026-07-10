@@ -651,6 +651,36 @@ desktop + 375px, light + dark, no console errors. No features, no new deps.
   topbar/card/hero) migrated as same-value no-ops. **Convention: new CSS uses
   tokens; old rules migrate when touched — never as one big rewrite.**
 
+### 2026-07-10 — Hero redesign + Models & Strategies page (#38–#39)
+- **#38 hero + footer (Arka's call):** Analyze + ☆ Add-to-watchlist moved
+  **below** the search bar, Google-style, centred with real space; Analyze is a
+  pill now. Sticky footer via body column-flex (gotcha: auto-margin children
+  stop stretching — topbar/footer need `width:100%`).
+- **#39 /strategies — new tab.** A hand-curated, dated (July 2026) field guide:
+  5 macro strategies (capex, mega-cap quality, momentum, value re-rating,
+  smart beta) + 4 classic frameworks (CANSLIM/O'Neil, SEPA/Minervini,
+  Zulu/Slater, Darvas), each with history, a US and an India read, and
+  hand-picked example stocks with one-line "why it fits" reasons. Content
+  lives in **`strategies.py`** (data, like `metrics.PEERS`), not the template.
+  - **Stock chips:** known tickers link to the deep-dive; unknown ones are
+    POST-to-`/analyze` buttons (the search bar's own ingest flow) — so every
+    editorial claim lands on Otto's numbers-first page. Funds/indices render
+    as unlinked chips ("Otto deep-dives stocks only").
+  - **Market toggle:** plain links `?market=US|IN`, defaulting from the
+    `ir_market` cookie; works with JS off.
+  - **Ask Otto is now a shared include** (`_ask_otto.html`, parameterised via
+    `{% with %}`) used by /stock and /strategies; new `POST /strategies/ask`
+    grounds the LLM in `strategies.ask_context(market)`.
+  - **Founder portraits:** constraints relaxed (2026-07-10: $0 is the ONLY
+    hard rule now — offline/CDN/copyright waived by Arka). Engraved-style
+    portraits go in `static/founders/{oneil,minervini,slater,darvas}.png`
+    (committed, not gitignored); the template falls back to monogram
+    medallions for any missing file. API generation was attempted and is
+    dead at $0 (image models have `limit: 0` on the free Gemini key) — Arka
+    generates in the Gemini app from the prompt kit in the session notes.
+  - Honesty preserved: page-top note says hand-curated editorial, dated, not
+    the screener, not advice.
+
 ---
 
 ## 10. Phase 8 build spec (accounts) — for the next session

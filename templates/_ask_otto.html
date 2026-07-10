@@ -1,0 +1,93 @@
+{# Ask Otto — floating chatbot, bottom-right (Phase 9, made reusable for the
+   strategies page). The host template sets, via {% with %}:
+     ao_url         POST endpoint returning {answer} JSON
+     ao_label       launcher aria-label ("Ask Otto about AAPL")
+     ao_subject     small line under "Ask Otto" in the panel head
+     ao_intro       Otto's opening message
+     ao_chips       list of suggested-question strings
+     ao_placeholder input placeholder
+   Degrades to a friendly message if the AI is unset/busy; Esc closes; focus
+   returns to the launcher. #}
+<div class="ask-otto" id="ask-otto" data-ask-url="{{ ao_url }}" data-csrf="{{ csrf_token }}">
+  <button type="button" class="ao-launch" id="ao-launch"
+          aria-label="{{ ao_label }}" aria-expanded="false" aria-controls="ao-panel">
+    <span class="ao-launch-otto">{% with mood = 'happy', size = 40 %}{% include "_otto.html" %}{% endwith %}</span>
+    <span class="ao-launch-text">Ask&nbsp;Otto</span>
+  </button>
+  <div class="ao-panel" id="ao-panel" role="dialog" aria-label="Ask Otto" hidden>
+    <div class="ao-head">
+      <span class="ao-head-otto">{% with mood = 'happy', size = 30 %}{% include "_otto.html" %}{% endwith %}</span>
+      <div class="ao-head-txt"><b>Ask Otto</b><span>{{ ao_subject }}</span></div>
+      <button type="button" class="ao-close" id="ao-close" aria-label="Close">×</button>
+    </div>
+    <div class="ao-log" id="ao-log">
+      <div class="ao-msg ao-otto"><p>{{ ao_intro }}</p></div>
+      <div class="ao-chips">
+        {% for chip in ao_chips %}
+        <button type="button" class="ao-chip">{{ chip }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    <form class="ao-form" id="ao-form" autocomplete="off">
+      <input type="text" id="ao-input" maxlength="500"
+             placeholder="{{ ao_placeholder }}" aria-label="Your question">
+      <button type="submit" class="ao-send" aria-label="Send">→</button>
+    </form>
+    <p class="ao-disclaim">Otto explains what's on this page — not investment advice.</p>
+  </div>
+</div>
+<script>
+// Ask Otto — posts the question to the server, which grounds the free LLM in
+// this page's saved content and returns JSON. No dependencies.
+(function () {
+  var root = document.getElementById('ask-otto');
+  if (!root) return;
+  var launch = document.getElementById('ao-launch'),
+      panel = document.getElementById('ao-panel'),
+      closeBtn = document.getElementById('ao-close'),
+      log = document.getElementById('ao-log'),
+      form = document.getElementById('ao-form'),
+      input = document.getElementById('ao-input');
+  var url = root.dataset.askUrl, csrf = root.dataset.csrf, busy = false;
+  function openPanel() {
+    root.classList.add('open'); panel.hidden = false;
+    launch.setAttribute('aria-expanded', 'true');
+    setTimeout(function () { input.focus(); }, 60);
+  }
+  function closePanel() {
+    root.classList.remove('open'); panel.hidden = true;
+    launch.setAttribute('aria-expanded', 'false');
+    launch.focus();   // hand focus back where the panel came from
+  }
+  function scroll() { log.scrollTop = log.scrollHeight; }
+  function addMsg(text, who) {
+    var d = document.createElement('div'); d.className = 'ao-msg ao-' + who;
+    var p = document.createElement('p'); p.textContent = text; d.appendChild(p);
+    log.appendChild(d); scroll(); return d;
+  }
+  function addTyping() {
+    var d = document.createElement('div'); d.className = 'ao-msg ao-otto';
+    d.innerHTML = '<span class="ao-typing"><i></i><i></i><i></i></span>';
+    log.appendChild(d); scroll(); return d;
+  }
+  function send(q) {
+    q = (q || '').trim();
+    if (busy || !q) return;
+    busy = true; addMsg(q, 'user'); input.value = '';
+    var typing = addTyping();
+    var body = new URLSearchParams(); body.set('csrf', csrf); body.set('question', q);
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+      .then(function (r) { return r.json().catch(function () { return { answer: 'Otto tripped over a wire — try again in a moment.' }; }); })
+      .then(function (j) { typing.remove(); addMsg(j.answer || j.error || 'Otto had no answer.', 'otto'); })
+      .catch(function () { typing.remove(); addMsg("Otto couldn't reach the server — check your connection.", 'otto'); })
+      .finally(function () { busy = false; input.focus(); });
+  }
+  launch.addEventListener('click', openPanel);
+  closeBtn.addEventListener('click', closePanel);
+  form.addEventListener('submit', function (e) { e.preventDefault(); send(input.value); });
+  Array.prototype.forEach.call(document.querySelectorAll('.ao-chip'), function (c) {
+    c.addEventListener('click', function () { send(c.textContent); });
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !panel.hidden) closePanel(); });
+})();
+</script>

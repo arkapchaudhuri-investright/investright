@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Models & Strategies · InvestRight{% endblock %}
+{% block content %}
+
+{# Page head — same calm shape as /today, with the US/India toggle as plain
+   links (works with JS off; server defaults from the ir_market cookie). #}
+<section class="team-head">
+  <h1 class="serif">Models &amp; strategies</h1>
+  <p class="sub">How the leading playbooks are behaving right now — and which stocks fit each one.</p>
+  <nav class="seg strat-seg" aria-label="Which market's playbook to read">
+    <a href="{{ url_for('strategies_page', market='US') }}"
+       class="{{ 'active' if market == 'US' }}"
+       {% if market == 'US' %}aria-current="true"{% endif %}>🇺🇸 United States</a>
+    <a href="{{ url_for('strategies_page', market='IN') }}"
+       class="{{ 'active' if market == 'IN' }}"
+       {% if market == 'IN' %}aria-current="true"{% endif %}>🇮🇳 India</a>
+  </nav>
+</section>
+
+{# Honesty first (§5, locked): this is editorial, dated, and not the screener. #}
+<p class="strat-note asof">A hand-curated field guide, written July 2026 — an editorial read of
+  recent market behaviour, not output of Otto's screener and not investment advice. Strategies
+  age: what re-rated yesterday is rarely cheap today. Every ticker below opens Otto's
+  numbers-first deep dive — check the snowflake before you believe the story.</p>
+
+{% macro stock_rows(m) %}
+{% if m.stocks or m.funds %}
+<ul class="srows">
+  {% for t, n, why in m.stocks %}
+  <li class="srow">
+    {% if t in known %}
+    <a class="srow-tick" href="{{ url_for('stock', ticker=t) }}">{{ t }}</a>
+    {% else %}
+    {# Unknown to the DB yet — route through /analyze, which ingests then
+       redirects to the deep-dive (the search bar's own flow). #}
+    <form method="post" action="{{ url_for('analyze') }}" class="srow-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <button type="submit" class="srow-tick" name="symbol" value="{{ t }}"
+              title="Fetches {{ t }} first — takes a moment">{{ t }}</button>
+    </form>
+    {% endif %}
+    <span class="srow-body"><b class="srow-name">{{ n }}</b>
+      <span class="srow-why">{{ why }}</span></span>
+  </li>
+  {% endfor %}
+  {% for f, why in m.funds or [] %}
+  <li class="srow">
+    <span class="srow-tick srow-flat">{{ f }}</span>
+    <span class="srow-body"><span class="srow-why">{{ why }}</span></span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if m.note %}<p class="asof perf-note">{{ m.note }}</p>{% endif %}
+{% endmacro %}
+
+{# ── The five macro strategies ── #}
+{% for s in strategies %}
+<section class="card strat-card">
+  <div class="card-head">
+    <h2><span class="strat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20"
+      fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+      stroke-linejoin="round">{{ icons[s.icon]|safe }}</svg></span>{{ loop.index }} · {{ s.name }}</h2>
+    <span class="asof">{{ s.status[market] }}</span>
+  </div>
+  <p class="head-take serif">{{ s.take }}</p>
+  <p class="strat-hist">{{ s.history }}</p>
+  <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
+    <span class="asof">what's working</span></h3>
+  <p class="strat-read">{{ s.markets[market].read }}</p>
+  {{ stock_rows(s.markets[market]) }}
+</section>
+{% endfor %}
+
+{# ── The classic techno-fundamental frameworks ── #}
+<section class="team-head strat-fw-head">
+  <h2 class="serif">The classic frameworks</h2>
+  <p class="sub">CANSLIM, SEPA, Zulu, Darvas — built for the US decades ago,
+    {{ 'and working beautifully in India today.' if market == 'IN' else 'now fighting the algorithms at home.' }}</p>
+</section>
+
+{% for fw in frameworks %}
+<section class="card strat-card">
+  <div class="card-head">
+    <h2>{{ fw.name }}</h2>
+    <span class="asof">{{ fw.dates }}</span>
+  </div>
+  <div class="fndr">
+    {% set img = fw.img + '.png' %}
+    {% if img in portraits %}
+    <img class="fndr-img" src="{{ url_for('static', filename='founders/' + img) }}"
+         alt="Engraved portrait of {{ fw.founder }}" width="84" height="84" loading="lazy">
+    {% else %}
+    <span class="fndr-mono serif" aria-hidden="true">{{ fw.initials }}</span>
+    {% endif %}
+    <span class="fndr-meta"><b>{{ fw.founder }}</b>
+      <span class="asof">{{ fw.role }}</span></span>
+  </div>
+  <p class="strat-hist">{{ fw.history }}</p>
+  <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
+    <span class="asof">how it's holding up</span></h3>
+  <p class="strat-read">{{ fw.markets[market].read }}</p>
+  {{ stock_rows(fw.markets[market]) }}
+</section>
+{% endfor %}
+
+{# ── Bottom line ── #}
+<section class="card strat-card">
+  <div class="card-head"><h2>The bottom line</h2>
+    <span class="asof">{{ 'India' if market == 'IN' else 'United States' }}</span></div>
+  <p class="head-take serif">{{ bottom_line }}</p>
+</section>
+
+{% with ao_url = url_for('ask_strategies', market=market),
+        ao_label = 'Ask Otto about these strategies',
+        ao_subject = 'about these strategies',
+        ao_intro = "Hi! I can explain any playbook on this page — what it is, who invented it, why it's working (or not) in " + ('India' if market == 'IN' else 'the US') + " right now.",
+        ao_chips = ['Which strategy fits ' + ('India' if market == 'IN' else 'the US') + ' best right now?', 'Explain CANSLIM simply', 'Why did PSU stocks re-rate?'],
+        ao_placeholder = 'Ask about a strategy…' %}
+{% include "_ask_otto.html" %}
+{% endwith %}
+
+{% endblock %}
