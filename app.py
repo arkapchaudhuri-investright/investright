@@ -113,6 +113,22 @@ def _log(action, ticker=None):
 
 
 @app.context_processor
+def inject_wl_count():
+    """Topbar badge: how many stocks the signed-in visitor watches. The list
+    itself moved to /watchlist, so every page needs the count, not the rows."""
+    try:
+        user = current_user()
+        if not user:
+            return {"wl_count": 0}
+        with get_conn() as conn:
+            n = conn.execute("SELECT COUNT(*) c FROM user_watchlist WHERE user_id=?",
+                             (user["id"],)).fetchone()["c"]
+        return {"wl_count": n}
+    except Exception:
+        return {"wl_count": 0}
+
+
+@app.context_processor
 def inject_theme():
     """Make the chosen theme available to every template (§5 dark/light toggle).
     None ⇒ no explicit choice: base.html omits data-theme so the CSS
@@ -166,14 +182,36 @@ def greeting():
     return "Good morning" if h < 12 else "Good afternoon" if h < 17 else "Good evening"
 
 
-@app.route("/")
-def home():
+def _fx_ctx():
+    """Shared currency context: chosen display currency + the dated $→₹ rate
+    (fresh or stale) for the gear and for ₹ conversion labels (§11.3)."""
     ccy = request.args.get("ccy") or request.cookies.get("ccy") or "USD"
     if ccy not in ("USD", "INR"):
         ccy = "USD"
     fx, fx_on = get_usdinr()
-    # Watchlist is per-account now (§10.4): logged-in shows the user's own list;
-    # logged-out shows an empty sign-in CTA (search / analyze / Today stay open).
+    fx_stale = (datetime.fromisoformat(fx_on).strftime("%-d %b")
+                if fx_on and fx_on != date.today().isoformat() else None)
+    fx_on_label = datetime.fromisoformat(fx_on).strftime("%-d %b") if fx_on else None
+    return dict(ccy=ccy, fx=fx, fx_stale=fx_stale, fx_on_label=fx_on_label, show_fx=True)
+
+
+@app.route("/")
+def home():
+    # Clean, Google-calm home: just the greeting, the search and the two
+    # actions. The watchlist itself lives on /watchlist now.
+    ctx = _fx_ctx()
+    resp = make_response(render_template("home.html", greeting=greeting(), **ctx))
+    if request.args.get("ccy"):
+        resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
+    _log("view")
+    return resp
+
+
+@app.route("/watchlist")
+def watchlist_page():
+    """The watchlist's own page. Logged-in shows the user's list; logged-out
+    shows the sign-in CTA (search / analyze / Today stay open to guests)."""
+    ctx = _fx_ctx()
     user = current_user()
     rows = []
     if user:
@@ -186,20 +224,14 @@ def home():
                 LEFT JOIN snapshots n ON n.ticker = w.ticker
                 WHERE w.user_id = ?
                 ORDER BY w.added_at""", (user["id"],)).fetchall()
-    rows = [convert_row(dict(r), ccy, fx) for r in rows]
+    rows = [convert_row(dict(r), ctx["ccy"], ctx["fx"]) for r in rows]
     as_of = max((r["fetched_at"] for r in rows if r["fetched_at"]), default=None)
     if as_of:
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
-    fx_stale = (datetime.fromisoformat(fx_on).strftime("%-d %b")
-                if fx_on and fx_on != date.today().isoformat() else None)
-    # Date the rate is from (fresh or stale) — shown inline at the point of
-    # conversion when displaying ₹ prices (§11.3).
-    fx_on_label = datetime.fromisoformat(fx_on).strftime("%-d %b") if fx_on else None
     resp = make_response(render_template(
-        "home.html", rows=rows, as_of=as_of, greeting=greeting(),
-        ccy=ccy, fx=fx, fx_stale=fx_stale, fx_on_label=fx_on_label, show_fx=True))
+        "watchlist.html", rows=rows, as_of=as_of, **ctx))
     if request.args.get("ccy"):
-        resp.set_cookie("ccy", ccy, max_age=180 * 24 * 3600)
+        resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
     _log("view")
     return resp
 
@@ -256,7 +288,7 @@ def add():
     with get_conn() as conn:
         if user_watches(conn, user["id"], symbol):
             flash(f"{symbol} is already on your watchlist.", "info")
-            return redirect(url_for("home"))
+            return redirect(url_for("watchlist_page"))
     meta = _ingest_stock(symbol)
     if not meta:
         flash(_NOT_FOUND.format(symbol), "error")
@@ -269,7 +301,7 @@ def add():
             pass
     _log("add", meta["ticker"])
     flash(f"Added {meta['name']} to your watchlist.", "ok")
-    return redirect(url_for("home"))
+    return redirect(url_for("watchlist_page"))
 
 
 @app.post("/analyze")
@@ -304,7 +336,7 @@ def remove():
     # still need them, and the nightly refresh keeps covering the union.
     with get_conn() as conn:
         remove_user_watch(conn, user["id"], ticker)
-    return redirect(url_for("home"))
+    return redirect(url_for("watchlist_page"))
 
 
 @app.post("/refresh")
@@ -328,7 +360,7 @@ def refresh():
             pass
     if symbols and not snaps:
         flash("Yahoo isn't answering right now — showing your last saved prices.", "error")
-    return redirect(url_for("home"))
+    return redirect(url_for("watchlist_page"))
 
 
 @app.route("/team")
