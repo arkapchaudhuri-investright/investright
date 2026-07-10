@@ -1,14 +1,11 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Activity · InvestRight</title>
+{% extends "base.html" %}
+{% block title %}Activity · InvestRight{% endblock %}
+{% block head %}
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <style>
-  .adm { max-width: 1000px; margin: 0 auto; padding: 28px 20px 60px; }
-  .adm h1 { font-size: 24px; margin: 0 0 4px; }
+  /* Page-scoped styles: /admin is the one page with a dense log table. It now
+     shares base.html's shell, so it follows the chosen theme like every page. */
+  .adm h1 { font-size: 24px; margin: 24px 0 4px; }
   .adm .note { color: var(--muted); font-size: 13px; margin: 0 0 20px; max-width: 70ch; }
   .adm-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
   .adm-stat { background: var(--card); border: 1px solid var(--hairline);
@@ -38,8 +35,8 @@
   .adm-none { color: var(--muted); font-size: 13px; margin: 10px 0 0;
     border: 1px dashed var(--hairline); border-radius: 12px; padding: 14px 16px; }
 </style>
-</head>
-<body>
+{% endblock %}
+{% block content %}
 <div class="adm">
   <h1 class="serif">Visitor activity</h1>
   <p class="note">Best-effort log. <b>Account</b> is the only verified column —
@@ -114,5 +111,4 @@
   <p class="adm-none">No failed sign-ins on file. Nobody is being locked out.</p>
   {% endif %}
 </div>
-</body>
-</html>
+{% endblock %}
