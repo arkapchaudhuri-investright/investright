@@ -18,6 +18,7 @@ import logos
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
 import strategies as strategies_content   # aliased: /strategies view owns the short name
+import strategy_screen
 from auth import bp as auth_bp, client_ip, current_user, login_required
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 add_user_watch, get_conn, get_user_note, init_db, log_event,
@@ -346,6 +347,15 @@ def strategies_page():
     market = "IN" if market == "IN" else "US"
     with get_conn() as conn:
         known = {r["ticker"] for r in conn.execute("SELECT ticker FROM stocks")}
+        # Otto's current matches — the latest monthly rule-based batch
+        # (strategy_screen.py). {(strategy, market): [row…]}; empty until the
+        # first sweep runs, and the template then keeps the hand-picked lists.
+        picks, picks_date = {}, None
+        for r in conn.execute(
+                "SELECT batch_date, strategy, market, rank, ticker, name, why "
+                "FROM strategy_picks WHERE market=? ORDER BY strategy, rank", (market,)):
+            picks_date = r["batch_date"]
+            picks.setdefault(r["strategy"], []).append(dict(r))
     # Founder portraits are optional uploads (static/founders/<img>.png) — the
     # template falls back to a monogram medallion for any that are missing.
     founders_dir = os.path.join(app.static_folder, "founders")
@@ -353,6 +363,7 @@ def strategies_page():
     _log("view")
     return render_template(
         "strategies.html", market=market, known=known, portraits=portraits,
+        picks=picks, picks_date=picks_date, methods=strategy_screen.METHODS,
         strategies=strategies_content.STRATEGIES, frameworks=strategies_content.FRAMEWORKS,
         icons=strategies_content.ICONS, bottom_line=strategies_content.BOTTOM_LINE[market])
 
@@ -366,8 +377,12 @@ def ask_strategies():
         return jsonify(error="Ask Otto about a strategy first."), 400
     market = "IN" if request.args.get("market") == "IN" else "US"
     _log("ask")
+    with get_conn() as conn:
+        pick_rows = [dict(r) for r in conn.execute(
+            "SELECT strategy, rank, ticker, name, why FROM strategy_picks "
+            "WHERE market=? ORDER BY strategy, rank", (market,))]
     try:
-        answer = digest.ask(strategies_content.ask_context(market), question)
+        answer = digest.ask(strategies_content.ask_context(market, pick_rows), question)
         return jsonify(answer=answer)
     except Exception:
         return jsonify(answer="Otto can't reach his brain right now — the free AI "

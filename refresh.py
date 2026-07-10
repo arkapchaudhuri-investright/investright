@@ -211,12 +211,27 @@ def main():
     with get_conn() as conn:
         digest_status = run_digest(conn, ranked)
 
+    # /strategies monthly picks — re-sweep only when the batch is 30+ days old
+    # (strategy_screen measures ~100 tickers, a few minutes; failure here must
+    # never dent the nightly refresh itself).
+    picks_status = "fresh"
+    try:
+        import strategy_screen
+        with get_conn() as conn:
+            stale = strategy_screen.is_stale(conn)
+        if stale:
+            picks_status = f"reswept {strategy_screen.run()} picks"
+    except Exception as e:
+        picks_status = f"failed: {e}"
+        print(f"  strategy screen failed: {e}")
+
     stamp = datetime.now().isoformat(timespec="seconds")
     print(f"{stamp}  snapshots {len(snaps)}/{len(everyone)} (incl. {len(peers)} peers)"
           + (f" (failed: {', '.join(failed)})" if failed else "")
           + f" · deep {deep_ok}/{len(everyone)}"
           + f" · USDINR {rate if rate else 'fetch failed, kept last-good'}"
-          + f" · screener {len(ranked)} ranked · digest {digest_status}")
+          + f" · screener {len(ranked)} ranked · digest {digest_status}"
+          + f" · strategy picks {picks_status}")
     return 1 if (symbols and not snaps) or not rate else 0
 
 
