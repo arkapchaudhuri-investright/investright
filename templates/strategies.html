@@ -17,11 +17,42 @@
   </nav>
 </section>
 
+{# One-time intro (digital onboarding for this page). Hidden by default; the
+   script below reveals it only for a first-time visitor, so returning readers
+   never see a flash. Dismiss with × (remembered in localStorage). #}
+<aside class="strat-intro" id="strat-intro" hidden>
+  <div class="strat-intro-otto">{% with mood = 'happy', size = 46 %}{% include "_otto.html" %}{% endwith %}</div>
+  <div class="strat-intro-body">
+    <b class="serif">New here? Here’s the lay of the land.</b>
+    <p>Switch between <b>🇺🇸 US</b> and <b>🇮🇳 India</b> up top — each market’s
+      playbook is different. Every <b>ticker</b> is a link to Otto’s full deep dive,
+      and <b>Otto’s current matches</b> under each strategy refresh monthly from live
+      numbers. Stuck? <b>Ask Otto</b>, bottom-right.</p>
+  </div>
+  <button type="button" class="strat-intro-x" id="strat-intro-x"
+          aria-label="Dismiss this intro">×</button>
+</aside>
+
 {# Honesty first (§5, locked): this is editorial, dated, and not the screener. #}
 <p class="strat-note asof">A hand-curated field guide, written July 2026 — an editorial read of
   recent market behaviour, not output of Otto's screener and not investment advice. Strategies
   age: what re-rated yesterday is rarely cheap today. Every ticker below opens Otto's
   numbers-first deep dive — check the snowflake before you believe the story.</p>
+
+<script>
+// Show the strategies intro once per browser (digital onboarding for this page).
+(function () {
+  var box = document.getElementById('strat-intro'), x = document.getElementById('strat-intro-x');
+  if (!box) return;
+  var seen = '';
+  try { seen = localStorage.getItem('ir_strat_seen') || ''; } catch (e) {}
+  if (!seen) box.hidden = false;
+  if (x) x.addEventListener('click', function () {
+    box.hidden = true;
+    try { localStorage.setItem('ir_strat_seen', '1'); } catch (e) {}
+  });
+})();
+</script>
 
 {% macro tick_chip(t) %}
 {% if t in known %}

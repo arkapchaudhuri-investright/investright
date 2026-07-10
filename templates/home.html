@@ -13,6 +13,10 @@
      Otto sits on top (no wave emoji). Shown only when not logged in and no guest
      name is stored yet (see script). #}
   <dialog id="name-dialog" class="name-dialog">
+    {# Dismiss without choosing: land on the home page as a guest (no sign-in),
+       then get the digital walkthrough. #}
+    <button type="button" class="nd-close" id="nd-close"
+            aria-label="Skip — continue to the home page">×</button>
     <div class="nd-otto">{% with mood = 'happy', size = 74 %}{% include "_otto.html" %}{% endwith %}</div>
 
     {# Step 1 — pick a path #}
@@ -128,8 +132,22 @@
       setTimeout(function () { input.focus(); }, 40);
     });
   }
-  if (!ACCOUNT && !name && dlg && typeof dlg.showModal === 'function') {
+  // Show the welcome popup only to a brand-new visitor: not logged in, no guest
+  // name, and hasn't dismissed it before (ir_welcomed).
+  var welcomed = '';
+  try { welcomed = localStorage.getItem('ir_welcomed') || ''; } catch (e) {}
+  if (!ACCOUNT && !name && !welcomed && dlg && typeof dlg.showModal === 'function') {
     requestAnimationFrame(function () { dlg.showModal(); });
+  }
+  // × dismisses the popup: stay a guest (no sign-in), remember the dismissal so
+  // it doesn't reappear, and roll straight into the digital walkthrough.
+  var closeBtn = document.getElementById('nd-close');
+  if (closeBtn && dlg) {
+    closeBtn.addEventListener('click', function () {
+      try { localStorage.setItem('ir_welcomed', '1'); } catch (e) {}
+      dlg.close();
+      setTimeout(function () { if (window.irTour) window.irTour.start(); }, 250);
+    });
   }
   function setCookie(k, val) {
     document.cookie = k + '=' + encodeURIComponent(val) + ';path=/;max-age=' +
@@ -167,8 +185,10 @@
 // launch it right after onboarding.
 (function () {
   var steps = [
+    { sel: '.brand', title: 'The logo is home',
+      text: 'Tap InvestRight anytime, from any page, to come back here and search or analyze a new stock.' },
     { sel: '[data-tour="search"]',   title: 'Search any stock',
-      text: 'Type a ticker — AAPL, RELIANCE.NS, TCS.BO — and hit Analyze for a full breakdown.' },
+      text: 'Type a ticker — AAPL, RELIANCE.NS, TCS.BO — then Analyze for a full breakdown. There’s a magnifier in the top bar on every page too.' },
     { sel: '[data-tour="watchlist"]', title: 'Your watchlist',
       text: 'Stars you save get their own page — tap here anytime for live prices and the full list. Sign in to keep yours.' },
     { sel: '[data-tour="today"]',    title: "Today's ideas",
@@ -207,10 +227,15 @@
     if (!el) { advance(); return; }
     el.scrollIntoView({ block: 'center', inline: 'nearest' });
     var r = el.getBoundingClientRect(), pad = 8;
-    spot.style.left = (r.left - pad) + 'px';
-    spot.style.top = (r.top - pad) + 'px';
-    spot.style.width = (r.width + pad * 2) + 'px';
-    spot.style.height = (r.height + pad * 2) + 'px';
+    var vw = window.innerWidth, vh = window.innerHeight;
+    // Clamp the spotlight to the viewport so the ring never runs off-screen,
+    // even for a target hugging an edge (topbar controls, wrapped rows).
+    var sl = Math.max(4, r.left - pad), st = Math.max(4, r.top - pad),
+        sr = Math.min(vw - 4, r.right + pad), sb = Math.min(vh - 4, r.bottom + pad);
+    spot.style.left = sl + 'px';
+    spot.style.top = st + 'px';
+    spot.style.width = Math.max(0, sr - sl) + 'px';
+    spot.style.height = Math.max(0, sb - st) + 'px';
     titleEl.textContent = step.title;
     textEl.textContent = step.text;
     nextBtn.textContent = (idx === plan.length - 1) ? 'Got it ✓' : 'Next →';
@@ -221,11 +246,12 @@
     var bw = bubble.offsetWidth, bh = bubble.offsetHeight,
         vw = window.innerWidth, vh = window.innerHeight, gap = 14;
     var top = r.bottom + gap;
-    if (top + bh > vh - 8) top = Math.max(8, r.top - gap - bh);
+    if (top + bh > vh - 8) top = r.top - gap - bh;      // flip above if no room below
+    top = Math.max(8, Math.min(top, vh - bh - 8));      // …and always stay on-screen
     var left = r.left + r.width / 2 - bw / 2;
     left = Math.max(8, Math.min(left, vw - bw - 8));
     bubble.style.left = left + 'px';
-    bubble.style.top = Math.max(8, top) + 'px';
+    bubble.style.top = top + 'px';
   }
   function advance() {
     idx++;
