@@ -69,7 +69,9 @@
   <div class="card-head"><h2>The snowflake</h2>
     <span class="asof">checks passed on each axis</span></div>
   <div class="snowflake-wrap">
-    <svg class="snowflake" viewBox="-58 -8 316 216" role="img"
+    {# viewBox left margin fits the longest left-axis label ("Dividend 100%",
+       bbox from ~-64) — at -58 its first letter was clipped in every theme. #}
+    <svg class="snowflake" viewBox="-72 -8 330 216" role="img"
          aria-label="Five-axis score radar for {{ s['ticker'] }}">
       {% for ring in snowflake['rings'] %}
       <polygon points="{{ ring }}" fill="none" stroke="var(--hairline)"
