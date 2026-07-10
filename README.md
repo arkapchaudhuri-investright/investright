@@ -66,6 +66,29 @@ signs the account out on every device.
 Forgot the password with no relay configured? Reset it from the box:
 `python manage.py set-password --email you@example.com --apply`.
 
+## Backups
+
+`data/investright.db` is the only thing that can't be rebuilt from code — accounts,
+watchlists and notes. Prices and fundamentals all re-fetch.
+
+```sh
+python manage.py backup --apply                        # verified local snapshot, keeps 14
+python manage.py backup --email you@gmail.com --apply  # + an encrypted copy offsite
+```
+
+It snapshots with SQLite's online backup API (safe while the server is writing —
+`cp` is not), checks `PRAGMA integrity_check` before keeping the file, gzips, and
+rotates. With `--email` it AES-256-encrypts the copy and mails it, so losing the VM
+doesn't lose your data. It refuses to email an *unencrypted* database.
+
+Set `BACKUP_PASSPHRASE` in `.env` — **and keep a copy of it off that machine.**
+Without it an offsite backup is unreadable.
+
+Nightly automation lives in `systemd/` (a backup timer, plus an
+`OnFailure=` alert unit that emails you when a job dies). `deploy.sh` doesn't
+install them; copy them into `/etc/systemd/system/` once. Restore instructions are
+in [DESIGN.md](DESIGN.md) §12.7.
+
 ## Contributing / development flow
 
 `main` is the deployed branch. Work on a feature branch and open a PR so

@@ -1,0 +1,15 @@
+[Unit]
+Description=InvestRight nightly DB backup
+Documentation=https://github.com/arkapchaudhuri-investright/investright
+# Don't race the refresh job; it rewrites most of the DB.
+After=investright-refresh.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/investright
+# --email is optional. Drop it (or unset BACKUP_PASSPHRASE/SMTP_* in .env) and
+# the job keeps rotating local copies only, without ever failing.
+ExecStart=/opt/investright/.venv/bin/python manage.py backup --apply --keep 14 --email arkap.chaudhuri@gmail.com
+# The one thing worse than no backup is a broken one you never hear about.
+OnFailure=investright-alert@%n.service
