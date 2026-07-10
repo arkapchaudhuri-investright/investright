@@ -31,9 +31,16 @@
   <p class="auth-alt">Already have one?
     <a href="{{ url_for('auth.login', next=next) }}">Sign in</a></p>
 
-  {# Honest limits (§10.6): $0 means no email sending yet. #}
+  {# Honest limits (§10.6). Email now sends only if the VM has an SMTP relay
+     configured, so the promise this page makes depends on that. #}
+  {% if mail_enabled %}
+  <p class="auth-note">Heads up — we can email you a password reset, but we don’t
+    verify addresses, so anyone could register with one that isn’t theirs. Please
+    don’t reuse an important password. Not investment advice.</p>
+  {% else %}
   <p class="auth-note">Heads up — to stay free, InvestRight can’t send email yet, so
     addresses aren’t verified and there’s no automatic password reset. Please don’t
     reuse an important password. Not investment advice.</p>
+  {% endif %}
 </section>
 {% endblock %}

@@ -570,6 +570,52 @@ Screener + AI digest = Phase 4 ("Today"). Deploy = Phase 5. Don't pull them in.
     None axes, the same guard `metrics.snowflake()` (metrics.py:306) already makes.
     **Lesson: any new consumer of `metrics.axis_scores()` must handle a None axis.**
 
+### 2026-07-09 (later) — sign-out-everywhere, /admin logins, per-user /today, password reset
+Four PRs, each verified on the autoport preview (desktop + mobile 375px, light +
+dark, no console errors) and deployed on merge.
+
+- **#23 — Sign out on other devices + `/admin` failed sign-ins.** The button is a
+  `rotate_session_token()` plus a re-pin of the current session, so other devices
+  drop and this one stays. No password prompt: the caller is already authenticated.
+  Verified with two real sessions — B's replayed cookie 302s to `/login`, A survives.
+  The `/admin` panel surfaces `login_attempts`, and the page **says it is not an
+  audit trail**: `login_failures()` prunes past the 15-min window on every attempt
+  and a correct password clears that email+IP. Empty is the healthy state. New
+  `db.recent_login_failures()` reads without pruning — the web app doesn't write (§3).
+- **#24 — Per-user `/today`.** "All tracked / My watchlist" toggle, plain `?scope=`
+  links + a cookie (no JS). Guests don't see it; `?scope=mine` while logged out
+  collapses to `all`. **Membership reads `user_watchlist`, never
+  `screener.is_watchlist`** — that column is the *global union* and only refreshes
+  overnight, so a ticker starred today would miss its own screen (verified).
+  - **Bug fixed in passing:** `screener.is_watchlist` was driving the ★ and its
+    "On your watchlist" tooltip. It means *tracked by someone*. So since accounts
+    landed, **every user — and every logged-out visitor — saw a ★ on other people's
+    stocks.** Now ★ = yours, `peer` = nobody tracks it, someone-else's = neither.
+  - `as_of` now reads the unfiltered rows, so an empty screen still reports when the
+    cron last ran instead of implying it never fired. Three empty states, each naming
+    its own cause. The nightly digest covers the whole screen, so when scoped it says
+    so rather than appearing to describe the shorter list beneath it.
+- **#25 — Self-serve password reset. §10.6 is superseded.** New `mailer.py`: stdlib
+  `smtplib` against any SMTP relay, **no new dependency**, so a free Gmail App
+  Password is enough — no DNS, no provider signup, no paid tier. Config is optional
+  and read at call time, so `mailer.enabled()` is False when `SMTP_*` is unset and
+  the whole feature disappears (routes 404, UI reverts to the honest copy) exactly
+  the way a missing `GEMINI_API_KEY` degrades (§8.0).
+  - `password_resets` stores **only a SHA-256 of the token** — same reason passwords
+    are hashed. Single-use, 60-min expiry, capped at 3/hour/account and 10/hour/IP.
+    Redeeming rotates `session_token`, signing out every device; using one link kills
+    every other outstanding link for that account.
+  - `/forgot` returns an **identical** response for a known address, an unknown one,
+    a rate-limited one, and a dead relay — it can't be used to discover who has an
+    account. `send()` swallows its own errors for that reason.
+  - Email links use `X-Forwarded-Proto` (Caddy) for the scheme, or nobody behind the
+    proxy would get an `https://` link. `/reset/<token>` sets `Referrer-Policy:
+    no-referrer` because the token is in the URL.
+  - Verified: enumeration-identical responses, raw token absent from the DB,
+    single-use, expiry, rate limit (3 of 5 sent), CSRF 400, short/mismatched
+    passwords rejected without burning the token, dead relay → 200 not 500, old
+    password stops working and the new one starts.
+
 ---
 
 ## 10. Phase 8 build spec (accounts) — for the next session
@@ -682,11 +728,15 @@ runs at import, so gunicorn picks it up — §9 Phase 8-prep note)
   first honest password-reset story (see §10.6).
 
 ### 10.6 Out of scope for v1 / honest limitations (write these into the UI copy)
-- **No email sending infra ($0)** → **no email verification and no self-serve
-  password reset in v1.** Emails are therefore *unverified* (anyone can register
-  with any address) and a forgotten password means a manual reset (owner runs a
-  SQL/CLI reset) until a free transactional-email provider is wired in later. Say
-  so plainly on the register page.
+- ~~**No email sending infra ($0)** → **no email verification and no self-serve
+  password reset in v1.**~~ **SUPERSEDED 2026-07-09.** `mailer.py` (stdlib
+  `smtplib`, no new dependency) sends over any SMTP relay — a Gmail App Password
+  costs nothing. Password reset is built; see §9. Config is optional: unset the
+  `SMTP_*` vars and the reset routes 404 while the UI reverts to the honest
+  "no self-serve reset" copy, with `manage.py set-password` as the manual path.
+  **Email verification is still not built** — addresses remain *unverified*
+  (anyone can register with any address), which costs nothing here because an
+  account only unlocks a watchlist and notes. The register page says so.
 - No OAuth / social login, no 2FA, no teams/sharing. Defer.
 - Do not rebuild `/today`, the screener, or deep-dive data per-user — accounts are
   watchlist + notes + identity only.
@@ -788,7 +838,8 @@ Caddy, 24/7, no Mac/Claude dependency). Phases 1–9 are done and deployed:
 `fetch.py` (yfinance) · `edgar.py` (SEC, US-only) · `metrics.py` (pure: checks/DCF/
 snowflake/screener geometry) · `refresh.py` (nightly cron job) · `digest.py`
 (Gemini/Groq: `run_digest` + `ask` for Ask Otto) · `logos.py` (company-logo cache)
-· `manage.py` (hand-run admin CLI; dry-run by default, `--apply` to write)
+· `mailer.py` (stdlib SMTP; no-op unless `SMTP_*` is set) · `manage.py` (hand-run
+admin CLI; dry-run by default, `--apply` to write)
 · `templates/*` (extend `base.html`) · `static/style.css` (CSS-var themed).
 
 ### 12.4 Gotchas (bitten before)
@@ -814,20 +865,22 @@ snowflake/screener geometry) · `refresh.py` (nightly cron job) · `digest.py`
   Restart it after editing `.py` — only templates auto-reload.
 
 ### 12.5 Backlog (nothing is broken — pick what you want)
-> The 2026-07-09 session cleared the previous backlog end-to-end. See §9's last
-> entry. Tier C is **complete**; `manage.py` exists; branches are clean.
+> The 2026-07-09 sessions cleared the backlog end-to-end, twice. Tier C is
+> **complete**; `manage.py` exists; branches are clean; sign-out-everywhere,
+> `/admin` failed sign-ins, per-user `/today` and **self-serve password reset**
+> are all built and deployed. See §9's last entries.
 
-1. **Password reset / email verification** — still out of v1, deliberately. A
-   forgotten password is reset by the owner with
-   `python manage.py set-password --email <addr> --apply` (hidden prompt), which is
-   exactly what the register page promises. Self-serve reset needs a free
-   transactional-email provider (Resend/Brevo), DKIM/SPF on investright.us at
-   GoDaddy, a new VM secret, and an expiring single-use token table — a **new
-   feature with a new external dependency**, not a cleanup. Same for email
-   verification; emails stay unverified until then (§10.6).
-2. **Ideas, none urgent:** a "sign out everywhere" button now that `session_token`
-   exists (one line: rotate it); surface `login_attempts` on `/admin`; per-user
-   `/today`; OAuth; 2FA. All deferred (§10.6).
+1. **Email verification** — still not built, deliberately. Addresses stay
+   unverified: anyone can register with an address that isn't theirs. That costs
+   nothing here, because an account only unlocks a watchlist and notes — there is
+   nothing to steal and nothing sent to that address except a reset link its owner
+   asked for. Building it means a token table, a `/verify/<token>` route, a resend
+   path, and an "unverified" badge. Real work, near-zero benefit. (§10.6)
+2. **Password reset needs `SMTP_*` on the VM to actually send.** The code ships
+   disabled-safe: unset ⇒ `/forgot` 404s and the UI says there's no self-serve
+   reset. The manual path (`manage.py set-password`) always works.
+3. **Ideas, none urgent:** OAuth; 2FA. Both are multi-session features for a site
+   with one user — push back before building either (§10.6).
 
 ### 12.6 Things a future session should not re-litigate
 - **`users.session_token` is load-bearing.** Sessions are a signed *client-side*
