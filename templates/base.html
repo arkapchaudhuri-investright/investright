@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}InvestRight{% endblock %}</title>
+{# Browser-chrome colour follows the theme: server-rendered when a theme is
+   chosen (cookie), media-scoped to the OS preference otherwise. The theme
+   toggle script keeps these in step on a reload-free switch. #}
+{% if theme %}
+<meta name="theme-color" content="{{ '#faf9f5' if theme == 'light' else '#191917' }}">
+{% else %}
+<meta name="theme-color" content="#191917" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)">
+{% endif %}
+{# Otto as favicon — inline SVG data URI: no file, no request, works offline. #}
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M8 5 Q6.5 .5 11 2.2 Q9.4 3.6 9.9 5.8 Z' fill='%231D9E75'/%3E%3Cpath d='M24 5 Q25.5 .5 21 2.2 Q22.6 3.6 22.1 5.8 Z' fill='%231D9E75'/%3E%3Cellipse cx='16' cy='17.5' rx='13' ry='13.5' fill='%231D9E75'/%3E%3Cellipse cx='16' cy='22' rx='8.5' ry='8.6' fill='%23F5EEDC'/%3E%3Ccircle cx='11' cy='13' r='5' fill='%23fff'/%3E%3Ccircle cx='21' cy='13' r='5' fill='%23fff'/%3E%3Ccircle cx='11.9' cy='13.5' r='2.1' fill='%2326251F'/%3E%3Ccircle cx='21.9' cy='13.5' r='2.1' fill='%2326251F'/%3E%3Cpath d='M16 15.4 L13.5 18.4 Q16 20.8 18.5 18.4 Z' fill='%23E8A33D'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -108,6 +119,11 @@
   function paint() {
     var t = effective();
     links.forEach(function (a) { a.classList.toggle('active', a.dataset.theme === t); });
+    // Keep the browser-chrome colour in step (collapse any media-scoped pair).
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+      m.removeAttribute('media');
+      m.content = t === 'light' ? '#faf9f5' : '#191917';
+    });
   }
   links.forEach(function (a) {
     a.addEventListener('click', function (e) {
