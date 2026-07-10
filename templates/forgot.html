@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Reset your password · InvestRight{% endblock %}
+{% block content %}
+<section class="hero auth-hero">
+  {% with mood = 'neutral' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Forgot your password?</h1>
+  <p class="sub">Tell us the address on the account and we'll email a reset link.</p>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+  {% endwith %}
+
+  {# After a send we still render the form: the flash never says whether the
+     address existed, so there's nothing to "succeed" into. #}
+  <form class="auth-form" method="post" action="{{ url_for('auth.forgot') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label>Email
+      <input type="email" name="email" value="{{ email }}" required autofocus autocomplete="email">
+    </label>
+    <button type="submit" class="btn-analyze auth-go">Email me a reset link</button>
+  </form>
+
+  <p class="auth-note">
+    We'll say the same thing whether or not that address has an account — so
+    nobody can use this page to find out who's registered. The link works once
+    and expires in an hour. Opening it signs you out on every device.
+  </p>
+
+  <p class="auth-alt">Remembered it?
+    <a href="{{ url_for('auth.login') }}">Back to sign in</a></p>
+</section>
+{% endblock %}

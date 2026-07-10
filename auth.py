@@ -8,14 +8,17 @@ no self-serve password reset in v1 (§10.6); the register page says so.
 """
 import functools
 
-from flask import (Blueprint, abort, flash, g, redirect, render_template,
-                   request, session, url_for)
+from flask import (Blueprint, abort, flash, g, make_response, redirect,
+                   render_template, request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import mailer
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
-                clear_login_failures, create_user, delete_user,
-                get_user_by_email, get_user_by_id, login_failures,
-                record_login_failure, rotate_session_token, set_password)
+                RESET_MAX_PER_HOUR_IP, RESET_MAX_PER_HOUR_USER, RESET_TTL_MIN,
+                _reset_prune, clear_login_failures, consume_reset, create_reset,
+                create_user, delete_user, get_reset, get_user_by_email,
+                get_user_by_id, login_failures, record_login_failure,
+                reset_requests_recent, rotate_session_token, set_password)
 
 bp = Blueprint("auth", __name__)
 
@@ -88,8 +91,9 @@ def login_required(view):
 @bp.app_context_processor
 def inject_user():
     """Expose the current account to every template (base.html shows the state,
-    home.html greets by the account name)."""
-    return {"current_user": current_user()}
+    home.html greets by the account name). `mail_enabled` lets the auth pages
+    tell the truth about password reset in whichever state the VM is in."""
+    return {"current_user": current_user(), "mail_enabled": mailer.enabled()}
 
 
 def _safe_next(raw):
@@ -198,6 +202,105 @@ def login():
                                next=request.form.get("next", ""))
     return render_template("login.html", email="", remember=True,
                            next=request.args.get("next", ""))
+
+
+def _public_base():
+    """Absolute site root for links inside emails. Behind Caddy the request looks
+    like plain HTTP on loopback, so trust its X-Forwarded-Proto for the scheme
+    rather than emailing people an http:// link to an HTTPS-only site."""
+    proto = request.headers.get("X-Forwarded-Proto", "").split(",")[0].strip()
+    scheme = proto or request.scheme
+    return f"{scheme}://{request.host}"
+
+
+@bp.route("/forgot", methods=["GET", "POST"])
+def forgot():
+    """Ask for a reset link. 404s entirely when no SMTP relay is configured —
+    there's no point offering a door we can't open (§10.6)."""
+    if not mailer.enabled():
+        abort(404)
+    if current_user():
+        return redirect(url_for("home"))
+    if request.method == "POST":
+        from db import get_conn
+        email = (request.form.get("email") or "").strip().lower()
+        ip = client_ip()
+
+        raw = None
+        with get_conn() as conn:
+            _reset_prune(conn)
+            user = get_user_by_email(conn, email)
+            if user:
+                by_user, by_ip = reset_requests_recent(conn, user["id"], ip)
+                if by_user < RESET_MAX_PER_HOUR_USER and by_ip < RESET_MAX_PER_HOUR_IP:
+                    raw = create_reset(conn, user["id"], ip)
+
+        # Sent outside the DB block: a slow relay shouldn't hold the SQLite write
+        # lock. send() swallows its own errors, so a dead relay looks identical
+        # to an unknown address from out here — which is the point.
+        if raw and user:
+            link = f"{_public_base()}{url_for('auth.reset', token=raw)}"
+            mailer.send(
+                user["email"], "Reset your InvestRight password",
+                f"Hi{' ' + user['name'] if user['name'] else ''},\n\n"
+                f"Someone asked to reset the password for this InvestRight "
+                f"account. If that was you, open this link within "
+                f"{RESET_TTL_MIN} minutes:\n\n    {link}\n\n"
+                "The link works once. Using it signs you out on every device.\n\n"
+                "If it wasn't you, ignore this email — nothing has changed, and "
+                "whoever asked cannot see whether this address has an account.\n\n"
+                "— Otto, InvestRight\n")
+
+        # Deliberately identical whether the account exists, is rate-limited, or
+        # the send failed: this page must never reveal who has an account.
+        flash("If an account exists for that address, a reset link is on its way. "
+              f"It expires in {RESET_TTL_MIN} minutes.", "ok")
+        return render_template("forgot.html", email="", sent=True)
+    return render_template("forgot.html", email="", sent=False)
+
+
+@bp.route("/reset/<token>", methods=["GET", "POST"])
+def reset(token):
+    """Redeem a reset link. The token is single-use and expires; redeeming it
+    rotates the session token, so every device is signed out — including whoever
+    might have been using the account with the old password."""
+    if not mailer.enabled():
+        abort(404)
+    from db import get_conn
+
+    with get_conn() as conn:
+        row = get_reset(conn, token)
+    if not row:
+        flash("That reset link is invalid, already used, or expired. "
+              "Ask for a fresh one.", "error")
+        return redirect(url_for("auth.forgot"))
+
+    if request.method == "POST":
+        new = request.form.get("password") or ""
+        new2 = request.form.get("password2") or ""
+        if len(new) < 8:
+            err = "Use a password of at least 8 characters."
+        elif new != new2:
+            err = "The two passwords don't match."
+        else:
+            err = None
+        if err:
+            flash(err, "error")
+            return render_template("reset.html", token=token)
+
+        with get_conn() as conn:
+            set_password(conn, row["user_id"], generate_password_hash(new))
+            consume_reset(conn, token, row["user_id"])
+        session.clear()
+        g.__dict__.pop("user", None)
+        flash("Password reset. Sign in with your new password — every device has "
+              "been signed out.", "ok")
+        return redirect(url_for("auth.login"))
+
+    # The token sits in this URL, so don't leak it to anything we link out to.
+    resp = make_response(render_template("reset.html", token=token))
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    return resp
 
 
 @bp.post("/logout")

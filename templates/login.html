@@ -28,5 +28,8 @@
 
   <p class="auth-alt">New here?
     <a href="{{ url_for('auth.register', next=next) }}">Create a free account</a></p>
+  {% if mail_enabled %}
+  <p class="auth-alt"><a href="{{ url_for('auth.forgot') }}">Forgot your password?</a></p>
+  {% endif %}
 </section>
 {% endblock %}

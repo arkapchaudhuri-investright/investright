@@ -6,6 +6,7 @@ four value-check columns on snapshots. init_db is idempotent (§8.2).
 Phase 4 ("Today") adds: screener (nightly ranked picks) and digest (the AI
 summary of them — kept by date so last-good survives an API outage).
 """
+import hashlib
 import json
 import secrets
 import sqlite3
@@ -173,6 +174,20 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     ts    TEXT NOT NULL                  -- UTC ISO8601, same format as _now()
 );
 CREATE INDEX IF NOT EXISTS idx_login_attempts_ts ON login_attempts(ts);
+-- Password-reset tokens. Only a SHA-256 *hash* of the token is stored, for the
+-- same reason passwords are hashed: whoever reads this table must not be able
+-- to reset anyone's password with what they find. Single-use (used_at) and
+-- short-lived (expires_at); `ip` exists so we can rate-limit requests without a
+-- second table. Rows are pruned on every new request.
+CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash TEXT PRIMARY KEY,         -- sha256 of the token we emailed
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ip         TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at    TEXT                      -- non-NULL once redeemed
+);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
 -- Activity log (Phase 6c). Pre-accounts there's no real identity, so this is
 -- best-effort: `visitor` is an anonymous per-browser cookie UUID and `name`/
 -- `market` are self-reported (mirrored from the visitor's localStorage into
@@ -413,6 +428,66 @@ def clear_login_failures(conn, email, ip):
     """A correct password wipes the slate for that email and that IP — so a
     legitimate person who fumbled their password isn't left near the limit."""
     conn.execute("DELETE FROM login_attempts WHERE email=? OR ip=?", (email, ip))
+
+
+# Password resets. Short TTL because the link is the only thing standing between
+# an inbox and an account. The caps are per-hour and deliberately low: a reset
+# email is something a person asks for once, and someone else's inbox is not a
+# place we want to be able to flood.
+RESET_TTL_MIN = 60
+RESET_MAX_PER_HOUR_USER = 3
+RESET_MAX_PER_HOUR_IP = 10
+
+
+def _hash_token(raw):
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _reset_prune(conn):
+    """Drop tokens that are spent or expired. Keeps the rate-limit counts honest
+    (they only ever look at the last hour) and the table small."""
+    conn.execute("DELETE FROM password_resets WHERE used_at IS NOT NULL OR expires_at < ?",
+                 (_now(),))
+
+
+def reset_requests_recent(conn, user_id, ip):
+    """(requests for this account, requests from this IP) in the last hour."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(timespec="seconds")
+    by_user = conn.execute(
+        "SELECT COUNT(*) FROM password_resets WHERE user_id=? AND created_at >= ?",
+        (user_id, cutoff)).fetchone()[0]
+    by_ip = conn.execute(
+        "SELECT COUNT(*) FROM password_resets WHERE ip=? AND created_at >= ?",
+        (ip, cutoff)).fetchone()[0] if ip else 0
+    return by_user, by_ip
+
+
+def create_reset(conn, user_id, ip):
+    """Mint a reset token. Returns the RAW token — the only time it exists in
+    plaintext. It goes straight into the email and is never stored."""
+    raw = secrets.token_urlsafe(32)
+    expires = (datetime.now(timezone.utc) +
+               timedelta(minutes=RESET_TTL_MIN)).isoformat(timespec="seconds")
+    conn.execute(
+        "INSERT INTO password_resets (token_hash,user_id,ip,created_at,expires_at) "
+        "VALUES (?,?,?,?,?)", (_hash_token(raw), user_id, ip, _now(), expires))
+    return raw
+
+
+def get_reset(conn, raw):
+    """The still-valid row for this token, else None (unknown, spent, expired)."""
+    return conn.execute(
+        "SELECT * FROM password_resets WHERE token_hash=? AND used_at IS NULL "
+        "AND expires_at >= ?", (_hash_token(raw), _now())).fetchone()
+
+
+def consume_reset(conn, raw, user_id):
+    """Burn this token, and every other outstanding one for the account — asking
+    twice and using the first link shouldn't leave a second live link behind."""
+    conn.execute("UPDATE password_resets SET used_at=? WHERE token_hash=?",
+                 (_now(), _hash_token(raw)))
+    conn.execute("DELETE FROM password_resets WHERE user_id=? AND used_at IS NULL",
+                 (user_id,))
 
 
 def recent_login_failures(conn, limit=50):

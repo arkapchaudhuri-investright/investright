@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Choose a new password · InvestRight{% endblock %}
+{% block content %}
+<section class="hero auth-hero">
+  {% with mood = 'happy' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Choose a new password</h1>
+  <p class="sub">This link works once, so finish here.</p>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+  {% endwith %}
+
+  <form class="auth-form" method="post"
+        action="{{ url_for('auth.reset', token=token) }}" autocomplete="on">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label>New password
+      <input type="password" name="password" required minlength="8" autofocus
+             autocomplete="new-password">
+    </label>
+    <label>Confirm new password
+      <input type="password" name="password2" required minlength="8"
+             autocomplete="new-password">
+    </label>
+    <button type="submit" class="btn-analyze auth-go">Set my new password</button>
+  </form>
+
+  <p class="auth-note">
+    Setting a new password signs out every device this account is signed in on,
+    including any you don't recognise. You'll sign in again with the new one.
+  </p>
+</section>
+{% endblock %}

@@ -40,6 +40,32 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # once
 
 Not investment advice.
 
+## Password reset email (optional)
+
+Accounts work without it. Set these in `.env` and a **Forgot your password?**
+link appears on the sign-in page; leave them unset and the reset routes 404
+while the UI honestly says there's no self-serve reset.
+
+```sh
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587                       # 465 also works
+SMTP_USER=you@gmail.com
+SMTP_PASS=xxxxxxxxxxxxxxxx          # a Google App Password, NOT your password
+SMTP_FROM=InvestRight <you@gmail.com>   # optional
+```
+
+Gmail needs 2-Step Verification on, then an App Password from
+[myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+Any SMTP relay works — `mailer.py` is stdlib `smtplib`, no new dependency.
+
+Reset links are single-use, expire in an hour, and only a SHA-256 hash of the
+token is stored. `/forgot` answers identically whether or not the address has
+an account, so it can't be used to discover who's registered. Redeeming a link
+signs the account out on every device.
+
+Forgot the password with no relay configured? Reset it from the box:
+`python manage.py set-password --email you@example.com --apply`.
+
 ## Contributing / development flow
 
 `main` is the deployed branch. Work on a feature branch and open a PR so
