@@ -8,8 +8,17 @@ After=investright-refresh.service
 Type=oneshot
 User=ubuntu
 WorkingDirectory=/opt/investright
-# --email is optional. Drop it (or unset BACKUP_PASSPHRASE/SMTP_* in .env) and
-# the job keeps rotating local copies only, without ever failing.
-ExecStart=/opt/investright/.venv/bin/python manage.py backup --apply --keep 14 --email arkap.chaudhuri@gmail.com
+
+# Local, verified, rotating snapshots. This works today and needs no secrets.
+#
+# To also send an encrypted copy offsite, first put SMTP_* and BACKUP_PASSPHRASE
+# in /opt/investright/.env, then append `--email you@gmail.com` to the line below
+# and `sudo systemctl daemon-reload`.
+#
+# `--email` is deliberately NOT the default: with no relay configured the command
+# exits non-zero rather than quietly skipping the offsite copy, which would turn
+# this unit red every night for a backup that is, in fact, being taken.
+ExecStart=/opt/investright/.venv/bin/python manage.py backup --apply --keep 14
+
 # The one thing worse than no backup is a broken one you never hear about.
 OnFailure=investright-alert@%n.service
