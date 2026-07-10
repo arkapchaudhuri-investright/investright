@@ -10,6 +10,10 @@
   --up: #3fbe8e;
   --down: #e5645f;
   --amber: #d9a03d;
+  /* Brand green is 3.4:1 under white — fine for the large CTAs, not for small
+     text. Small white-on-green pills (active segments, badges, chat bubbles)
+     sit on this deeper shade instead: 4.9:1 with white, same hue family. */
+  --accent-deep: #15805d;
   --edge: #706e64;           /* form-field borders: ≥3:1 vs bg/card (WCAG 1.4.11) */
   --radius: 12px;
   --serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
@@ -31,11 +35,12 @@
   --card: #ffffff;
   --hairline: #e7e4db;
   --text: #2b2823;
-  --muted: #77736a;
-  --accent: #178a66;
+  --muted: #726e65;
+  --accent: #15805f;
   --up: #12805a;
   --down: #c0403c;
-  --amber: #9c6f1c;
+  --amber: #94691a;
+  --accent-deep: #15805f;
   --edge: #999488;
   --shadow: rgba(0, 0, 0, .12);
 }
@@ -45,11 +50,12 @@
     --card: #ffffff;
     --hairline: #e7e4db;
     --text: #2b2823;
-    --muted: #77736a;
-    --accent: #178a66;
+    --muted: #726e65;
+    --accent: #15805f;
     --up: #12805a;
     --down: #c0403c;
-    --amber: #9c6f1c;
+    --amber: #94691a;
+    --accent-deep: #15805f;
     --edge: #999488;
     --shadow: rgba(0, 0, 0, .12);
   }
@@ -99,7 +105,7 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
   padding: 5px 13px; font-size: 13px; color: var(--muted);
   text-decoration: none; font-variant-numeric: tabular-nums;
 }
-.seg a.active { background: var(--accent); color: #fff; }
+.seg a.active { background: var(--accent-deep); color: #fff; }
 .seg a:not(.active):hover { color: var(--text); }
 /* Scope toggle on /today — sits under the card head, above the ranked list. */
 .scope-row { margin: -4px 0 16px; }
@@ -109,7 +115,7 @@ main { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; }
 }
 .wl-toggle:hover { color: var(--text); border-color: var(--muted); }
 .badge {
-  background: var(--accent); color: #fff; border-radius: 999px;
+  background: var(--accent-deep); color: #fff; border-radius: 999px;
   font-size: 11px; padding: 1px 7px; margin-left: 6px;
 }
 
@@ -216,7 +222,9 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .danger-zone[open] summary::before { content: "▾ "; }
 .danger-copy { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 4px 0 10px; }
 .btn-danger {
-  background: var(--down); color: #fff; border: none; border-radius: 999px;
+  /* Fixed red, not var(--down): the dark theme's #e5645f only gives white
+     text 3.3:1 — this shade is 5.2:1 and reads as danger in both themes. */
+  background: #c0403c; color: #fff; border: none; border-radius: 999px;
   padding: 11px 18px; font-size: 14.5px; font-weight: 500; cursor: pointer;
 }
 .btn-danger:hover { filter: brightness(1.08); }
@@ -277,7 +285,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   display: block; text-align: center; padding: 8px 6px; font-size: 13px;
   color: var(--muted); cursor: pointer;
 }
-.nd-seg input:checked + span { background: var(--accent); color: #fff; }
+.nd-seg input:checked + span { background: var(--accent-deep); color: #fff; }
 .nd-seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* search */
@@ -736,12 +744,16 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
   .wl-nm { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wl-px { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
   .wl-price { font-variant-numeric: tabular-nums; font-size: 15px; }
+  /* Tinted chips, not solid fills: white on the dark theme's up-green was
+     2.3:1. Coloured text on a soft wash passes AA in both themes and matches
+     the reason-chip language on /today. */
   .wl-chg {
-    font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 600; color: #fff;
-    background: var(--muted); border-radius: 6px; padding: 2px 8px; min-width: 66px; text-align: center;
+    font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 600;
+    color: var(--muted); background: rgba(156, 152, 137, .16);
+    border-radius: 6px; padding: 2px 8px; min-width: 66px; text-align: center;
   }
-  .wl-chg.up { background: var(--up); }
-  .wl-chg.down { background: var(--down); }
+  .wl-chg.up { color: var(--up); background: rgba(63, 190, 142, .16); }
+  .wl-chg.down { color: var(--down); background: rgba(229, 100, 95, .16); }
   .wl-chev { flex: none; color: var(--muted); font-size: 12px; margin-left: 2px; transition: transform .2s ease; }
   .wl-card[open] .wl-chev { transform: rotate(180deg); }
   .wl-detail { padding: 2px 14px 13px; }
@@ -817,7 +829,7 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
 }
 .tour-dot.on { background: var(--accent); }
 .tour-next {
-  background: var(--accent); color: #fff; border: 0; border-radius: 999px;
+  background: var(--accent-deep); color: #fff; border: 0; border-radius: 999px;
   padding: 8px 16px; font-size: 13.5px; cursor: pointer; white-space: nowrap;
 }
 .tour-next:hover { filter: brightness(1.06); }
@@ -869,7 +881,7 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
 .ao-msg { max-width: 85%; padding: 9px 13px; border-radius: 13px; font-size: 14px; line-height: 1.45; }
 .ao-msg p { margin: 0; }
 .ao-otto { align-self: flex-start; background: var(--bg); border: 1px solid var(--hairline); border-bottom-left-radius: 4px; }
-.ao-user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.ao-user { align-self: flex-end; background: var(--accent-deep); color: #fff; border-bottom-right-radius: 4px; }
 .ao-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .ao-chip {
   background: var(--bg); border: 1px solid var(--hairline); border-radius: 999px;
