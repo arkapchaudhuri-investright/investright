@@ -16,6 +16,11 @@
 {# Otto as favicon — inline SVG data URI: no file, no request, works offline. #}
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M8 5 Q6.5 .5 11 2.2 Q9.4 3.6 9.9 5.8 Z' fill='%231D9E75'/%3E%3Cpath d='M24 5 Q25.5 .5 21 2.2 Q22.6 3.6 22.1 5.8 Z' fill='%231D9E75'/%3E%3Cellipse cx='16' cy='17.5' rx='13' ry='13.5' fill='%231D9E75'/%3E%3Cellipse cx='16' cy='22' rx='8.5' ry='8.6' fill='%23F5EEDC'/%3E%3Ccircle cx='11' cy='13' r='5' fill='%23fff'/%3E%3Ccircle cx='21' cy='13' r='5' fill='%23fff'/%3E%3Ccircle cx='11.9' cy='13.5' r='2.1' fill='%2326251F'/%3E%3Ccircle cx='21.9' cy='13.5' r='2.1' fill='%2326251F'/%3E%3Cpath d='M16 15.4 L13.5 18.4 Q16 20.8 18.5 18.4 Z' fill='%23E8A33D'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{# Ticker list + shared autocomplete engine, loaded once for the whole app
+   (home hero + nav-strip search). Deferred: they run before DOMContentLoaded,
+   so every attach() call below finds TICKERS + IRAutocomplete ready. #}
+<script defer src="{{ url_for('static', filename='tickers.js') }}"></script>
+<script defer src="{{ url_for('static', filename='autocomplete.js') }}"></script>
 {% block head %}{% endblock %}
 </head>
 <body>
@@ -39,9 +44,12 @@
         <span class="navsearch-ico" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
-        <input class="navsearch-input" name="symbol" type="text" spellcheck="false"
-               placeholder="Search any stock — name or ticker, then Enter…"
-               aria-label="Search a company name or ticker, then press Enter to open its analysis">
+        <span class="navsearch-field">
+          <input class="navsearch-input" name="symbol" type="text" spellcheck="false"
+                 placeholder="Search any stock — name or ticker, then Enter…"
+                 aria-label="Search a company name or ticker, then press Enter to open its analysis">
+        </span>
+        <ul class="navsearch-suggest suggest" hidden></ul>
         <button type="button" class="navsearch-close" aria-label="Close search">×</button>
       </form>
     </details>
@@ -221,6 +229,13 @@
         var f = navsearch.querySelector('.navsearch-input');
         if (f) setTimeout(function () { f.focus(); }, 20);
       }
+    });
+    // Fuzzy autocomplete on the strip — same engine as the home hero. The
+    // engine (deferred) is ready by DOMContentLoaded; picking submits to /analyze.
+    document.addEventListener('DOMContentLoaded', function () {
+      var nsInput = navsearch.querySelector('.navsearch-input');
+      var nsBox = navsearch.querySelector('.navsearch-suggest');
+      if (nsInput && nsBox && window.IRAutocomplete) IRAutocomplete.attach(nsInput, nsBox);
     });
   }
 })();

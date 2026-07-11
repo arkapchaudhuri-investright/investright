@@ -243,13 +243,24 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
    (like Google's app bar), at every width. The inner row aligns with the
    880px content column. Esc, ×, or a click anywhere else closes it. */
 .navsearch-panel {
+  --strip-inset: max(20px, calc((100vw - 840px) / 2));
   position: fixed; left: 0; right: 0; top: 0; z-index: 90;
   display: flex; align-items: center; gap: 10px;
   background: var(--card); border-bottom: 1px solid var(--hairline);
-  padding: 15px max(20px, calc((100vw - 840px) / 2));
+  padding: 15px var(--strip-inset);
   box-shadow: 0 12px 34px var(--shadow-pop);
 }
 .navsearch-ico { display: inline-flex; color: var(--muted); flex: none; }
+/* The input fills the row between the icon and the ×; its wrapper is the
+   positioning context nothing needs, so the dropdown anchors to the strip. */
+.navsearch-field { flex: 1; min-width: 0; display: flex; }
+/* Suggestions drop from the bottom of the strip, aligned to the content column.
+   Selector is deliberately more specific than the shared `.suggest` (which sets
+   left/right:0 later in the file) so these column-aligned insets win. */
+.navsearch-panel .navsearch-suggest {
+  top: 100%; left: var(--strip-inset); right: var(--strip-inset);
+  margin-top: 8px; z-index: 91;
+}
 .navsearch-input {
   border: 0; background: none; color: var(--text); font-size: 15px;
   flex: 1; width: auto; padding: 4px 0; min-width: 0;
