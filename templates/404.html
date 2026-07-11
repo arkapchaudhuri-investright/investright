@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Page not found · InvestRight{% endblock %}
+{% block content %}
+
+<section class="hero err-page">
+  {# Sleepy Otto — nothing to crunch here. #}
+  {% with mood = 'sleepy', size = 108 %}{% include "_otto.html" %}{% endwith %}
+  <p class="err-code">404</p>
+  <h1 class="serif">Otto couldn't find that page</h1>
+  <p class="sub">The link may be broken, or the page may have flown the roost.
+    Search a stock up top, or head back home.</p>
+  <div class="err-actions">
+    <a class="btn-analyze" href="{{ url_for('home') }}">Back home</a>
+    <a class="btn-watch" href="{{ url_for('today') }}">See what's interesting today</a>
+  </div>
+</section>
+
+{% endblock %}
