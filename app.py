@@ -129,6 +129,28 @@ def inject_wl_count():
 
 
 @app.context_processor
+def inject_fx():
+    """Currency seg + today's $→₹ rate belong in the gear on EVERY page — they
+    used to render only where the view passed show_fx (home/watchlist), so the
+    settings panel looked gutted elsewhere. Views that convert prices still
+    call _fx_ctx() themselves; identical values, render kwargs just shadow."""
+    try:
+        return _fx_ctx()
+    except Exception:
+        return {"show_fx": False}
+
+
+@app.after_request
+def persist_ccy(resp):
+    """?ccy= works from any page now (the gear's links stay on the current
+    path), so the cookie must persist globally — same pattern as ?theme=."""
+    c = request.args.get("ccy")
+    if c in ("USD", "INR"):
+        resp.set_cookie("ccy", c, max_age=180 * 24 * 3600, samesite="Lax")
+    return resp
+
+
+@app.context_processor
 def inject_theme():
     """Make the chosen theme available to every template (§5 dark/light toggle).
     None ⇒ no explicit choice: base.html omits data-theme so the CSS

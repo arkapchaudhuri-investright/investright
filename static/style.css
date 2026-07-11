@@ -218,6 +218,10 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
   flex: 1; width: auto; padding: 4px 0; min-width: 0;
 }
 .navsearch-input::placeholder { color: var(--muted); }
+/* No focus rectangle inside the strip: the strip itself IS the focus state
+   (it only exists while open, and the caret lands in the field). The global
+   :focus-visible ring drew a big green box around the borderless input. */
+.navsearch-input:focus-visible { outline: none; }
 .navsearch-close {
   background: none; border: 0; color: var(--muted); font-size: 22px;
   line-height: 1; cursor: pointer; padding: 6px 10px; margin: -6px -8px -6px 0; flex: none;
@@ -1179,9 +1183,10 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
    both themes; the accent ring ties the portraits to the brand. */
 .fndr { display: flex; align-items: center; gap: 14px; margin: 14px 0 2px; }
 .fndr-img {
-  /* Unmissable brand-green medallion ring around every founder photo. */
-  width: 88px; height: 88px; border-radius: 50%; object-fit: cover;
-  border: 3px solid var(--accent); background: #F5EEDC;
+  /* Green circle ring on every founder photo — the original subtle 2px
+     (3px read too bold, per Arka). */
+  width: 84px; height: 84px; border-radius: 50%; object-fit: cover;
+  border: 2px solid var(--accent); background: #F5EEDC;
   flex: none; filter: grayscale(1) contrast(1.05);
 }
 .fndr-mono {
