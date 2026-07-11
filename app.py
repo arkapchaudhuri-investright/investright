@@ -392,7 +392,35 @@ def refresh():
             pass
     if symbols and not snaps:
         flash("Yahoo isn't answering right now — showing your last saved prices.", "error")
+    # Return to whichever page fired the refresh (watchlist / today). Only
+    # same-site relative paths — never an off-site redirect.
+    nxt = request.form.get("next", "")
+    if nxt.startswith("/") and not nxt.startswith("//"):
+        return redirect(nxt)
     return redirect(url_for("watchlist_page"))
+
+
+@app.post("/stock/<ticker>/refresh")
+def refresh_stock(ticker):
+    """Refresh just this ticker — re-fetch its snapshot + deep data on demand,
+    then back to the deep dive. The one user-triggered write on this page (§3)."""
+    ticker = ticker.upper()
+    with get_conn() as conn:
+        if not conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
+            abort(404)
+    snap = fetch.snapshot(ticker)
+    with get_conn() as conn:
+        if snap:
+            save_snapshot(conn, snap)
+        try:
+            refresh_job.save_deep(conn, ticker)     # checks / DCF / news / history
+        except Exception:
+            pass
+    if not snap:
+        flash("Yahoo isn't answering right now — showing the last saved data.", "error")
+    else:
+        flash(f"Refreshed {ticker}.", "ok")
+    return redirect(url_for("stock", ticker=ticker))
 
 
 @app.route("/team")
