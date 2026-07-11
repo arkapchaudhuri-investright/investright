@@ -164,8 +164,11 @@
   <div class="fndr">
     {% set img = fw.img + '.png' %}
     {% if img in portraits %}
-    <img class="fndr-img" src="{{ url_for('static', filename='founders/' + img) }}"
-         alt="Engraved portrait of {{ fw.founder }}" width="84" height="84" loading="lazy">
+    {# Ring on a wrapper, not the <img>: the img's grayscale filter would
+       desaturate its own green border to grey. The wrapper isn't filtered. #}
+    <span class="fndr-ring"><img class="fndr-img"
+         src="{{ url_for('static', filename='founders/' + img) }}"
+         alt="Portrait of {{ fw.founder }}" width="84" height="84" loading="lazy"></span>
     {% else %}
     <span class="fndr-mono serif" aria-hidden="true">{{ fw.initials }}</span>
     {% endif %}

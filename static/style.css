@@ -1,5 +1,22 @@
 /* InvestRight — "Claude-calm meets SWS-visual" (DESIGN.md §5).
    Dark default; light mode later by swapping these variables. */
+
+/* Brand type: Fraunces (serif voice — greeting, takeaways, page titles) +
+   Inter (data/UI). Self-hosted variable woff2, latin subset (~115 KB total),
+   so there's no CDN request and it works offline on the VM. Both carry the
+   full weight range in one file. font-display:swap = no invisible-text flash;
+   the --sans / --serif fallbacks below cover the swap window. */
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 400 700;
+  font-display: swap;
+  src: url("fonts/inter-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Fraunces"; font-style: normal; font-weight: 400 600;
+  font-display: swap;
+  src: url("fonts/fraunces-latin.woff2") format("woff2");
+}
+
 :root {
   --bg: #191917;
   --card: #21211e;
@@ -16,13 +33,12 @@
   --accent-deep: #15805d;
   --edge: #706e64;           /* form-field borders: ≥3:1 vs bg/card (WCAG 1.4.11) */
   --radius: 12px;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  /* One type system across the whole app (Arka's call). The former serif
-     ("Iowan Old Style") fell back to Georgia/Times on most devices, reading as
-     a different, inconsistent font — so every --serif / .serif usage now
-     resolves to the base sans. To bring the serif brand voice back, restore a
-     serif stack here. */
-  --serif: var(--sans);
+  /* Inter leads for all data/UI; system sans covers the font-swap window and
+     any glyph outside the latin subset. */
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Fraunces is the brand's serif voice — greeting, card takeaways, page
+     titles (.serif). Georgia is the closest system fallback during swap. */
+  --serif: "Fraunces", Georgia, "Times New Roman", serif;
   --shadow: rgba(0, 0, 0, .4);
   --shadow-pop: rgba(0, 0, 0, .5);   /* floating surfaces: menus, dialogs, chat */
   --wash: rgba(233, 230, 221, .05);  /* row-hover tint — theme-aware, unlike a hardcoded rgba */
@@ -153,12 +169,30 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
    never crowds the pills. */
 .today-head { position: relative; }
 .island-seg { position: absolute; top: 18px; right: 20px; margin-top: 0; z-index: 1; }
+/* Refresh pinned bottom-right, right edge aligned with the country picker. */
+.today-refresh { position: absolute; right: 20px; bottom: 18px; margin: 0; z-index: 1; }
 .today-head .head-main { padding-right: 250px; }
 .today-head .head-take { margin-top: 12px; }
+
+/* Watchlist sparkline — 30-session trend, coloured up/down like the change pill. */
+.spark { display: block; width: 88px; height: 26px; }
+.spark-up { color: var(--up); }
+.spark-down { color: var(--down); }
+.spark-flat { color: var(--muted); }
+.spark-cell { width: 92px; }
+.wl-spark { flex: none; display: inline-flex; align-items: center; }
+.wl-spark .spark { width: 64px; height: 22px; }
 @media (max-width: 720px) {
-  /* On smaller screens it drops below the header text instead of overlapping. */
+  /* On smaller screens both drop into normal flow instead of overlapping.
+     The refresh takes its own full-width line so it can't squeeze head-main
+     (a flex sibling) down to one-word-per-line. */
   .island-seg { position: static; margin-top: 12px; }
-  .today-head .head-main { width: 100%; padding-right: 0; }
+  .today-refresh {
+    position: static; flex-basis: 100%; margin-top: 14px;
+    display: flex; justify-content: flex-start;
+  }
+  .today-head { flex-wrap: wrap; }
+  .today-head .head-main { padding-right: 0; }
 }
 .wl-toggle {
   color: var(--muted); text-decoration: none; font-size: 13.5px;
@@ -1175,8 +1209,10 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
 .strat-icon {
   display: inline-flex; align-items: center; justify-content: center;
   width: 38px; height: 38px; border-radius: 50%; flex: none;
-  color: var(--accent); background: rgba(29, 158, 117, .1);
-  border: 2px solid var(--accent);   /* green circle round every strategy mark */
+  color: var(--accent); background: rgba(29, 158, 117, .07);
+  /* Thin, shadowy green ring (Arka): 1px hairline-green + a soft green glow. */
+  border: 1px solid rgba(29, 158, 117, .55);
+  box-shadow: 0 2px 8px rgba(29, 158, 117, .22);
 }
 .strat-hist { font-size: 14px; color: var(--muted); line-height: 1.6; margin: 4px 0 0; }
 .strat-read { font-size: 14.5px; line-height: 1.6; margin: 6px 0 0; }
@@ -1187,12 +1223,15 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
    spec), monogram medallion else. Grayscale via CSS so one asset works in
    both themes; the accent ring ties the portraits to the brand. */
 .fndr { display: flex; align-items: center; gap: 14px; margin: 14px 0 2px; }
+/* The green ring lives on the wrapper so it stays brand-green — the img's
+   grayscale filter (below) would otherwise wash the border out to grey. */
+.fndr-ring {
+  flex: none; display: inline-flex; border-radius: 50%;
+  border: 2px solid var(--accent); padding: 0; line-height: 0;
+}
 .fndr-img {
-  /* Green circle ring on every founder photo — the original subtle 2px
-     (3px read too bold, per Arka). */
   width: 84px; height: 84px; border-radius: 50%; object-fit: cover;
-  border: 2px solid var(--accent); background: #F5EEDC;
-  flex: none; filter: grayscale(1) contrast(1.05);
+  background: #F5EEDC; display: block; filter: grayscale(1) contrast(1.05);
 }
 .fndr-mono {
   width: 64px; height: 64px; border-radius: 50%; flex: none;
