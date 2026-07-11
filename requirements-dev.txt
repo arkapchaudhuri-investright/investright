@@ -1,0 +1,3 @@
+# Dev/test-only deps — NOT installed on the prod VM (gunicorn runs requirements.txt).
+# Run the smoke suite locally with:  .venv/bin/python -m pytest
+pytest>=8
