@@ -391,6 +391,35 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 22px;
 }
 .err-actions a { text-decoration: none; }
+
+/* Search "Analyzing…" overlay (base.html) — shown by JS on a search submit. */
+.analyzing {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .42); backdrop-filter: blur(2px);
+}
+.analyzing[hidden] { display: none; }
+.analyzing-card {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  padding: 30px 40px; border-radius: 16px;
+  background: var(--card); border: 1px solid var(--hairline);
+  box-shadow: 0 24px 64px var(--shadow-pop);
+}
+.analyzing-spin {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 3px solid var(--hairline); border-top-color: var(--accent);
+  animation: analyzing-spin .8s linear infinite;
+}
+.analyzing-text {
+  margin: 0; font-family: var(--serif); font-weight: 500;
+  font-size: 19px; color: var(--text);
+}
+@keyframes analyzing-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  /* No spin — a gentle pulse instead, so motion-sensitive users still get feedback. */
+  .analyzing-spin { animation: analyzing-pulse 1.4s ease-in-out infinite; }
+  @keyframes analyzing-pulse { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+}
 /* First-visit welcome popup (no login; name stored in localStorage). Native
    <dialog> — modal, with a tinted ::backdrop dimming the home page behind it. */
 .name-dialog {
