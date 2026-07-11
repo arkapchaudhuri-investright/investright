@@ -9,7 +9,7 @@
     {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
   {% endwith %}
 
-  <h2 class="acct-h2">Change password</h2>
+  <h2 class="acct-h2" id="password">Change password</h2>
   <form class="auth-form" method="post" action="{{ url_for('auth.change_password') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     {# Helps password managers associate the change with the right account. #}

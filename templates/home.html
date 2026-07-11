@@ -29,7 +29,7 @@
       </div>
       <p class="nd-alt">Already have an account?
         <a href="{{ url_for('auth.login', next=url_for('home')) }}">Sign in</a></p>
-      <p class="nd-foot">Change currency, theme &amp; market anytime from the ⚙ gear, top-right.</p>
+      <p class="nd-foot">Change currency &amp; theme anytime from the ⚙ gear, top-right — switch market right on the Today &amp; Watchlist pages.</p>
     </div>
 
     {# Step 2 — guest: name + market (only shown after "Continue as guest") #}
@@ -44,7 +44,7 @@
         <label><input type="radio" name="market" value="BOTH" checked><span>Both</span></label>
       </div>
       <button type="submit" class="name-go">Let’s go →</button>
-      <p class="nd-foot">You can change your market anytime from the ⚙ gear.</p>
+      <p class="nd-foot">You can switch market anytime on the Today &amp; Watchlist pages.</p>
     </form>
   </dialog>
 
