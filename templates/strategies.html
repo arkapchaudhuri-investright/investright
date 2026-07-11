@@ -7,15 +7,25 @@
 <section class="team-head">
   <h1 class="serif">Models &amp; Strategies</h1>
   <p class="sub">How the leading playbooks are behaving right now — and which stocks fit each one.</p>
-  <nav class="seg strat-seg" aria-label="Which market's playbook to read">
-    <a href="{{ url_for('strategies_page', market='US') }}"
-       class="{{ 'active' if market == 'US' }}"
-       {% if market == 'US' %}aria-current="true"{% endif %}>🇺🇸 United States</a>
-    <a href="{{ url_for('strategies_page', market='IN') }}"
-       class="{{ 'active' if market == 'IN' }}"
-       {% if market == 'IN' %}aria-current="true"{% endif %}>🇮🇳 India</a>
-  </nav>
+  <div class="strat-controls">
+    <nav class="seg strat-seg" aria-label="Which market's playbook to read">
+      <a href="{{ url_for('strategies_page', market='US') }}"
+         class="{{ 'active' if market == 'US' }}"
+         {% if market == 'US' %}aria-current="true"{% endif %}>🇺🇸 United States</a>
+      <a href="{{ url_for('strategies_page', market='IN') }}"
+         class="{{ 'active' if market == 'IN' }}"
+         {% if market == 'IN' %}aria-current="true"{% endif %}>🇮🇳 India</a>
+    </nav>
+    <form action="{{ url_for('refresh_strategies', market=market) }}" method="post" class="refresh-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <button type="submit" class="ghost">↻ Refresh</button>
+    </form>
+  </div>
 </section>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+{% endwith %}
 
 {# One-time intro (digital onboarding for this page). Hidden by default; the
    script below reveals it only for a first-time visitor, so returning readers
