@@ -383,6 +383,23 @@ def takeaway(name, dcf, scores):
 
 
 # --- past-performance bar charts (Tier B, §8.5) ----------------------------
+def sparkline(closes, width=88, height=26, pad=2):
+    """Tiny inline-SVG polyline for a watchlist row — last ~N daily closes.
+    Returns {points, dir} or None. `dir` colours it up/down/flat vs the first
+    close, matching the row's change pill."""
+    closes = [c for c in closes if c is not None]
+    if len(closes) < 2:
+        return None
+    lo, hi = min(closes), max(closes)
+    span = (hi - lo) or (hi or 1) * 0.01
+    n = len(closes)
+    xs = lambda i: pad + (width - 2 * pad) * i / (n - 1)
+    ys = lambda c: pad + (height - 2 * pad) * (1 - (c - lo) / span)
+    pts = " ".join(f"{xs(i):.1f},{ys(c):.1f}" for i, c in enumerate(closes))
+    d = "up" if closes[-1] > closes[0] else "down" if closes[-1] < closes[0] else "flat"
+    return {"points": pts, "dir": d, "width": width, "height": height}
+
+
 def trend_chart(points, width=560, height=150, pad=5):
     """Geometry for the deep-dive price trend line (inline SVG, like every
     chart here). `points` = [(label, close)] oldest-first, any cadence —

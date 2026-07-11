@@ -271,6 +271,15 @@ def watchlist_page():
         rows = [r for r in rows if _in_market(r["ticker"])]
 
     rows = [convert_row(dict(r), ctx["ccy"], ctx["fx"]) for r in rows]
+    # A 30-session sparkline per row (last-good closes from price_history — the
+    # same table the deep-dive trend uses). Read-only, so no cron rule broken.
+    if rows:
+        with get_conn() as conn:
+            for r in rows:
+                closes = [x["close"] for x in conn.execute(
+                    "SELECT close FROM price_history WHERE ticker=? "
+                    "ORDER BY d DESC LIMIT 30", (r["ticker"],))][::-1]
+                r["spark"] = metrics.sparkline(closes)
     as_of = max((r["fetched_at"] for r in rows if r["fetched_at"]), default=None)
     if as_of:
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
