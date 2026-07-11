@@ -296,57 +296,12 @@
   } catch (e) {}
 })();
 </script>
-<script src="{{ url_for('static', filename='tickers.js') }}"></script>
 <script>
-// Client-side autocomplete over the static ticker list — no API per keystroke (DESIGN.md §2).
-const input = document.getElementById('symbol'), box = document.getElementById('suggest');
-let sel = -1;
-// Search ALL markets — no market filter, so you can find an Indian stock even
-// with the US view selected. Ranked, typo-tolerant matching over the ticker +
-// company name; anything typed still resolves server-side via Yahoo search on
-// submit (handles names/typos not in this list, e.g. "Indian railways").
-function norm(s) { return s.toLowerCase().replace(/[^a-z0-9 ]/g, ''); }
-function subseq(q, t) {   // are all of q's chars in t, in order? (cheap fuzzy)
-  let i = 0; for (let j = 0; j < t.length && i < q.length; j++) if (t[j] === q[i]) i++;
-  return i === q.length;
-}
-function score(q, sym, name) {
-  const s = norm(sym), n = norm(name), qn = norm(q), qc = qn.replace(/ /g, '');
-  if (!qc) return 0;
-  if (s === qc) return 100;
-  if (s.startsWith(qc)) return 90;
-  if (qn.split(' ').every(w => w && n.includes(w))) return 80;   // all words in name
-  if (n.includes(qn)) return 70;
-  if (subseq(qc, s)) return 55;                                  // typo in ticker
-  if (subseq(qc, n.replace(/ /g, ''))) return 45;                // typo in name
-  return 0;
-}
-input.addEventListener('input', () => {
-  const q = input.value.trim();
-  sel = -1;
-  if (q.length < 1) { box.hidden = true; return; }
-  const hits = TICKERS.map(t => [score(q, t[0], t[1]), t])
-    .filter(p => p[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, 8).map(p => p[1]);
-  box.innerHTML = hits.map(([s, n, x]) =>
-    `<li data-s="${s}"><b>${s}</b><span class="xchg">${x}</span><span class="s-name">${n}</span></li>`).join('');
-  box.hidden = hits.length === 0;
+// Home hero autocomplete — the shared engine (tickers.js + autocomplete.js are
+// loaded, deferred, from base.html; both are ready by DOMContentLoaded).
+document.addEventListener('DOMContentLoaded', function () {
+  var input = document.getElementById('symbol'), box = document.getElementById('suggest');
+  if (input && box && window.IRAutocomplete) IRAutocomplete.attach(input, box);
 });
-box.addEventListener('mousedown', e => {
-  const li = e.target.closest('li');
-  if (li) { input.value = li.dataset.s; box.hidden = true; input.form.submit(); }
-});
-input.addEventListener('keydown', e => {
-  const items = box.querySelectorAll('li');
-  if (box.hidden || !items.length) return;
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-    items.forEach((li, i) => li.classList.toggle('active', i === sel));
-  } else if (e.key === 'Enter' && sel >= 0) {
-    input.value = items[sel].dataset.s;
-    box.hidden = true;
-  } else if (e.key === 'Escape') { box.hidden = true; }
-});
-input.addEventListener('blur', () => setTimeout(() => box.hidden = true, 150));
 </script>
 {% endblock %}
