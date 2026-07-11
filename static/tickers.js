@@ -38,7 +38,7 @@ const TICKERS = [
   ["TITAN.NS","Titan Company","NSE"],["ULTRACEMCO.NS","UltraTech Cement","NSE"],
   ["ASIANPAINT.NS","Asian Paints","NSE"],["WIPRO.NS","Wipro","NSE"],
   ["HCLTECH.NS","HCL Technologies","NSE"],["NTPC.NS","NTPC","NSE"],
-  ["TATAMOTORS.NS","Tata Motors","NSE"],["TATASTEEL.NS","Tata Steel","NSE"],
+  ["TATASTEEL.NS","Tata Steel","NSE"],
   ["POWERGRID.NS","Power Grid Corp","NSE"],["M&M.NS","Mahindra & Mahindra","NSE"],
   ["ADANIENT.NS","Adani Enterprises","NSE"],["ADANIPORTS.NS","Adani Ports","NSE"],
   ["ONGC.NS","Oil & Natural Gas Corp","NSE"],["COALINDIA.NS","Coal India","NSE"],
