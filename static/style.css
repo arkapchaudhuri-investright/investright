@@ -202,27 +202,27 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
   border-color: var(--muted); color: var(--text);
 }
 .navsearch[open] .navsearch-btn { color: var(--accent); border-color: var(--accent); }
+/* Open = a full-width search strip pinned across the very top of the page
+   (like Google's app bar), at every width. The inner row aligns with the
+   880px content column. Esc, ×, or a click anywhere else closes it. */
 .navsearch-panel {
-  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
-  display: flex; align-items: center; gap: 8px;
-  background: var(--card); border: 1px solid var(--hairline); border-radius: 999px;
-  padding: 8px 14px; box-shadow: 0 12px 34px var(--shadow-pop);
+  position: fixed; left: 0; right: 0; top: 0; z-index: 90;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border-bottom: 1px solid var(--hairline);
+  padding: 15px max(20px, calc((100vw - 840px) / 2));
+  box-shadow: 0 12px 34px var(--shadow-pop);
 }
 .navsearch-ico { display: inline-flex; color: var(--muted); flex: none; }
 .navsearch-input {
-  border: 0; background: none; color: var(--text); font-size: 14.5px;
-  width: min(58vw, 200px); padding: 2px 0;
+  border: 0; background: none; color: var(--text); font-size: 15px;
+  flex: 1; width: auto; padding: 4px 0; min-width: 0;
 }
 .navsearch-input::placeholder { color: var(--muted); }
-/* On phones the magnifier can sit anywhere in the wrapped topnav, so a
-   button-anchored panel overflows off-screen. Pin it under the header,
-   full-width, instead (--nav-bottom set by the base script on open). */
-@media (max-width: 560px) {
-  .navsearch[open] .navsearch-panel {
-    position: fixed; left: 10px; right: 10px; top: var(--nav-bottom, 64px);
-  }
-  .navsearch-input { width: auto; flex: 1; }
+.navsearch-close {
+  background: none; border: 0; color: var(--muted); font-size: 22px;
+  line-height: 1; cursor: pointer; padding: 6px 10px; margin: -6px -8px -6px 0; flex: none;
 }
+.navsearch-close:hover { color: var(--text); }
 
 /* Settings menu — one gear consolidating currency + theme + FX rate (and the
    future account/login). Native <details>; panel floats below, right-aligned. */
@@ -1179,9 +1179,10 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
    both themes; the accent ring ties the portraits to the brand. */
 .fndr { display: flex; align-items: center; gap: 14px; margin: 14px 0 2px; }
 .fndr-img {
-  width: 84px; height: 84px; border-radius: 50%; object-fit: cover;
-  border: 2px solid var(--accent); background: #F5EEDC; flex: none;
-  filter: grayscale(1) contrast(1.05);
+  /* Unmissable brand-green medallion ring around every founder photo. */
+  width: 88px; height: 88px; border-radius: 50%; object-fit: cover;
+  border: 3px solid var(--accent); background: #F5EEDC;
+  flex: none; filter: grayscale(1) contrast(1.05);
 }
 .fndr-mono {
   width: 64px; height: 64px; border-radius: 50%; flex: none;

@@ -699,6 +699,27 @@ desktop + 375px, light + dark, no console errors. No features, no new deps.
   rule now gates on sector first. `TATAMOTORS.NS` is dead on Yahoo
   (post-demerger rename) — tickers.js could use a refresh someday.
 
+- **2026-07-11 — UX round (PRs #41–#60): clean home, /watchlist page, trend +
+  sentiment widgets, fuzzy search, nav search, market toggles.**
+  Home is search-only (equal CTA twins); the watchlist moved to /watchlist
+  with a day-summary header. Deep-dive gained two lead widgets: price trend
+  (1D/1M/6M/1Y/5Y/Max, crosshair + date axis; `price_history` table, nightly
+  append, 1D live via a no-DB-write JSON fetch) and "What [investors ▾] think"
+  (analyst consensus gauge from snapshots' new rec columns, insiders, reader
+  stats; dropdown inline in the title). Search is fuzzy server-side
+  (name/typo → nearest ticker) and lives in every topbar as a magnifier
+  opening a full-width strip (hidden on home). /today and /watchlist carry
+  US·India·Both segs (cookie-backed); Otto's read is market-scoped. Settings:
+  currency shows bare $/₹, market switcher removed (page-level now), theme
+  gained System (tracks OS live), change-password link sits in the account
+  row. Founders: real B&W photos in green medallion rings (Slater from
+  Arka's upload, centred). Onboarding: welcome popup gained ✕-to-guest,
+  tour spotlight clamps to viewport bounds, logo-goes-home step added, and
+  /strategies got its own one-shot mini-tour. Fonts unified (controls inherit;
+  serif = every page h1 + takeaways). Refresh buttons on every data page.
+  Constraint change (Arka, 2026-07-10): **$0 spend is the only hard rule** —
+  offline/CDN/copyright waived; founder photos and future CDN use are fine.
+
 ---
 
 ## 10. Phase 8 build spec (accounts) — for the next session
