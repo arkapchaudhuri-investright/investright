@@ -6,7 +6,55 @@ import math
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+import requests
 import yfinance as yf
+
+
+# Major, liquid exchanges — a hit here beats an obscure foreign cross-listing
+# (e.g. AAPL on NASDAQ over "AAPL19.BK" in Bangkok).
+_MAJOR_EXCH = {"NMS", "NGM", "NCM", "NYQ", "PCX", "ASE",  # US
+               "NSI", "BSE",                              # India
+               "LSE", "TOR"}
+
+
+def search(query, limit=10):
+    """Resolve free text — a company name, a typo, 'reliance industries' — to
+    the best-matching ticker via Yahoo's search endpoint. Free, no key. Returns
+    an uppercased symbol or None. Ranks equities on major exchanges first, and
+    leans Indian (.NS/.BO) when the query mentions India."""
+    q = (query or "").strip()
+    if not q:
+        return None
+    try:
+        r = requests.get(
+            "https://query2.finance.yahoo.com/v1/finance/search",
+            params={"q": q, "quotesCount": limit, "newsCount": 0,
+                    "enableFuzzyQuery": "true"},
+            headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
+        r.raise_for_status()
+        quotes = r.json().get("quotes", [])
+    except Exception:
+        return None
+    india_hint = "india" in q.lower()
+
+    def rank(idx, quote):
+        sym = (quote.get("symbol") or "").upper()
+        score = 0
+        if quote.get("quoteType") == "EQUITY":
+            score += 100
+        elif quote.get("quoteType") in ("ETF", "MUTUALFUND", "INDEX"):
+            score += 40
+        if quote.get("exchange") in _MAJOR_EXCH:
+            score += 30
+        if india_hint and (sym.endswith(".NS") or sym.endswith(".BO")):
+            score += 25
+        score -= idx                      # keep Yahoo's own relevance as a tiebreak
+        return score
+
+    ranked = sorted(
+        (quote for quote in quotes if quote.get("symbol")),
+        key=lambda pair: rank(quotes.index(pair), pair), reverse=True)
+    return ranked[0]["symbol"].upper() if ranked else None
 
 
 def _now():
