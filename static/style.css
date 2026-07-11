@@ -617,7 +617,22 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .seg button.active { background: var(--accent-deep); color: #fff; }
 .trend-seg { flex: none; }
 
-/* What investors think (widget 1c) — consensus meter + signal chips. */
+/* What investors think (widget 1c) — dropdown swaps between four views. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+.senti-pick select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--edge);
+  border-radius: 999px; padding: 6px 30px 6px 13px; font-size: 13px; cursor: pointer;
+  font-family: inherit; -webkit-appearance: none; appearance: none;
+  /* inline caret so it reads as a dropdown with no external asset */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239c9889' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.senti-pick select:hover { border-color: var(--accent); }
+.senti-panel + .senti-panel { margin-top: 0; }
+.senti-panel[hidden] { display: none; }
 .senti-verdict { font-size: 15px; margin: 2px 0 14px; }
 .senti-track {
   position: relative; height: 6px; border-radius: 3px;
