@@ -4,6 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}InvestRight{% endblock %}</title>
+{# SEO + social share cards. og_title/og_desc default here and can be
+   overridden per page; Twitter mirrors them via self.<block>(). The share
+   image is a 1200×630 PNG rendered from the brand card (static/og-image.png).
+   ?v bumps when the image changes so scrapers re-fetch. #}
+<meta name="description" content="{% block og_desc %}Health scores, DCF fair value, and Otto's plain-English take on any US or India stock. Free, no login.{% endblock %}">
+<link rel="canonical" href="{{ SITE_URL }}{{ request.path }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="InvestRight">
+<meta property="og:title" content="{% block og_title %}InvestRight — deep-dive stock research, minus the noise{% endblock %}">
+<meta property="og:description" content="{{ self.og_desc() }}">
+<meta property="og:url" content="{{ SITE_URL }}{{ request.path }}">
+<meta property="og:image" content="{{ SITE_URL }}/static/og-image.png?v=1">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="InvestRight — Otto the owl · deep-dive stock research">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ self.og_title() }}">
+<meta name="twitter:description" content="{{ self.og_desc() }}">
+<meta name="twitter:image" content="{{ SITE_URL }}/static/og-image.png?v=1">
 {# Browser-chrome colour follows the theme: server-rendered when a theme is
    chosen (cookie), media-scoped to the OS preference otherwise. The theme
    toggle script keeps these in step on a reload-free switch. #}

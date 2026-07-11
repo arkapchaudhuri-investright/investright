@@ -55,6 +55,15 @@ app.jinja_env.globals["EXPLAIN"] = metrics.GRAPH_EXPLAINERS
 # tiny loader at import). Unset ⇒ /admin is disabled (404), never wide open.
 ADMIN_KEY = os.environ.get("ADMIN_KEY")
 
+# Canonical public origin — used to build absolute URLs for social/OG meta tags
+# (crawlers need absolute image + page URLs). Overridable via .env for staging.
+SITE_URL = (os.environ.get("SITE_URL") or "https://investright.us").rstrip("/")
+
+
+@app.context_processor
+def inject_site_url():
+    return {"SITE_URL": SITE_URL}
+
 
 @app.before_request
 def _ensure_visitor():
