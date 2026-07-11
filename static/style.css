@@ -16,8 +16,13 @@
   --accent-deep: #15805d;
   --edge: #706e64;           /* form-field borders: ≥3:1 vs bg/card (WCAG 1.4.11) */
   --radius: 12px;
-  --serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* One type system across the whole app (Arka's call). The former serif
+     ("Iowan Old Style") fell back to Georgia/Times on most devices, reading as
+     a different, inconsistent font — so every --serif / .serif usage now
+     resolves to the base sans. To bring the serif brand voice back, restore a
+     serif stack here. */
+  --serif: var(--sans);
   --shadow: rgba(0, 0, 0, .4);
   --shadow-pop: rgba(0, 0, 0, .5);   /* floating surfaces: menus, dialogs, chat */
   --wash: rgba(233, 230, 221, .05);  /* row-hover tint — theme-aware, unlike a hardcoded rgba */
