@@ -905,9 +905,12 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
   .member { justify-content: center; text-align: center; }
   .member-photo { width: 108px; height: 108px; }
   /* Topbar gained a Team link + theme toggle — let the controls wrap onto
-     their own line(s) instead of overflowing the viewport (§ no h-scroll). */
-  .topbar { flex-wrap: wrap; row-gap: 10px; padding: 14px 16px; }
-  .topnav { flex-wrap: wrap; justify-content: flex-end; gap: 14px; }
+     their own line(s) instead of overflowing the viewport (§ no h-scroll).
+     The ⚙ gear pins to the top-right corner (Arka's call), beside the brand,
+     while the nav links + search wrap onto the row below it. */
+  .topbar { flex-wrap: wrap; row-gap: 10px; padding: 14px 16px; position: relative; }
+  .topnav { flex-wrap: wrap; justify-content: flex-end; gap: 14px; padding-right: 46px; }
+  .topnav .settings { position: absolute; top: 12px; right: 14px; }
   /* Card headers ("Your watchlist · as of · ↻ Refresh") wrapped mid-title on
      phones — give the title its own line and let the rest follow tidily. */
   .card-head { flex-wrap: wrap; row-gap: 6px; }

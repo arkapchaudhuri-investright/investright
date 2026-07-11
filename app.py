@@ -145,6 +145,8 @@ def persist_theme(resp):
     t = request.args.get("theme")
     if t in ("dark", "light"):
         resp.set_cookie("theme", t, max_age=180 * 24 * 3600, samesite="Lax")
+    elif t == "system":                  # clear the choice → follow OS (no-JS path)
+        resp.delete_cookie("theme")
     return resp
 
 

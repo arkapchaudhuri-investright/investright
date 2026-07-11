@@ -81,6 +81,13 @@
           </span>
           {% endif %}
         </div>
+        {% if current_user %}
+        {# Change password lives in the gear now — quick reach from any page. #}
+        <div class="set-row">
+          <span class="set-label">Password</span>
+          <a class="linkbtn" href="{{ url_for('auth.account') }}#password">Change</a>
+        </div>
+        {% endif %}
         {% if show_fx %}
         <div class="set-row">
           <span class="set-label">Currency</span>
@@ -90,6 +97,8 @@
           </nav>
         </div>
         {% endif %}
+        {# Theme: Light / Dark / Auto. "Auto" clears the cookie so the OS
+           prefers-color-scheme decides (and keeps deciding as the OS flips). #}
         <div class="set-row">
           <span class="set-label">Theme</span>
           <nav class="seg theme-seg" aria-label="Colour theme">
@@ -97,20 +106,11 @@
                class="{{ 'active' if theme == 'light' }}">☀</a>
             <a href="?theme=dark" data-theme="dark" title="Dark theme" aria-label="Dark theme"
                class="{{ 'active' if theme == 'dark' }}">☾</a>
+            <a href="?theme=system" data-theme="system" title="Match system setting" aria-label="Match system setting"
+               class="{{ 'active' if not theme }}">Auto</a>
           </nav>
         </div>
-        {# Market: client-only preference (localStorage), the ONLY place it lives
-           now (§11 corrected). Shared .market-seg class wired by the base script;
-           it writes localStorage + the ccy cookie and reloads to apply the default
-           currency + the /today filter. data-tour hook points the tour here. #}
-        <div class="set-row" data-tour="market">
-          <span class="set-label">Market</span>
-          <nav class="seg market-seg" aria-label="Market">
-            <a href="#" data-market="US" title="United States (NYSE/NASDAQ)">US</a>
-            <a href="#" data-market="IN" title="India (NSE/BSE)">India</a>
-            <a href="#" data-market="BOTH" title="Both markets">Both</a>
-          </nav>
-        </div>
+        {# Market lives on the /today and /watchlist toggles now — not the gear. #}
         {% if show_fx %}
         {# Today's $→₹ rate, shown here at the point the currency is chosen (§11).
            Always carries the date it's from; flags when it's a stale last-good. #}
@@ -141,28 +141,39 @@
 (function () {
   var root = document.documentElement;
   var links = document.querySelectorAll('.theme-seg a');
+  var mq = window.matchMedia('(prefers-color-scheme: light)');
+  // mode = the CHOSEN setting: 'light' | 'dark' | 'system'. No data-theme
+  // attribute means the server found no cookie → we're following the OS.
+  function mode() { return root.dataset.theme || 'system'; }
   function effective() {
-    return root.dataset.theme ||
-      (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    var m = mode();
+    return m === 'system' ? (mq.matches ? 'light' : 'dark') : m;
   }
   function paint() {
-    var t = effective();
-    links.forEach(function (a) { a.classList.toggle('active', a.dataset.theme === t); });
+    var m = mode(), eff = effective();
+    links.forEach(function (a) { a.classList.toggle('active', a.dataset.theme === m); });
     // Keep the browser-chrome colour in step (collapse any media-scoped pair).
-    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
-      m.removeAttribute('media');
-      m.content = t === 'light' ? '#faf9f5' : '#191917';
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (mt) {
+      mt.removeAttribute('media');
+      mt.content = eff === 'light' ? '#faf9f5' : '#191917';
     });
   }
   links.forEach(function (a) {
     a.addEventListener('click', function (e) {
       e.preventDefault();
       var t = a.dataset.theme;
-      root.setAttribute('data-theme', t);
-      document.cookie = 'theme=' + t + ';path=/;max-age=' + (180 * 24 * 3600) + ';samesite=lax';
+      if (t === 'system') {
+        root.removeAttribute('data-theme');
+        document.cookie = 'theme=;path=/;max-age=0;samesite=lax';   // clear → follow OS
+      } else {
+        root.setAttribute('data-theme', t);
+        document.cookie = 'theme=' + t + ';path=/;max-age=' + (180 * 24 * 3600) + ';samesite=lax';
+      }
       paint();
     });
   });
+  // Repaint if the OS theme flips while in Auto (keeps chrome colour + active state honest).
+  mq.addEventListener('change', function () { if (mode() === 'system') paint(); });
   paint();
 
   // Close the settings dropdown when clicking outside it (native <details>
