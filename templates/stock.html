@@ -175,32 +175,95 @@
    activity (SEC), and this site's own reader signals. Sentiment, not advice. #}
 <section class="card">
   <div class="card-head"><h2>What investors think</h2>
-    <span class="asof">analysts · insiders · InvestRight readers</span></div>
-  {% if senti.rec_mean %}
-  <p class="senti-verdict">Analyst consensus:
-    <b class="{{ 'up' if senti.rec_mean <= 2.5 else 'down' if senti.rec_mean >= 3.5 else '' }}">{{ senti.rec_key|title }}</b>
-    {% if senti.analyst_n %}<span class="asof">· {{ senti.analyst_n }} analysts</span>{% endif %}</p>
-  <div class="senti-track" role="img"
-       aria-label="Analyst consensus {{ senti.rec_key }} — {{ senti.gauge_pct }}% of the way from strong buy to sell">
-    <span class="senti-dot" style="left: {{ senti.gauge_pct }}%"></span>
+    {# Pick whose view to see — each option swaps the panel below to real
+       data for that group. No-JS: all panels stay visible, stacked. #}
+    <label class="senti-pick"><span class="visually-hidden">Whose view</span>
+      <select id="senti-src" aria-label="Whose sentiment to show">
+        <option value="investors">The market</option>
+        <option value="analysts">Analysts</option>
+        <option value="insiders">Insiders</option>
+        <option value="readers">InvestRight readers</option>
+      </select>
+    </label>
   </div>
-  <div class="fv-legend"><span>Strong buy</span><span>Hold</span><span>Sell</span></div>
-  {% if senti.target_mean %}
-  <p class="asof senti-target">Average 12-month target {{ senti.target_mean|money(ccy) }} —
-    <b class="{{ 'up' if senti.target_pct > 0 else 'down' }}">{{ '%+.1f'|format(senti.target_pct) }}%</b> vs today.</p>
-  {% endif %}
-  {% else %}
-  <p class="asof">Analyst consensus lands with the next nightly refresh.</p>
-  {% endif %}
-  <div class="senti-chips">
-    {% if is_us %}
-    <span class="reason {{ 'reason-insider' if ins_buys > ins_sells }}">insiders: {{ ins_buys }} buy{{ 's' if ins_buys != 1 }} · {{ ins_sells }} sale{{ 's' if ins_sells != 1 }} in recent filings</span>
+
+  {# The market — where the crowd's buying and selling has settled the price. #}
+  <div class="senti-panel" data-src="investors">
+    {% if trend %}
+    <p class="senti-verdict">The market's move:
+      <b class="{{ trend.dir }}">{{ '%+.1f'|format(trend.change_pct) }}%</b>
+      <span class="asof">over the past year</span></p>
     {% endif %}
-    <span class="reason">★ on {{ senti.watchers }} InvestRight watchlist{{ 's' if senti.watchers != 1 }}</span>
-    <span class="reason">{{ senti.views30 }} reader visit{{ 's' if senti.views30 != 1 }} here in 30 days</span>
+    {% if snap and snap['wk52_low'] and snap['wk52_high'] and snap['wk52_high'] > snap['wk52_low'] and price %}
+    {% set pos = 100 * (price - snap['wk52_low']) / (snap['wk52_high'] - snap['wk52_low']) %}
+    <div class="range" title="52-week low {{ snap['wk52_low']|money(ccy) }} · high {{ snap['wk52_high']|money(ccy) }}">
+      <div class="range-track"><span class="range-dot" style="left:{{ [0, [pos, 100]|min]|max|round(1) }}%"></span></div>
+    </div>
+    <div class="fv-legend"><span>52-wk low {{ snap['wk52_low']|money(ccy) }}</span>
+      <span>high {{ snap['wk52_high']|money(ccy) }}</span></div>
+    <p class="asof perf-note">Trading {{ pos|round|int }}% up its 52-week range. Price is the
+      market's live vote — not advice.</p>
+    {% else %}
+    <p class="asof">Not enough saved price history to read the market's range yet.</p>
+    {% endif %}
   </div>
-  <p class="asof perf-note">Consensus and targets are Yahoo Finance's analyst aggregate;
-    reader numbers are this site's own activity. Sentiment, not advice.</p>
+
+  {# Analysts — Yahoo's Wall Street consensus + 12-month target. #}
+  <div class="senti-panel" data-src="analysts" hidden>
+    {% if senti.rec_mean %}
+    <p class="senti-verdict">Analyst consensus:
+      <b class="{{ 'up' if senti.rec_mean <= 2.5 else 'down' if senti.rec_mean >= 3.5 else '' }}">{{ senti.rec_key|title }}</b>
+      {% if senti.analyst_n %}<span class="asof">· {{ senti.analyst_n }} analysts</span>{% endif %}</p>
+    <div class="senti-track" role="img"
+         aria-label="Analyst consensus {{ senti.rec_key }} — {{ senti.gauge_pct }}% of the way from strong buy to sell">
+      <span class="senti-dot" style="left: {{ senti.gauge_pct }}%"></span>
+    </div>
+    <div class="fv-legend"><span>Strong buy</span><span>Hold</span><span>Sell</span></div>
+    {% if senti.target_mean %}
+    <p class="asof senti-target">Average 12-month target {{ senti.target_mean|money(ccy) }} —
+      <b class="{{ 'up' if senti.target_pct > 0 else 'down' }}">{{ '%+.1f'|format(senti.target_pct) }}%</b> vs today.</p>
+    {% endif %}
+    <p class="asof perf-note">Yahoo Finance's analyst aggregate. Sentiment, not advice.</p>
+    {% else %}
+    <p class="asof">Analyst consensus lands with the next nightly refresh.</p>
+    {% endif %}
+  </div>
+
+  {# Insiders — SEC Form 4 open-market activity (US only). #}
+  <div class="senti-panel" data-src="insiders" hidden>
+    {% if is_us %}
+    <p class="senti-verdict">Insiders:
+      <b class="{{ 'up' if ins_buys > ins_sells else 'down' if ins_sells > ins_buys else '' }}">{{ ins_buys }} buy{{ 's' if ins_buys != 1 }} · {{ ins_sells }} sale{{ 's' if ins_sells != 1 }}</b>
+      <span class="asof">in recent filings</span></p>
+    <p class="asof perf-note">Open-market trades from SEC Form 4. Sales are often pre-planned
+      (10b5-1); buys tend to say more. Sentiment, not advice.</p>
+    {% else %}
+    <p class="asof">Insider filings come from SEC EDGAR — US companies only, so there's none
+      for {{ s['ticker'] }}.</p>
+    {% endif %}
+  </div>
+
+  {# InvestRight readers — this site's own activity. #}
+  <div class="senti-panel" data-src="readers" hidden>
+    <p class="senti-verdict">InvestRight readers:
+      <b>{{ senti.watchers }}</b> <span class="asof">watching</span></p>
+    <div class="senti-chips">
+      <span class="reason">★ on {{ senti.watchers }} watchlist{{ 's' if senti.watchers != 1 }}</span>
+      <span class="reason">{{ senti.views30 }} reader visit{{ 's' if senti.views30 != 1 }} in 30 days</span>
+    </div>
+    <p class="asof perf-note">This site's own activity — not a broad measure. Sentiment, not advice.</p>
+  </div>
+
+  <script>
+  (function () {
+    var sel = document.getElementById('senti-src');
+    var panels = document.querySelectorAll('.senti-panel');
+    if (!sel) return;
+    function show() { panels.forEach(function (p) { p.hidden = p.dataset.src !== sel.value; }); }
+    sel.addEventListener('change', show);
+    show();   // JS on: collapse to the selected view (no-JS shows all, stacked)
+  })();
+  </script>
 </section>
 
 {% if not has_data %}
