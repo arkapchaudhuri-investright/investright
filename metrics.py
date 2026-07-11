@@ -641,6 +641,27 @@ def _screen_reasons(scores, up, net_buys, checks):
     return out
 
 
+def today_market_read(picks, market):
+    """A deterministic 'Otto's read' for the /today market selection, built from
+    the (already market-filtered) screener picks — so the read changes the
+    moment you switch US / India / Both, with no AI call. The nightly AI digest
+    still appears below as the fuller note. Honest: it's our own ranking."""
+    if not picks:
+        return None
+    label = {"US": "US", "IN": "Indian"}.get(market, "tracked")
+    top = picks[0]
+    name = _short_name(top.get("name") or top["ticker"])
+    reasons = top.get("reasons") or []
+    lead = f"{name} ({top['ticker']}) tops tonight's {label} screen"
+    if reasons and reasons[0].get("label"):
+        lead += f" — {reasons[0]['label'][0].lower()}{reasons[0]['label'][1:]}"
+    lead += "."
+    rest = [p["ticker"] for p in picks[1:4]]
+    if rest:
+        lead += f" Close behind: {', '.join(rest)}."
+    return lead + " That's a rank of our own rules on the tickers you track — not advice."
+
+
 def today_takeaway(rows):
     """Serif one-liner for the top of /today (§5). rows = screener rows with a
     display name attached, best-first."""
