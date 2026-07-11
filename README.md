@@ -101,6 +101,19 @@ git push -u origin feature/<short-name>
 gh pr create --fill                    # open a PR against main
 ```
 
+### Tests
+
+A small smoke suite guards the highest-value paths — public routes render,
+CSRF rejects forged POSTs, and the DCF / scoring math stays stable. It runs
+against a throwaway temp SQLite DB (never `data/investright.db`):
+
+```sh
+.venv/bin/pip install -r requirements-dev.txt   # one-time: installs pytest
+.venv/bin/python -m pytest                       # ~2s
+```
+
+`requirements-dev.txt` is dev-only — the prod VM installs `requirements.txt`.
+
 Review and merge the PR on GitHub (squash-merge keeps `main` linear), then
 deploy from `main` on the VM:
 
