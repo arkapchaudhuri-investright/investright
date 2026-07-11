@@ -26,6 +26,8 @@
        type a symbol, press Enter, land on its deep dive. No CTA button. Native
        <details> so the toggle works with JS off; the form posts to /analyze
        either way. #}
+    {# Hidden on the homepage — the hero search IS the search there. #}
+    {% if request.path != url_for('home') %}
     <details class="navsearch" data-tour="navsearch">
       <summary class="navsearch-btn" role="button" aria-label="Search a stock" title="Search a stock">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
@@ -38,10 +40,12 @@
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
         <input class="navsearch-input" name="symbol" type="text" spellcheck="false"
-               placeholder="Ticker, then Enter…"
-               aria-label="Search a ticker, then press Enter to open its analysis">
+               placeholder="Search any stock — name or ticker, then Enter…"
+               aria-label="Search a company name or ticker, then press Enter to open its analysis">
+        <button type="button" class="navsearch-close" aria-label="Close search">×</button>
       </form>
     </details>
+    {% endif %}
     <a class="navlink{{ ' nav-on' if request.path == url_for('today') }}"
        {% if request.path == url_for('today') %}aria-current="page"{% endif %}
        href="{{ url_for('today') }}" data-tour="today">Today</a>
@@ -198,12 +202,10 @@
   });
   // Focus the field the moment the search opens.
   if (navsearch) {
+    var nsClose = navsearch.querySelector('.navsearch-close');
+    if (nsClose) nsClose.addEventListener('click', function () { navsearch.open = false; });
     navsearch.addEventListener('toggle', function () {
       if (navsearch.open) {
-        // Pin the mobile panel just under the (possibly wrapped) header.
-        var hdr = document.querySelector('.topbar');
-        if (hdr) document.documentElement.style.setProperty(
-          '--nav-bottom', Math.round(hdr.getBoundingClientRect().bottom + 6) + 'px');
         var f = navsearch.querySelector('.navsearch-input');
         if (f) setTimeout(function () { f.focus(); }, 20);
       }
