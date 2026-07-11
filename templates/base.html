@@ -93,12 +93,14 @@
         </div>
         {% endif %}
         {% if show_fx %}
+        {# Stays on the current page — ?ccy= persists globally now, so the
+           currency choice (and the rate below) live in the gear everywhere. #}
         <div class="set-row">
           <span class="set-label">Currency</span>
           <nav class="seg" aria-label="Display currency">
-            <a href="{{ url_for('home', ccy='USD') }}" title="US dollars" aria-label="US dollars"
+            <a href="{{ request.path }}?ccy=USD" title="US dollars" aria-label="US dollars"
                class="{{ 'active' if ccy == 'USD' }}">$</a>
-            <a href="{{ url_for('home', ccy='INR') }}" title="Indian rupees" aria-label="Indian rupees"
+            <a href="{{ request.path }}?ccy=INR" title="Indian rupees" aria-label="Indian rupees"
                class="{{ 'active' if ccy == 'INR' }}">₹</a>
           </nav>
         </div>
