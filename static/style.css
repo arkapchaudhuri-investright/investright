@@ -1162,7 +1162,12 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
 @media (max-width: 560px) { .ask-otto { right: 12px; bottom: 12px; } }
 
 /* ── Models & Strategies (/strategies) — editorial field guide ───────────── */
-.strat-seg { margin-top: 18px; }
+.strat-seg { margin-top: 0; }
+/* Market toggle + refresh sit on one centred row under the strategies title. */
+.strat-controls {
+  display: flex; align-items: center; justify-content: center;
+  gap: 14px; flex-wrap: wrap; margin-top: 18px;
+}
 .strat-note {
   max-width: 62ch; margin: 4px auto 0; text-align: center; line-height: 1.55;
 }

@@ -32,6 +32,10 @@
   </div>
 </section>
 
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+{% endwith %}
+
 {# Otto's read — the nightly AI digest; a summary of our own rules, labeled so (§1, §4) #}
 <section class="card">
   <div class="card-head"><h2>Otto's read</h2>

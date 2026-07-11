@@ -405,6 +405,11 @@ def remove():
 
 @app.post("/refresh")
 def refresh():
+    # List pages refresh PRICES, fast: snapshot_many is threaded (~seconds for
+    # dozens of tickers), then re-rank. Deep data (checks/DCF/news/EDGAR) is
+    # heavy — minutes for a full list — changes ~quarterly, and has its own
+    # nightly cron + the per-stock ↻ on the deep dive. Keeping it out of the
+    # list-page button is what makes that button feel instant.
     with get_conn() as conn:
         symbols = [r["ticker"] for r in conn.execute("SELECT ticker FROM watchlist")]
         peers = [p for p in refresh_job.peer_symbols(symbols)
@@ -413,23 +418,42 @@ def refresh():
     with get_conn() as conn:
         for snap in snaps:
             save_snapshot(conn, snap)
-        for sym in symbols + peers:       # refresh deep data too (checks/DCF/news)
-            try:
-                refresh_job.save_deep(conn, sym)
-            except Exception:
-                pass
-        try:  # keep /today's ranking in step; the digest stays nightly (cron)
+        try:  # re-rank /today with the fresh prices; digest stays nightly (cron)
             refresh_job.run_screener(conn)
         except Exception:
             pass
     if symbols and not snaps:
         flash("Yahoo isn't answering right now — showing your last saved prices.", "error")
+    elif snaps:
+        flash(f"Refreshed the latest prices for {len(snaps)} stocks.", "ok")
     # Return to whichever page fired the refresh (watchlist / today). Only
     # same-site relative paths — never an off-site redirect.
     nxt = request.form.get("next", "")
     if nxt.startswith("/") and not nxt.startswith("//"):
         return redirect(nxt)
     return redirect(url_for("watchlist_page"))
+
+
+@app.post("/strategies/refresh")
+def refresh_strategies():
+    """Pull the latest prices for the stocks shown on /strategies (the current
+    market's rule-based picks) — fast, snapshot-only like the other list pages.
+    The monthly *membership* re-sweeps every 30 days by design (it measures
+    ~100 tickers with 5y history — far too slow for a click)."""
+    market = "IN" if request.args.get("market") == "IN" else "US"
+    with get_conn() as conn:
+        tickers = [r["ticker"] for r in conn.execute(
+            "SELECT DISTINCT ticker FROM strategy_picks WHERE market=?", (market,))]
+        tickers = [t for t in tickers if refresh_job.ensure_stock(conn, t)]
+    snaps = fetch.snapshot_many(tickers) if tickers else []
+    with get_conn() as conn:
+        for snap in snaps:
+            save_snapshot(conn, snap)
+    if tickers and not snaps:
+        flash("Yahoo isn't answering right now — showing the last saved data.", "error")
+    elif snaps:
+        flash(f"Refreshed the latest prices for {len(snaps)} stocks on this page.", "ok")
+    return redirect(url_for("strategies_page", market=market))
 
 
 @app.post("/stock/<ticker>/refresh")
