@@ -136,6 +136,16 @@
 <main>
 {% block content %}{% endblock %}
 </main>
+{# Search loading state — shown by JS when a search form submits to /analyze
+   (or /add). The deep-dive fetch can take a few seconds; this reassures the
+   visitor something's happening instead of a dead-looking page. No-JS never
+   sees it (hidden by default, only script reveals it). #}
+<div id="analyzing" class="analyzing" hidden>
+  <div class="analyzing-card" role="status" aria-live="polite">
+    <span class="analyzing-spin" aria-hidden="true"></span>
+    <p class="analyzing-text">Analyzing…</p>
+  </div>
+</div>
 <footer>
   <p class="foot-disclaim">Prices from Yahoo Finance, ~15-min delayed / EOD · Not investment advice — Otto just crunches numbers.</p>
   <p class="foot-credit">Designed with love by Arkaprava Chaudhuri <span class="heart">♥</span></p>
@@ -252,6 +262,31 @@
       location.reload();           // apply the new currency + autocomplete filter
     });
   });
+})();
+
+// Search loading state — when a search form heads to /analyze (or /add), show a
+// calm "Analyzing <TICKER>…" overlay until the next page paints. Purely
+// cosmetic reassurance during the Yahoo fetch; the POST proceeds normally.
+(function () {
+  var overlay = document.getElementById('analyzing');
+  if (!overlay) return;
+  var txt = overlay.querySelector('.analyzing-text');
+  function show(label) { txt.textContent = label; overlay.hidden = false; }
+  document.querySelectorAll('form').forEach(function (f) {
+    var action = f.getAttribute('action') || '';
+    if (!/\/(analyze|add)$/.test(action)) return;
+    f.addEventListener('submit', function (e) {
+      var sub = e.submitter;
+      var dest = (sub && sub.getAttribute('formaction')) || action;
+      var field = f.querySelector('input[name="symbol"]');
+      var sym = field && field.value.trim();
+      if (!sym) return;                     // empty submit → let the server handle it, no overlay
+      sym = sym.toUpperCase();
+      show(/\/add$/.test(dest) ? 'Adding ' + sym + '…' : 'Analyzing ' + sym + '…');
+    });
+  });
+  // Back/forward (bfcache) restores the page mid-overlay — hide it again.
+  window.addEventListener('pageshow', function () { overlay.hidden = true; });
 })();
 </script>
 </body>
