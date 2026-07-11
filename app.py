@@ -745,6 +745,43 @@ def spark_json(ticker):
                    first=chart["first"], last=chart["last"])
 
 
+@app.route("/stock/<ticker>/trend.json")
+def trend_json(ticker):
+    """Saved daily closes for a range (1M…Max), as JSON — lets the range tabs
+    redraw client-side instead of navigating (which used to scroll-jump to the
+    #trend anchor). Read-only GET (§3). Money values are converted to the
+    display currency so the crosshair reads out the same units as the page."""
+    ticker = ticker.upper()
+    rng = request.args.get("range", "1y")
+    spans = {"1m": 21, "6m": 126, "1y": 252, "5y": 1260, "max": None}
+    if rng not in spans:
+        rng = "1y"
+    ccy = request.args.get("ccy") or request.cookies.get("ccy") or "USD"
+    if ccy not in ("USD", "INR"):
+        ccy = "USD"
+    with get_conn() as conn:
+        s = conn.execute("SELECT currency FROM stocks WHERE ticker=?", (ticker,)).fetchone()
+        if not s:
+            abort(404)
+        hist = conn.execute(
+            "SELECT d, close FROM price_history WHERE ticker=? ORDER BY d",
+            (ticker,)).fetchall()
+    sel = hist if spans[rng] is None else hist[-spans[rng]:]
+    fx, _ = get_usdinr()
+    native = s["currency"]
+    factor = 1.0
+    if fx and native in ("USD", "INR") and native != ccy:
+        factor = fx if native == "USD" else 1 / fx
+    chart = metrics.trend_chart([(r["d"], r["close"] * factor) for r in sel])
+    if not chart:
+        return jsonify(error="No saved history for this range yet.")
+    return jsonify(points=chart["points"], area=chart["area"],
+                   width=chart["width"], height=chart["height"],
+                   dir=chart["dir"], change_pct=chart["change_pct"],
+                   first=chart["first"], last=chart["last"],
+                   series=chart["series"], ccy=ccy)
+
+
 @app.post("/stock/<ticker>/note")
 @login_required
 def save_stock_note(ticker):

@@ -63,10 +63,12 @@
 <section class="card" id="trend">
   <div class="card-head"><h2>Price trend</h2>
     <nav class="seg trend-seg" aria-label="Trend range">
-      <button type="button" id="trend-1d" title="Today, live from Yahoo">1D</button>
+      <button type="button" id="trend-1d" data-range="1d" title="Today, live from Yahoo">1D</button>
       {% for key, label in (('1m','1M'), ('6m','6M'), ('1y','1Y'), ('5y','5Y'), ('max','Max')) %}
+      {# href is the no-JS fallback; with JS these fetch + redraw in place so the
+         page never navigates (which used to scroll-jump to #trend). #}
       <a href="{{ url_for('stock', ticker=s['ticker'], range=key) }}#trend"
-         class="{{ 'active' if rng == key }}"
+         data-range="{{ key }}" class="{{ 'active' if rng == key }}"
          {% if rng == key %}aria-current="true"{% endif %}>{{ label }}</a>
       {% endfor %}
     </nav>
@@ -74,49 +76,93 @@
   {% if trend %}
   <p class="trend-verdict"><b id="trend-chg" class="{{ trend.dir }}">{{ '%+.1f'|format(trend.change_pct) }}%</b>
     <span class="asof" id="trend-cap">over {{ rng_label }}</span></p>
-  <svg id="trend-svg" class="trend-chart" viewBox="0 0 {{ trend.width }} {{ trend.height }}"
-       preserveAspectRatio="none" role="img"
-       aria-label="{{ s['name'] }} price line, {{ trend.first[0] }} to {{ trend.last[0] }}">
-    <polygon id="trend-area" points="{{ trend.area }}" class="trend-fill-{{ trend.dir }}"/>
-    <polyline id="trend-line" points="{{ trend.points }}" fill="none"
-              stroke="var(--{{ trend.dir }})" stroke-width="1.8"
-              vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-  </svg>
+  <div class="trend-wrap" id="trend-wrap">
+    <svg id="trend-svg" class="trend-chart" viewBox="0 0 {{ trend.width }} {{ trend.height }}"
+         preserveAspectRatio="none" role="img"
+         aria-label="{{ s['name'] }} price line, {{ trend.first[0] }} to {{ trend.last[0] }}">
+      <polygon id="trend-area" points="{{ trend.area }}" class="trend-fill-{{ trend.dir }}"/>
+      <polyline id="trend-line" points="{{ trend.points }}" fill="none"
+                stroke="var(--{{ trend.dir }})" stroke-width="1.8"
+                vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    </svg>
+    {# Crosshair overlay — a vertical rule + dot that track the cursor and a
+       tooltip reading the date + price of the nearest close. #}
+    <div class="trend-cross" id="trend-cross" hidden><span class="trend-cross-dot" id="trend-dot"></span></div>
+    <div class="trend-tip" id="trend-tip" hidden></div>
+  </div>
   <div class="perf-legend">
     <span id="trend-l">{{ trend.first[0] }} · {{ trend.first[1]|money(ccy) }}</span>
     <span id="trend-r">{{ trend.last[0] }} · {{ trend.last[1]|money(ccy) }}</span>
   </div>
+  <script id="trend-data" type="application/json">{{ {'w': trend.width, 'h': trend.height, 'series': trend.series}|tojson }}</script>
   <script>
-  // 1D tab: fetch today's 5-minute bars live and redraw the same SVG. The
-  // other ranges stay server-rendered links — this is enhancement only.
   (function () {
-    var btn = document.getElementById('trend-1d');
-    if (!btn || !window.fetch) return;
+    var W = {{ trend.width }}, H = {{ trend.height }};
     var sym = {{ ('₹' if ccy == 'INR' else '$')|tojson }};
+    var sparkUrl = {{ url_for("spark_json", ticker=s["ticker"])|tojson }};
+    var trendUrl = {{ url_for("trend_json", ticker=s["ticker"])|tojson }};
     var money = function (v) { return sym + v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
-    btn.addEventListener('click', function () {
-      btn.disabled = true; btn.textContent = '…';
-      fetch('{{ url_for("spark_json", ticker=s["ticker"]) }}')
-        .then(function (r) { return r.json(); })
-        .then(function (j) {
-          btn.disabled = false; btn.textContent = '1D';
-          var cap = document.getElementById('trend-cap');
-          if (j.error) { cap.textContent = j.error; return; }
-          document.querySelectorAll('.trend-seg .active').forEach(function (a) { a.classList.remove('active'); });
-          btn.classList.add('active');
-          var line = document.getElementById('trend-line'), area = document.getElementById('trend-area');
-          line.setAttribute('points', j.points); area.setAttribute('points', j.area);
-          line.setAttribute('stroke', 'var(--' + j.dir + ')');
-          area.setAttribute('class', 'trend-fill-' + j.dir);
-          var chg = document.getElementById('trend-chg');
-          chg.textContent = (j.change_pct >= 0 ? '+' : '') + j.change_pct.toFixed(1) + '%';
-          chg.className = j.dir;
-          cap.textContent = 'today (5-minute bars, live)';
-          document.getElementById('trend-l').textContent = j.first[0] + ' · ' + money(j.first[1]);
-          document.getElementById('trend-r').textContent = j.last[0] + ' · ' + money(j.last[1]);
-        })
-        .catch(function () { btn.disabled = false; btn.textContent = '1D'; });
+    var wrap = document.getElementById('trend-wrap'),
+        line = document.getElementById('trend-line'), area = document.getElementById('trend-area'),
+        chg = document.getElementById('trend-chg'), cap = document.getElementById('trend-cap'),
+        legL = document.getElementById('trend-l'), legR = document.getElementById('trend-r'),
+        cross = document.getElementById('trend-cross'), dot = document.getElementById('trend-dot'),
+        tip = document.getElementById('trend-tip'),
+        tabs = document.querySelectorAll('.trend-seg [data-range]');
+    var series = [];
+    try { series = JSON.parse(document.getElementById('trend-data').textContent).series || []; } catch (e) {}
+
+    function setActive(range) {
+      tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.range === range); });
+    }
+    function redraw(j) {
+      line.setAttribute('points', j.points); area.setAttribute('points', j.area);
+      line.setAttribute('stroke', 'var(--' + j.dir + ')');
+      area.setAttribute('class', 'trend-fill-' + j.dir);
+      chg.textContent = (j.change_pct >= 0 ? '+' : '') + j.change_pct.toFixed(1) + '%';
+      chg.className = j.dir;
+      legL.textContent = j.first[0] + ' · ' + money(j.first[1]);
+      legR.textContent = j.last[0] + ' · ' + money(j.last[1]);
+      series = j.series || [];
+    }
+    function load(range, el) {
+      var url = range === '1d' ? sparkUrl : trendUrl + '?range=' + range;
+      var old = el.textContent; if (el.tagName === 'BUTTON') { el.disabled = true; el.textContent = '…'; }
+      setActive(range); hideCross();
+      fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+        if (el.tagName === 'BUTTON') { el.disabled = false; el.textContent = old; }
+        if (j.error) { cap.textContent = j.error; return; }
+        redraw(j);
+        cap.textContent = range === '1d' ? 'today (5-minute bars, live)'
+          : ({'1m':'over the last month','6m':'over six months','1y':'over one year',
+              '5y':'over five years','max':'over all saved history'}[range] || '');
+      }).catch(function () { if (el.tagName === 'BUTTON') { el.disabled = false; el.textContent = old; } });
+    }
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function (e) { e.preventDefault(); load(t.dataset.range, t); });
     });
+
+    // Crosshair — nearest point to the cursor, read out as date + price.
+    function hideCross() { cross.hidden = true; tip.hidden = true; }
+    function onMove(e) {
+      if (!series.length) return;
+      var r = wrap.getBoundingClientRect();
+      var px = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left);
+      var frac = Math.max(0, Math.min(1, px / r.width));
+      var tx = frac * W;
+      var best = series[0], bd = 1e9;
+      for (var i = 0; i < series.length; i++) { var d = Math.abs(series[i].x - tx); if (d < bd) { bd = d; best = series[i]; } }
+      var lx = (best.x / W) * r.width, ly = (best.y / H) * r.height;
+      cross.hidden = false; cross.style.left = lx + 'px';
+      dot.style.top = ly + 'px';
+      tip.hidden = false; tip.innerHTML = '<b>' + money(best.c) + '</b><span>' + best.d + '</span>';
+      var tw = tip.offsetWidth;
+      tip.style.left = Math.max(0, Math.min(r.width - tw, lx - tw / 2)) + 'px';
+    }
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerleave', hideCross);
+    wrap.addEventListener('touchmove', onMove, {passive: true});
+    wrap.addEventListener('touchend', hideCross);
   })();
   </script>
   {% else %}

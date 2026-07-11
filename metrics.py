@@ -399,10 +399,14 @@ def trend_chart(points, width=560, height=150, pad=5):
     ys = lambda c: pad + (height - 2 * pad) * (1 - (c - lo) / span)
     pts = " ".join(f"{xs(i):.1f},{ys(c):.1f}" for i, (_, c) in enumerate(points))
     change = 100.0 * (closes[-1] - closes[0]) / closes[0] if closes[0] else 0.0
+    # Per-point coords + label + price, so the client can draw a crosshair that
+    # reads out the date and price under the cursor (no chart lib).
+    series = [{"x": round(xs(i), 1), "y": round(ys(c), 1), "d": d, "c": c}
+              for i, (d, c) in enumerate(points)]
     return {
         "width": width, "height": height, "points": pts,
         "area": f"{xs(0):.1f},{height - pad} {pts} {xs(n - 1):.1f},{height - pad}",
-        "lo": lo, "hi": hi,
+        "lo": lo, "hi": hi, "series": series,
         "first": points[0], "last": points[-1],
         "change_pct": round(change, 2),
         "dir": "up" if change >= 0 else "down",
