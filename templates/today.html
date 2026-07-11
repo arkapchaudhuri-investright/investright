@@ -23,6 +23,11 @@
     <div class="head-price">
       {% if as_of %}<span class="asof">screener last ran {{ as_of }} · refreshed nightly</span>
       {% else %}<span class="asof">rankings land with the nightly refresh</span>{% endif %}
+      <form action="{{ url_for('refresh') }}" method="post" class="refresh-form">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="{{ url_for('today', market=market) }}">
+        <button type="submit" class="ghost">↻ Refresh</button>
+      </form>
     </div>
   </div>
 </section>
