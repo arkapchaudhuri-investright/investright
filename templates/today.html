@@ -30,8 +30,21 @@
 {# Otto's read — the nightly AI digest; a summary of our own rules, labeled so (§1, §4) #}
 <section class="card">
   <div class="card-head"><h2>Otto's read</h2>
-    <span class="asof">AI summary of the screen below</span></div>
+    <span class="asof">{{ 'US market' if market == 'US' else 'Indian market' if market == 'IN' else 'all tracked markets' }}</span></div>
+  {# Per-market lead — recomputed from the filtered picks, so it changes with
+     the toggle above. The dated AI note (whole screen) follows. #}
+  {% if market_read %}
+  <p class="digest-body">{{ market_read }}</p>
+  {% endif %}
   {% if digest %}
+  {% if market != 'BOTH' %}
+  <details class="checks-all" style="margin-top:12px">
+    <summary>Otto's fuller nightly note (all markets)</summary>
+    <p class="digest-body" style="margin-top:8px">{{ digest['body'] }}</p>
+    <p class="asof perf-note">Written by {{ digest['model'] }} on {{ digest['date_label'] }}.
+      It covers the whole screen, so it may mention other markets. Not investment advice.</p>
+  </details>
+  {% else %}
   {% if digest['stale'] %}
   <p class="flash flash-error">The AI hasn't answered since {{ digest['date_label'] }} —
     this is the last note it wrote. The ranking below is still current.</p>
@@ -42,7 +55,8 @@
     do research. Not investment advice.
     {% if scope == 'mine' %}Otto writes one digest a night, covering the
     <b>whole</b> screen — so it may mention stocks your watchlist filter hides.{% endif %}</p>
-  {% else %}
+  {% endif %}
+  {% elif not market_read %}
   <p class="asof">No AI digest saved yet. Otto writes one each night once a free Gemini
     (or Groq) key sits in <code>.env</code> — see the README. The screener below doesn't
     need it and works either way.</p>

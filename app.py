@@ -572,8 +572,13 @@ def today():
     top_score = picks[0]["score"] if picks else None
     mood = ("sleepy" if not picks
             else "happy" if top_score >= 55 else "neutral")
+    # Otto's read for the chosen market — deterministic from the filtered picks,
+    # so it changes with the US/India/Both toggle (the AI digest below covers
+    # the whole screen and is dated).
+    market_read = metrics.today_market_read(picks, market)
     resp = make_response(render_template(
         "today.html", picks=picks, digest=dig, as_of=as_of, mood=mood,
+        market_read=market_read,
         takeaway=metrics.today_takeaway(picks), market=market,
         date_label=date.today().strftime("%A, %-d %B"),
         weights=metrics.SCREEN_WEIGHTS, upside_cap=metrics.UPSIDE_CAP,
