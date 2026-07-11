@@ -377,6 +377,20 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
    greeting, field, actions. */
 .hero h1 { font-size: var(--fs-hero); margin: 14px 0 22px; }
 .sub { color: var(--muted); margin: 0 0 26px; }
+
+/* Friendly 404 (errorhandler) — sleepy Otto, a big quiet code, two ways out. */
+.err-page { padding-top: 30px; }
+.err-code {
+  font-family: var(--serif); font-weight: 600; letter-spacing: .04em;
+  font-size: clamp(52px, 12vw, 88px); line-height: 1; color: var(--accent);
+  margin: 10px 0 2px;
+}
+.err-page h1 { font-size: clamp(24px, 5vw, 34px); margin: 6px 0 12px; }
+.err-page .sub { max-width: 30rem; margin-left: auto; margin-right: auto; }
+.err-actions {
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 22px;
+}
+.err-actions a { text-decoration: none; }
 /* First-visit welcome popup (no login; name stored in localStorage). Native
    <dialog> — modal, with a tinted ::backdrop dimming the home page behind it. */
 .name-dialog {

@@ -1044,6 +1044,13 @@ def bigmoney(value, currency="USD"):
     return f"{sym}{value:,.0f}"
 
 
+@app.errorhandler(404)
+def not_found(_e):
+    """Friendly, on-brand 404 instead of Flask's stock page — sleepy Otto plus a
+    way back home / to the search. Every abort(404) in the app lands here."""
+    return render_template("404.html"), 404
+
+
 if __name__ == "__main__":
     import sys
     # Local HTTP dev: allow the session cookie over http://localhost (prod keeps
