@@ -148,13 +148,17 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 .scope-row { margin: -4px 0 16px; }
 /* Market toggle in the /today header — inline-flex so it hugs its pills. */
 .today-mkt-seg { display: inline-flex; margin-top: 12px; }
-/* On the Today island the market toggle pins to the top-right corner. */
+/* On the Today island the market toggle pins to the top-right corner. The
+   header text clears it (padding + a little headroom) so the takeaway line
+   never crowds the pills. */
 .today-head { position: relative; }
 .island-seg { position: absolute; top: 18px; right: 20px; margin-top: 0; z-index: 1; }
-@media (max-width: 560px) {
-  /* On phones it drops below the header text instead of overlapping it. */
+.today-head .head-main { padding-right: 250px; }
+.today-head .head-take { margin-top: 12px; }
+@media (max-width: 720px) {
+  /* On smaller screens it drops below the header text instead of overlapping. */
   .island-seg { position: static; margin-top: 12px; }
-  .today-head .head-main { width: 100%; }
+  .today-head .head-main { width: 100%; padding-right: 0; }
 }
 .wl-toggle {
   color: var(--muted); text-decoration: none; font-size: 13.5px;
@@ -612,6 +616,13 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .trend-tip[hidden] { display: none; }
 .trend-tip b { display: block; font-variant-numeric: tabular-nums; }
 .trend-tip span { color: var(--muted); }
+/* X axis: interior date ticks under the chart (the ends live in the legend). */
+.trend-axis { position: relative; height: 16px; margin-top: 4px; }
+.trend-axis span {
+  position: absolute; transform: translateX(-50%);
+  color: var(--muted); font-size: 11px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .trend-verdict { font-size: 15px; margin: 2px 0 4px; }
 .trend-verdict b { font-size: 19px; font-variant-numeric: tabular-nums; }
 .trend-fill-up { fill: rgba(63, 190, 142, .12); }
@@ -625,14 +636,16 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .seg button.active { background: var(--accent-deep); color: #fff; }
 .trend-seg { flex: none; }
 
-/* What investors think (widget 1c) — dropdown swaps between four views. */
+/* What [dropdown] think (widget 1c) — the select sits inside the sentence. */
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap;
 }
+.senti-title { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .senti-pick select {
   background: var(--bg); color: var(--text); border: 1px solid var(--edge);
-  border-radius: 999px; padding: 6px 30px 6px 13px; font-size: 13px; cursor: pointer;
+  border-radius: 999px; padding: 5px 28px 5px 12px; font-size: 14px; font-weight: 600;
+  cursor: pointer;
   font-family: inherit; -webkit-appearance: none; appearance: none;
   /* inline caret so it reads as a dropdown with no external asset */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239c9889' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");

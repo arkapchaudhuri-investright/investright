@@ -92,8 +92,10 @@
         <div class="set-row">
           <span class="set-label">Currency</span>
           <nav class="seg" aria-label="Display currency">
-            <a href="{{ url_for('home', ccy='USD') }}" class="{{ 'active' if ccy == 'USD' }}">$ USD</a>
-            <a href="{{ url_for('home', ccy='INR') }}" class="{{ 'active' if ccy == 'INR' }}">₹ INR</a>
+            <a href="{{ url_for('home', ccy='USD') }}" title="US dollars" aria-label="US dollars"
+               class="{{ 'active' if ccy == 'USD' }}">$</a>
+            <a href="{{ url_for('home', ccy='INR') }}" title="Indian rupees" aria-label="Indian rupees"
+               class="{{ 'active' if ccy == 'INR' }}">₹</a>
           </nav>
         </div>
         {% endif %}
@@ -107,7 +109,7 @@
             <a href="?theme=dark" data-theme="dark" title="Dark theme" aria-label="Dark theme"
                class="{{ 'active' if theme == 'dark' }}">☾</a>
             <a href="?theme=system" data-theme="system" title="Match system setting" aria-label="Match system setting"
-               class="{{ 'active' if not theme }}">Auto</a>
+               class="{{ 'active' if not theme }}">System</a>
           </nav>
         </div>
         {# Market lives on the /today and /watchlist toggles now — not the gear. #}
