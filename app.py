@@ -314,7 +314,8 @@ _NOT_FOUND = ("Otto couldn't find “{}” on Yahoo — check the symbol? "
 @login_required
 def add():
     user = current_user()
-    symbol = request.form.get("symbol", "").strip().upper()
+    raw = request.form.get("symbol", "").strip()
+    symbol = raw.upper()
     if not symbol:
         return redirect(url_for("home"))
     with get_conn() as conn:
@@ -322,8 +323,11 @@ def add():
             flash(f"{symbol} is already on your watchlist.", "info")
             return redirect(url_for("watchlist_page"))
     meta = _ingest_stock(symbol)
+    if not meta:                         # free-text → nearest symbol (see /analyze)
+        resolved = fetch.search(raw)
+        meta = _ingest_stock(resolved) if resolved else None
     if not meta:
-        flash(_NOT_FOUND.format(symbol), "error")
+        flash(_NOT_FOUND.format(raw), "error")
         return redirect(url_for("home"))
     with get_conn() as conn:
         add_user_watch(conn, user["id"], meta["ticker"])   # per-user + global union
@@ -342,7 +346,8 @@ def analyze():
     it to the watchlist. Fetches + persists the first time we see a symbol (the
     /stock page itself stays DB-only reads, §3), then redirects. Add-to-watchlist
     is a separate button — in the search bar and the ☆ on the deep-dive header."""
-    symbol = request.form.get("symbol", "").strip().upper()
+    raw = request.form.get("symbol", "").strip()
+    symbol = raw.upper()
     if not symbol:
         return redirect(url_for("home"))
     with get_conn() as conn:
@@ -350,8 +355,13 @@ def analyze():
     if not known:                        # only hit Yahoo the first time
         meta = _ingest_stock(symbol)
         if not meta:
-            flash(_NOT_FOUND.format(symbol), "error")
-            return redirect(url_for("home"))
+            # Not a literal ticker — resolve the free text (company name, typo,
+            # "Indian railways") to the nearest symbol via Yahoo search.
+            resolved = fetch.search(raw)
+            meta = _ingest_stock(resolved) if resolved else None
+            if not meta:
+                flash(_NOT_FOUND.format(raw), "error")
+                return redirect(url_for("home"))
         symbol = meta["ticker"]
     _log("analyze", symbol)
     return redirect(url_for("stock", ticker=symbol))
