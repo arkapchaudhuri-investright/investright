@@ -148,6 +148,14 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 .scope-row { margin: -4px 0 16px; }
 /* Market toggle in the /today header — inline-flex so it hugs its pills. */
 .today-mkt-seg { display: inline-flex; margin-top: 12px; }
+/* On the Today island the market toggle pins to the top-right corner. */
+.today-head { position: relative; }
+.island-seg { position: absolute; top: 18px; right: 20px; margin-top: 0; z-index: 1; }
+@media (max-width: 560px) {
+  /* On phones it drops below the header text instead of overlapping it. */
+  .island-seg { position: static; margin-top: 12px; }
+  .today-head .head-main { width: 100%; }
+}
 .wl-toggle {
   color: var(--muted); text-decoration: none; font-size: 13.5px;
   padding: 9px 14px; border: 1px solid var(--hairline); border-radius: 999px;

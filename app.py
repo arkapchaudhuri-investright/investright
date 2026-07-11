@@ -224,6 +224,11 @@ def watchlist_page():
     shows the sign-in CTA (search / analyze / Today stay open to guests)."""
     ctx = _fx_ctx()
     user = current_user()
+    # Market filter (US / India / Both), same shape as /today — the toggle is a
+    # plain link persisting to the shared ir_market cookie.
+    market = (request.args.get("market") or request.cookies.get("ir_market") or "BOTH").upper()
+    if market not in ("US", "IN", "BOTH"):
+        market = "BOTH"
     rows = []
     if user:
         with get_conn() as conn:
@@ -235,14 +240,24 @@ def watchlist_page():
                 LEFT JOIN snapshots n ON n.ticker = w.ticker
                 WHERE w.user_id = ?
                 ORDER BY w.added_at""", (user["id"],)).fetchall()
+    total = len(rows)
+
+    def _in_market(tk):
+        india = tk.endswith(".NS") or tk.endswith(".BO")
+        return True if market == "BOTH" else (india if market == "IN" else not india)
+    if market != "BOTH":
+        rows = [r for r in rows if _in_market(r["ticker"])]
+
     rows = [convert_row(dict(r), ctx["ccy"], ctx["fx"]) for r in rows]
     as_of = max((r["fetched_at"] for r in rows if r["fetched_at"]), default=None)
     if as_of:
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
     resp = make_response(render_template(
-        "watchlist.html", rows=rows, as_of=as_of, **ctx))
+        "watchlist.html", rows=rows, as_of=as_of, market=market, total=total, **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
+    if request.args.get("market"):
+        resp.set_cookie("ir_market", market, max_age=60 * 60 * 24 * 365, samesite="Lax")
     _log("view")
     return resp
 
