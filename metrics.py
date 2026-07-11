@@ -403,7 +403,38 @@ def trend_chart(points, width=560, height=150, pad=5):
     # reads out the date and price under the cursor (no chart lib).
     series = [{"x": round(xs(i), 1), "y": round(ys(c), 1), "d": d, "c": c}
               for i, (d, c) in enumerate(points)]
+
+    # X-axis date ticks: four interior points (the legend already labels the
+    # ends). Daily labels compress to "Apr '26" (or "20 Apr" inside ~6 months);
+    # intraday labels (HH:MM) pass through untouched.
+    span_days = None
+    try:
+        from datetime import date as _date
+        d0 = _date.fromisoformat(str(points[0][0])[:10])
+        d1 = _date.fromisoformat(str(points[-1][0])[:10])
+        span_days = (d1 - d0).days
+    except Exception:
+        pass
+
+    def _tick_label(raw):
+        raw = str(raw)
+        if span_days is None:
+            return raw            # intraday times etc.
+        try:
+            from datetime import date as _date
+            dd = _date.fromisoformat(raw[:10])
+            return dd.strftime("%-d %b") if span_days <= 200 else dd.strftime("%b '%y")
+        except Exception:
+            return raw
+
+    ticks = []
+    for k in range(1, 5):
+        i = round((n - 1) * k / 5)
+        if 0 < i < n - 1:
+            ticks.append({"x": round(xs(i), 1), "label": _tick_label(points[i][0])})
+
     return {
+        "ticks": ticks,
         "width": width, "height": height, "points": pts,
         "area": f"{xs(0):.1f},{height - pad} {pts} {xs(n - 1):.1f},{height - pad}",
         "lo": lo, "hi": hi, "series": series,

@@ -800,7 +800,8 @@ def spark_json(ticker):
     return jsonify(points=chart["points"], area=chart["area"],
                    width=chart["width"], height=chart["height"],
                    dir=chart["dir"], change_pct=chart["change_pct"],
-                   first=chart["first"], last=chart["last"])
+                   first=chart["first"], last=chart["last"],
+                   series=chart["series"], ticks=chart["ticks"])
 
 
 @app.route("/stock/<ticker>/trend.json")
@@ -837,7 +838,7 @@ def trend_json(ticker):
                    width=chart["width"], height=chart["height"],
                    dir=chart["dir"], change_pct=chart["change_pct"],
                    first=chart["first"], last=chart["last"],
-                   series=chart["series"], ccy=ccy)
+                   series=chart["series"], ticks=chart["ticks"], ccy=ccy)
 
 
 @app.post("/stock/<ticker>/note")

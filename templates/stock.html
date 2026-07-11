@@ -94,6 +94,10 @@
     <div class="trend-cross" id="trend-cross" hidden><span class="trend-cross-dot" id="trend-dot"></span></div>
     <div class="trend-tip" id="trend-tip" hidden></div>
   </div>
+  {# X axis — interior date ticks (the legend below labels the two ends). #}
+  <div class="trend-axis" id="trend-axis" aria-hidden="true">
+    {% for t in trend.ticks %}<span style="left: {{ (100 * t.x / trend.width)|round(2) }}%">{{ t.label }}</span>{% endfor %}
+  </div>
   <div class="perf-legend">
     <span id="trend-l">{{ trend.first[0] }} · {{ trend.first[1]|money(ccy) }}</span>
     <span id="trend-r">{{ trend.last[0] }} · {{ trend.last[1]|money(ccy) }}</span>
@@ -128,6 +132,10 @@
       legL.textContent = j.first[0] + ' · ' + money(j.first[1]);
       legR.textContent = j.last[0] + ' · ' + money(j.last[1]);
       series = j.series || [];
+      var axis = document.getElementById('trend-axis');
+      if (axis) axis.innerHTML = (j.ticks || []).map(function (t) {
+        return '<span style="left:' + (100 * t.x / (j.width || W)).toFixed(2) + '%">' + t.label + '</span>';
+      }).join('');
     }
     function load(range, el) {
       var url = range === '1d' ? sparkUrl : trendUrl + '?range=' + range;
@@ -178,17 +186,19 @@
 {# 1c · What investors think — analyst consensus (Yahoo, nightly), insider
    activity (SEC), and this site's own reader signals. Sentiment, not advice. #}
 <section class="card">
-  <div class="card-head"><h2>What investors think</h2>
-    {# Pick whose view to see — each option swaps the panel below to real
-       data for that group. No-JS: all panels stay visible, stacked. #}
-    <label class="senti-pick"><span class="visually-hidden">Whose view</span>
-      <select id="senti-src" aria-label="Whose sentiment to show">
-        <option value="investors">The market</option>
-        <option value="analysts">Analysts</option>
-        <option value="insiders">Insiders</option>
-        <option value="readers">InvestRight readers</option>
-      </select>
-    </label>
+  {# The dropdown sits inside the sentence — "What [whoever] think" — and each
+     option swaps the panel below to real data. No-JS: all panels stacked. #}
+  <div class="card-head">
+    <h2 class="senti-title">What
+      <label class="senti-pick"><span class="visually-hidden">Whose view</span>
+        <select id="senti-src" aria-label="Whose sentiment to show">
+          <option value="investors">investors</option>
+          <option value="analysts">analysts</option>
+          <option value="insiders">insiders</option>
+          <option value="readers">InvestRight readers</option>
+        </select>
+      </label>
+      think</h2>
   </div>
 
   {# The market — where the crowd's buying and selling has settled the price. #}
