@@ -57,6 +57,7 @@
        href="{{ url_for('team') }}">Team</a>
     <a class="wl-toggle" href="{{ url_for('watchlist_page') }}" data-tour="watchlist"
        {% if request.path == url_for('watchlist_page') %}aria-current="page"{% endif %}>★ Watchlist{% if wl_count %}<span class="badge">{{ wl_count }}</span>{% endif %}</a>
+  </nav>
     {# Settings: currency + theme + FX rate consolidated behind one menu (also
        where the future account/login lives). Native <details> = no-JS dropdown. #}
     <details class="settings" data-tour="settings">
@@ -131,7 +132,6 @@
         {% endif %}
       </div>
     </details>
-  </nav>
 </header>
 <main>
 {% block content %}{% endblock %}
