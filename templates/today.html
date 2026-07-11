@@ -3,7 +3,16 @@
 {% block content %}
 
 {# Header — Otto in mood + serif takeaway, same shape as the deep-dive header (§5) #}
-<section class="card stock-head">
+<section class="card stock-head today-head">
+  {# Market toggle — same US/India shape as /strategies, plus Both (the whole
+     tracked universe). Pinned top-right of the island. Plain links → ir_market cookie. #}
+  <nav class="seg today-mkt-seg island-seg" aria-label="Which market to screen">
+    {% for key, label in (('US', '🇺🇸 US'), ('IN', '🇮🇳 India'), ('BOTH', 'Both')) %}
+    <a href="{{ url_for('today', market=key) }}"
+       class="{{ 'active' if market == key }}"
+       {% if market == key %}aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
   <div class="head-otto">{% include "_otto.html" %}</div>
   <div class="head-main">
     <div class="head-row">
@@ -15,15 +24,6 @@
       {% if as_of %}<span class="asof">screener last ran {{ as_of }} · refreshed nightly</span>
       {% else %}<span class="asof">rankings land with the nightly refresh</span>{% endif %}
     </div>
-    {# Market toggle — same US/India shape as /strategies, plus Both (the whole
-       tracked universe). Plain links, persists to the ir_market cookie. #}
-    <nav class="seg today-mkt-seg" aria-label="Which market to screen">
-      {% for key, label in (('US', '🇺🇸 US'), ('IN', '🇮🇳 India'), ('BOTH', 'Both')) %}
-      <a href="{{ url_for('today', market=key) }}"
-         class="{{ 'active' if market == key }}"
-         {% if market == key %}aria-current="true"{% endif %}>{{ label }}</a>
-      {% endfor %}
-    </nav>
   </div>
 </section>
 

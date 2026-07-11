@@ -12,10 +12,24 @@
   {% set downs = rows | selectattr('change_pct') | selectattr('change_pct', 'lt', 0) | list | length %}
   <p class="sub">{{ rows|length }} stock{{ 's' if rows|length != 1 }} ·
     <span class="up">{{ ups }} up</span> · <span class="down">{{ downs }} down</span> today</p>
+  {% elif current_user and total %}
+  <p class="sub">No {{ 'Indian' if market == 'IN' else 'US' }} stocks on your list —
+    switch the market below to see the rest.</p>
   {% elif current_user %}
   <p class="sub">Star a stock from its page — or add one from the home search.</p>
   {% else %}
   <p class="sub">Your saved stocks, prices and 52-week ranges — once you sign in.</p>
+  {% endif %}
+
+  {% if current_user and total %}
+  {# Market filter — US / India / Both, same shape as /today. Plain links. #}
+  <nav class="seg today-mkt-seg" aria-label="Which market to show">
+    {% for key, label in (('US', '🇺🇸 US'), ('IN', '🇮🇳 India'), ('BOTH', 'Both')) %}
+    <a href="{{ url_for('watchlist_page', market=key) }}"
+       class="{{ 'active' if market == key }}"
+       {% if market == key %}aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
   {% endif %}
 </section>
 
