@@ -573,6 +573,54 @@ def future_projection(funds, years_out=3):
     return out
 
 
+# --- Revenue & Expenses breakdown (income-statement flow) -------------------
+def income_flow_view(row):
+    """Shape a saved income_flow row (money already in the display currency) into
+    the Revenue & Expenses widget's data — headline flows + a table of lines as
+    a % of revenue. None when too thin to be meaningful.
+
+    Income-statement flow (no geography):
+      Revenue      → Cost of sales + Gross profit
+      Gross profit → Net income (earnings) + Expenses
+      Expenses     → R&D + SG&A + Tax & other (balancing bucket)
+    """
+    if not row:
+        return None
+    rev, net = row.get("revenue"), row.get("net_income")
+    gp, cost = row.get("gross_profit"), row.get("cost_of_rev")
+    if not rev or rev <= 0 or net is None:
+        return None
+    if gp is None and cost is not None:
+        gp = rev - cost
+    elif cost is None and gp is not None:
+        cost = rev - gp
+    if gp is None or cost is None:
+        return None
+    rd, sga = row.get("rd") or 0.0, row.get("sga") or 0.0
+    expenses = gp - net                       # all of gross profit not kept as earnings
+    other = expenses - rd - sga               # tax + non-operating + unallocated
+
+    def pct(v):
+        return round(100 * v / rev, 1)
+
+    rows = [
+        {"label": "Revenue",       "amount": rev,  "pct": 100.0,     "kind": "revenue"},
+        {"label": "Cost of sales", "amount": cost, "pct": pct(cost), "kind": "cost"},
+        {"label": "Gross profit",  "amount": gp,   "pct": pct(gp),   "kind": "subtotal"},
+    ]
+    if rd:
+        rows.append({"label": "Research & development", "amount": rd, "pct": pct(rd), "kind": "expense"})
+    if sga:
+        rows.append({"label": "Sales, general & admin", "amount": sga, "pct": pct(sga), "kind": "expense"})
+    if abs(other) >= 0.005 * rev:             # show the bucket only if it's material
+        rows.append({"label": "Tax & other", "amount": other, "pct": pct(other), "kind": "expense"})
+    rows.append({"label": "Net income", "amount": net, "pct": pct(net), "kind": "earnings"})
+
+    return {"period": row.get("period_label"), "revenue": rev, "cost": cost,
+            "gross_profit": gp, "expenses": expenses, "rd": rd, "sga": sga,
+            "other": other, "net_income": net, "margin_pct": pct(net), "rows": rows}
+
+
 # --- dividend card (Tier C, §4.7) -------------------------------------------
 def dividend_card(funds, div_yield):
     """Payout history bars, payout-ratio gauge and no-cut streak from cash

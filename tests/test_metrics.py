@@ -77,3 +77,34 @@ def test_mood_thresholds():
     assert metrics.mood_for(0.7) == "happy"
     assert metrics.mood_for(0.5) == "neutral"
     assert metrics.mood_for(0.2) == "concerned"
+
+
+def test_income_flow_view_balances():
+    # Revenue & Expenses widget: the flows must balance both splits.
+    row = {"period_label": "FY2024", "revenue": 1000.0, "cost_of_rev": 600.0,
+           "gross_profit": 400.0, "rd": 100.0, "sga": 80.0, "net_income": 150.0}
+    v = metrics.income_flow_view(row)
+    amt = {r["label"]: r["amount"] for r in v["rows"]}
+    assert amt["Cost of sales"] + amt["Gross profit"] == 1000.0          # revenue split
+    assert v["other"] == 400.0 - 150.0 - 100.0 - 80.0                    # balancing bucket = 70
+    assert v["margin_pct"] == 15.0
+    assert v["rows"][0]["label"] == "Revenue" and v["rows"][-1]["label"] == "Net income"
+
+
+def test_income_flow_view_derives_gross_and_drops_absent_rd():
+    # gross_profit inferred from cost; a missing R&D line is simply omitted.
+    v = metrics.income_flow_view(
+        {"revenue": 1000.0, "cost_of_rev": 700.0, "gross_profit": None,
+         "rd": None, "sga": 50.0, "net_income": 200.0})
+    assert v["gross_profit"] == 300.0
+    assert not any(r["label"].startswith("Research") for r in v["rows"])
+
+
+def test_income_flow_view_none_when_too_thin():
+    assert metrics.income_flow_view(None) is None
+    assert metrics.income_flow_view({"revenue": None, "net_income": 5.0}) is None
+    assert metrics.income_flow_view({"revenue": 100.0, "net_income": None}) is None
+    # revenue present but neither cost nor gross → can't split → None
+    assert metrics.income_flow_view(
+        {"revenue": 100.0, "net_income": 10.0, "cost_of_rev": None,
+         "gross_profit": None}) is None
