@@ -852,14 +852,18 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 
 /* Period picker: Annual/Quarterly seg + a row of period pills. */
 .flow-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 4px 0 6px; }
-.flow-pills { display: flex; flex-wrap: wrap; gap: 6px; }
-.flow-pills a {
-  font-size: 12.5px; text-decoration: none; color: var(--muted);
-  border: 1px solid var(--hairline); border-radius: 999px; padding: 4px 11px;
-  font-variant-numeric: tabular-nums;
+/* Exact-period dropdown (same look as the sentiment picker's select). */
+.flow-form { display: inline-flex; align-items: center; gap: 8px; }
+.flow-form select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--edge);
+  border-radius: 999px; padding: 5px 28px 5px 12px; font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: inherit; -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239c9889' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
 }
-.flow-pills a:hover { border-color: var(--accent); color: var(--accent); }
-.flow-pills a.active { background: var(--accent-deep); border-color: var(--accent-deep); color: #fff; }
+.flow-form select:hover { border-color: var(--accent); }
+/* Chart | Data sits at the row's far edge, like SWS's Data button. */
+.flow-viewseg { margin-left: auto; }
 
 /* Y/Y column: growth green when it helps, red when it hurts. */
 .inc-yoy { text-align: right; width: 64px; font-size: 13px; white-space: nowrap; }
