@@ -439,6 +439,32 @@
 </section>
 {% endif %}
 
+{# 5b · Revenue & expenses — income-statement flow as a table (Sankey to follow) #}
+{% if income %}
+<section class="card" id="income">
+  <div class="card-head"><h2>Revenue &amp; expenses</h2>
+    <span class="asof">latest FY · {{ income['period'] }}</span></div>
+  <p class="asof inc-lede">How {{ s['name'] }} turns revenue into earnings — the latest
+    reported fiscal year. Every line is a share of revenue.</p>
+  <table class="income-table">
+    <tbody>
+      {% for r in income['rows'] %}
+      <tr class="inc-{{ r['kind'] }}">
+        <td class="inc-label">{{ r['label'] }}</td>
+        <td class="inc-amt">{{ r['amount']|bigmoney(ccy) }}</td>
+        <td class="inc-bar-cell">
+          <span class="inc-bar" style="width: {{ [100, r['pct']|abs]|min|round(1) }}%"></span>
+        </td>
+        <td class="inc-pct">{{ '%.1f'|format(r['pct']) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="asof perf-note">Latest fiscal-year figures from Yahoo. A geographic
+    revenue split (by country) is a US-only stretch we haven't built yet.</p>
+</section>
+{% endif %}
+
 {# 6 · Future — the historical trend extended, NOT an analyst forecast (§4.6) #}
 {% if projection %}
 <section class="card">

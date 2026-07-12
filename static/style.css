@@ -835,6 +835,30 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .perf-note { margin-top: 12px; }
 
+/* Revenue & expenses breakdown — income-statement flow as a table with an
+   inline proportion bar (the pictorial Sankey is a follow-up). */
+.inc-lede { margin: 2px 0 14px; }
+.income-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.income-table td { padding: 9px 0; border-top: 1px solid var(--hairline); vertical-align: middle; }
+.income-table tr:first-child td { border-top: 0; }
+.inc-label { font-size: 14.5px; }
+.inc-amt { text-align: right; padding-right: 16px; white-space: nowrap; font-size: 14px; }
+.inc-bar-cell { width: 34%; min-width: 90px; }
+.inc-bar { display: block; height: 9px; border-radius: 5px; background: var(--muted); opacity: .5; }
+.inc-pct { text-align: right; width: 58px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+/* Row roles: revenue + subtotals read as structure; cost/expense muted; the
+   earnings line is the payoff, in brand green. */
+.inc-revenue .inc-label, .inc-subtotal .inc-label { font-weight: 600; }
+.inc-revenue .inc-bar { background: var(--accent); opacity: .9; }
+.inc-subtotal .inc-bar { background: var(--accent); opacity: .55; }
+.inc-cost .inc-bar, .inc-expense .inc-bar { background: var(--down); opacity: .55; }
+.inc-earnings .inc-label { font-weight: 600; color: var(--accent); }
+.inc-earnings .inc-amt { color: var(--accent); font-weight: 600; }
+.inc-earnings .inc-bar { background: var(--up); opacity: .9; }
+@media (max-width: 560px) {
+  .inc-bar-cell { display: none; }   /* keep label · amount · % on narrow screens */
+}
+
 /* Future card (Tier C) — projected bars are styled inline in the SVG */
 .div-hist-h { margin-top: 16px; }
 .div-hist { width: 100%; max-width: 340px; height: auto; display: block; }

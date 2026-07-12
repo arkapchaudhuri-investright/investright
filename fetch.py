@@ -227,6 +227,44 @@ _CASHFLOW = {
 }
 
 
+# Income-statement line items for the Revenue & Expenses widget (latest year).
+_INCOME_FLOW = {
+    "revenue": ("Total Revenue", "Operating Revenue"),
+    "cost_of_rev": ("Cost Of Revenue", "Reconciled Cost Of Revenue"),
+    "gross_profit": ("Gross Profit",),
+    "rd": ("Research And Development",),
+    "sga": ("Selling General And Administration",
+            "Selling General And Administrative Expense"),
+    "operating_inc": ("Operating Income", "EBIT"),
+    "net_income": ("Net Income", "Net Income Common Stockholders"),
+    "tax": ("Tax Provision",),
+}
+
+
+def income_breakdown(symbol):
+    """Latest fiscal year's income-statement split for the Revenue & Expenses
+    widget, in the stock's native currency. None if Yahoo has no usable income
+    data. Fills gross_profit / cost_of_rev from each other when one is missing."""
+    try:
+        inc = yf.Ticker(symbol).financials
+    except Exception:
+        return None
+    years = _by_year(inc)
+    if not years:
+        return None
+    latest = max(years)
+    col = years[latest]
+    out = {k: _pick(inc, al, col) for k, al in _INCOME_FLOW.items()}
+    if out.get("revenue") is None:
+        return None
+    if out.get("gross_profit") is None and out.get("cost_of_rev") is not None:
+        out["gross_profit"] = out["revenue"] - out["cost_of_rev"]
+    elif out.get("cost_of_rev") is None and out.get("gross_profit") is not None:
+        out["cost_of_rev"] = out["revenue"] - out["gross_profit"]
+    out["period_label"] = f"FY{latest}"
+    return out
+
+
 def _pick(df, aliases, col):
     """First non-NaN value among `aliases` rows for statement column `col`."""
     if df is None or col not in getattr(df, "columns", []):

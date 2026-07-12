@@ -778,6 +778,10 @@ def stock(ticker):
             "SELECT d, close FROM price_history WHERE ticker=? ORDER BY d",
             (ticker,)).fetchall()
 
+        # Latest-period income breakdown for the Revenue & Expenses widget.
+        flow_row = conn.execute(
+            "SELECT * FROM income_flow WHERE ticker=?", (ticker,)).fetchone()
+
         # Sentiment widget: this site's own reader signals.
         watchers = conn.execute(
             "SELECT COUNT(*) c FROM user_watchlist WHERE ticker=?",
@@ -821,6 +825,12 @@ def stock(ticker):
     for i in insiders:
         if i.get("value") is not None:
             i["value"] *= ins_factor
+    flow_row = dict(flow_row) if flow_row else None        # income breakdown → display ccy
+    if flow_row:
+        for k in ("revenue", "cost_of_rev", "gross_profit", "rd", "sga",
+                  "operating_inc", "net_income", "tax"):
+            if flow_row.get(k) is not None:
+                flow_row[k] *= factor
 
     # Fair value: cron's stored row, unless the reader overrode assumptions in the URL.
     g, d, tg = _float_arg("growth"), _float_arg("discount"), _float_arg("terminal")
@@ -897,6 +907,7 @@ def stock(ticker):
         mood=metrics.mood_for(overall),
         takeaway=metrics.takeaway(s["name"], dcf, scores),
         charts=charts, fund_source=fund_source, market_growth_pct=round(metrics.MARKET_GROWTH * 100),
+        income=metrics.income_flow_view(flow_row),
         projection=metrics.future_projection(funds),
         dividend=metrics.dividend_card(funds, snap["div_yield"] if snap else None),
         peers=peers, insiders=insiders,

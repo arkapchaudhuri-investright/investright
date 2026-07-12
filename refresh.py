@@ -19,7 +19,7 @@ import fetch
 import logos
 import metrics
 from db import (get_conn, init_db, save_checks, save_dcf, save_digest,
-                save_fundamentals, save_insiders, save_news,
+                save_fundamentals, save_income_flow, save_insiders, save_news,
                 save_price_history, save_screener, save_snapshot)
 
 
@@ -84,6 +84,13 @@ def save_deep(conn, ticker):
         save_fundamentals(conn, ticker, funds, source=source)
     if news:
         save_news(conn, ticker, news)
+
+    try:  # latest-period income breakdown for the Revenue & Expenses widget
+        flow = fetch.income_breakdown(ticker)
+        if flow:
+            save_income_flow(conn, ticker, flow)
+    except Exception:
+        pass
 
     if "." not in ticker:                 # Form 4 is US-only (§4.8, Tier C)
         try:

@@ -232,6 +232,25 @@ CREATE TABLE IF NOT EXISTS strategy_picks (
     name       TEXT,
     why        TEXT NOT NULL            -- the numbers that selected it, in words
 );
+
+-- Latest-period income-statement breakdown for the "Revenue & Expenses" widget
+-- (the Sankey + table on the deep-dive). One row per ticker = the most recent
+-- fiscal year; cron writes, the page reads. All money is in the stock's native
+-- reporting currency (the deep-dive converts at display time). Missing line
+-- items stay NULL — the widget folds them into the balancing "other" bucket.
+CREATE TABLE IF NOT EXISTS income_flow (
+    ticker        TEXT PRIMARY KEY REFERENCES stocks(ticker) ON DELETE CASCADE,
+    period_label  TEXT,                 -- e.g. "FY2024"
+    revenue       REAL,
+    cost_of_rev   REAL,
+    gross_profit  REAL,
+    rd            REAL,                 -- research & development
+    sga           REAL,                 -- selling, general & administrative
+    operating_inc REAL,
+    net_income    REAL,
+    tax           REAL,
+    fetched_at    TEXT NOT NULL
+);
 """
 
 
@@ -262,6 +281,20 @@ def save_price_history(conn, ticker, rows):
     conn.executemany(
         "INSERT OR REPLACE INTO price_history (ticker, d, close) VALUES (?, ?, ?)",
         [(ticker, d, c) for d, c in rows])
+
+
+INCOME_FLOW_COLS = ("ticker", "period_label", "revenue", "cost_of_rev",
+                    "gross_profit", "rd", "sga", "operating_inc", "net_income",
+                    "tax", "fetched_at")
+
+
+def save_income_flow(conn, ticker, d):
+    """Upsert the latest-period income breakdown for the deep-dive widget."""
+    vals = {**d, "ticker": ticker, "fetched_at": _now()}
+    conn.execute(
+        f"INSERT OR REPLACE INTO income_flow ({','.join(INCOME_FLOW_COLS)}) "
+        f"VALUES ({','.join('?' * len(INCOME_FLOW_COLS))})",
+        [vals.get(c) for c in INCOME_FLOW_COLS])
 
 
 def save_fundamentals(conn, ticker, rows, source="yfinance"):
