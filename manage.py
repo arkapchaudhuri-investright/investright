@@ -238,6 +238,23 @@ def set_user_password(email, password, apply_):
               "Every device signed into that account has been signed out.")
 
 
+def purge_small_logos(apply=False):
+    """Delete cached logos that fail logos._sharp() (e.g. a 16×16 favicon that
+    renders blurry at header size). The next ingest / nightly refresh refetches
+    each purged ticker via the new HQ source order (Wikidata P154 first)."""
+    import logos
+    victims = [p for p in sorted(logos.LOGO_DIR.glob("*.*")) if logos.is_small(p)]
+    if not victims:
+        print("all cached logos pass the sharpness gate — nothing to purge")
+        return
+    for p in victims:
+        print(("deleting  " if apply else "would delete  ") + p.name)
+        if apply:
+            p.unlink()
+    if not apply:
+        print(f"\ndry run — {len(victims)} file(s); re-run with --apply to delete")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -256,6 +273,12 @@ def main():
     p.add_argument("--apply", action="store_true",
                    help="actually write (default is a dry run)")
 
+    lg = sub.add_parser("purge-small-logos",
+                        help="delete cached company logos below the sharpness "
+                             "gate so the next ingest/refresh refetches HQ ones")
+    lg.add_argument("--apply", action="store_true",
+                    help="actually delete (default is a dry run)")
+
     b = sub.add_parser("backup", help="atomic, verified snapshot of the SQLite DB")
     b.add_argument("--dir", default=str(DB_PATH.parent / "backups"),
                    help="where the rotating .db.gz copies live")
@@ -270,6 +293,8 @@ def main():
         migrate_watchlist(args.email, args.apply)
     elif args.cmd == "set-password":
         set_user_password(args.email, args.password, args.apply)
+    elif args.cmd == "purge-small-logos":
+        purge_small_logos(args.apply)
     elif args.cmd == "backup":
         backup(args.dir, args.keep, args.email, args.apply)
 
