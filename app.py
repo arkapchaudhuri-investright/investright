@@ -331,7 +331,7 @@ def _ingest_stock(symbol):
     if not meta:
         return None
     try:  # cache the company logo now so the deep-dive shows it immediately
-        logos.ensure(meta["ticker"], meta.get("website"))
+        logos.ensure(meta["ticker"], meta.get("website"), meta.get("name"))
     except Exception:
         pass
     snap = fetch.snapshot(symbol)

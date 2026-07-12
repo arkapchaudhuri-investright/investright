@@ -47,7 +47,7 @@ def ensure_stock(conn, ticker):
                  (meta["ticker"], meta["name"], meta["exchange"], meta["sector"],
                   meta["currency"], datetime.now().isoformat(timespec="seconds")))
     try:
-        logos.ensure(meta["ticker"], meta.get("website"))
+        logos.ensure(meta["ticker"], meta.get("website"), meta.get("name"))
     except Exception:
         pass
     return True
@@ -68,7 +68,8 @@ def save_deep(conn, ticker):
     source = "yfinance"
 
     try:  # cache the company logo (best-effort; find() short-circuits if cached)
-        logos.ensure(ticker, ratios.get("website"))
+        row = conn.execute("SELECT name FROM stocks WHERE ticker=?", (ticker,)).fetchone()
+        logos.ensure(ticker, ratios.get("website"), row["name"] if row else None)
     except Exception:
         pass
 
