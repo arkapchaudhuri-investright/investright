@@ -439,36 +439,47 @@
 </section>
 {% endif %}
 
-{# 5b · Revenue & expenses — income-statement flow as a table (Sankey to follow) #}
+{# 5b · Revenue & expenses — the income-statement flow. Chart (Sankey) and
+   Data (table) are EXCLUSIVE views, SWS-style; Annual/Quarterly cadence plus a
+   dropdown picking the exact period. Everything is a plain link / GET form —
+   server re-render, works with JS off (JS only auto-submits the dropdown). #}
 {% if income %}
+{% set _vq = '&flowview=data' if flow_view == 'data' else '' %}
 <section class="card" id="income">
   <div class="card-head"><h2>Revenue &amp; expenses</h2>
-    <span class="asof">{{ income['period'] }}</span></div>
-  <p class="asof inc-lede">How {{ s['name'] }} turns revenue into earnings.
-    Every line is a share of revenue{% if income['rows'][0]['yoy'] is not none %};
-    Y/Y compares the same period a year earlier{% endif %}.</p>
+    <span class="asof">{{ flow_current|flowlabel if flow_current else income['period'] }}</span></div>
 
-  {# Period picker — Annual / Quarterly, then every saved period ("last 5
-     years or max whatever Yahoo has"). Plain links → server re-render, no JS. #}
   {% if flow_annual or flow_quarters %}
   <div class="flow-picker">
     {% if flow_annual and flow_quarters %}
     <nav class="seg" aria-label="Breakdown cadence">
-      <a href="?flow={{ flow_annual[0] }}#income"
+      <a href="?flow={{ flow_annual[0] }}{{ _vq }}#income"
          class="{{ 'active' if flow_current in flow_annual }}">Annual</a>
-      <a href="?flow={{ flow_quarters[0] }}#income"
+      <a href="?flow={{ flow_quarters[0] }}{{ _vq }}#income"
          class="{{ 'active' if flow_current in flow_quarters }}">Quarterly</a>
     </nav>
     {% endif %}
-    <nav class="flow-pills" aria-label="Period">
-      {% for p in (flow_annual if flow_current in flow_annual else flow_quarters) %}
-      <a href="?flow={{ p }}#income" class="{{ 'active' if p == flow_current }}">{{ p }}</a>
-      {% endfor %}
+    <form class="flow-form" method="get" action="{{ url_for('stock', ticker=s['ticker']) }}">
+      {% if flow_view == 'data' %}<input type="hidden" name="flowview" value="data">{% endif %}
+      <select name="flow" aria-label="Choose the exact period">
+        {% for p in (flow_annual if flow_current in flow_annual else flow_quarters) %}
+        <option value="{{ p }}" {{ 'selected' if p == flow_current }}>{{ p|flowlabel }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="ghost flow-go">Go</button>
+    </form>
+    {% if income_sankey %}
+    <nav class="seg flow-viewseg" aria-label="Chart or data view">
+      <a href="?flow={{ flow_current }}#income"
+         class="{{ 'active' if flow_view == 'chart' }}">Chart</a>
+      <a href="?flow={{ flow_current }}&flowview=data#income"
+         class="{{ 'active' if flow_view == 'data' }}">Data</a>
     </nav>
+    {% endif %}
   </div>
   {% endif %}
 
-  {% if income_sankey %}
+  {% if income_sankey and flow_view == 'chart' %}
   <div class="sankey-wrap">
     <svg class="sankey" viewBox="{{ income_sankey['vb'] }}" role="img"
          aria-label="Revenue and expenses flow for {{ s['name'] }}">
@@ -489,6 +500,7 @@
   </div>
   {% endif %}
 
+  {% if flow_view == 'data' %}
   {% set has_yoy = income['rows']|selectattr('yoy', 'ne', none)|list|length > 0 %}
   <table class="income-table">
     <tbody>
@@ -513,8 +525,31 @@
       {% endfor %}
     </tbody>
   </table>
-  <p class="asof perf-note">Latest fiscal-year figures from Yahoo. A geographic
-    revenue split (by country) is a US-only stretch we haven't built yet.</p>
+  {% endif %}
+
+  {# "What does this show" — plain English, directly under the visual (§5 voice). #}
+  <p class="asof inc-explain"><b>What this shows:</b> everything {{ s['name'] }}
+    billed customers in {{ flow_current|flowlabel if flow_current else income['period'] }}
+    (<b>revenue</b>), what delivering that directly cost (<b>cost of sales</b>),
+    and the <b>gross profit</b> left over. Operating costs like R&amp;D and
+    SG&amp;A, plus tax, then come out — what survives is
+    <b>earnings</b>{% if income['rows'][0]['yoy'] is not none %}; Y/Y compares
+    the same period a year earlier{% endif %}.</p>
+  <p class="asof perf-note">Reported figures from Yahoo Finance, shown in {{ ccy }}.</p>
+  <script>
+  // Progressive enhancement: picking a period navigates immediately (the Go
+  // button is the no-JS path) and lands back on this card.
+  (function () {
+    var f = document.querySelector('.flow-form');
+    if (!f) return;
+    f.querySelector('.flow-go').hidden = true;
+    f.querySelector('select').addEventListener('change', function () {
+      var q = '?flow=' + encodeURIComponent(this.value);
+      if (f.querySelector('input[name="flowview"]')) q += '&flowview=data';
+      location.href = f.getAttribute('action') + q + '#income';
+    });
+  })();
+  </script>
 </section>
 {% endif %}
 

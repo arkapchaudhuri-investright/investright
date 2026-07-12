@@ -894,6 +894,10 @@ def stock(ticker):
             pass
     income = metrics.income_flow_view(cur_flow, prior_flow)
     income_sankey = metrics.income_sankey(income)
+    # Chart | Data are exclusive views (SWS-style) — ?flowview=data shows the
+    # table, default shows the Sankey. No sankey geometry ⇒ table regardless.
+    flow_view = "data" if (request.args.get("flowview") == "data"
+                           or not income_sankey) else "chart"
     fund_source = funds[-1]["source"] if funds else None
     axis_detail = metrics.axis_detail(checks)
     checks_by_axis = {key: [c for c in checks if c["axis"] == key]
@@ -941,7 +945,7 @@ def stock(ticker):
         mood=metrics.mood_for(overall),
         takeaway=metrics.takeaway(s["name"], dcf, scores),
         charts=charts, fund_source=fund_source, market_growth_pct=round(metrics.MARKET_GROWTH * 100),
-        income=income, income_sankey=income_sankey,
+        income=income, income_sankey=income_sankey, flow_view=flow_view,
         flow_annual=annual_periods, flow_quarters=quarter_periods,
         flow_current=cur_flow["period"] if cur_flow else None,
         exec_tiers=metrics.exec_tiers(execs),
@@ -1134,6 +1138,17 @@ def toggle_watch(ticker):
             except Exception:
                 pass
     return redirect(url_for("stock", ticker=ticker))
+
+
+@app.template_filter("flowlabel")
+def flowlabel(p):
+    """Income-flow period → human label: 'FY2025' → 'FY 2025', '2025Q3' → 'Q3 2025'."""
+    if not p:
+        return ""
+    if p.startswith("FY"):
+        return "FY " + p[2:]
+    year, _, q = p.partition("Q")
+    return f"Q{q} {year}" if q else p
 
 
 @app.template_filter("exch")
