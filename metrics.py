@@ -8,6 +8,7 @@ quality, "top 25% of payers") return `passed=None` ("n/a") rather than guess
 """
 import json
 import math
+import re
 
 # Transparent benchmarks — labelled in the UI, not licensed analyst data (§1).
 MARKET_GROWTH = 0.09      # ~ long-run nominal earnings growth of a broad index
@@ -807,6 +808,37 @@ def income_sankey(view, width=620, height=300, nw=13):
     vb_h = (max(ys_all) + 10) - vb_y
     return {"nodes": list(nodes.values()), "links": links,
             "vb": f"-6 {vb_y:.1f} {width + 116:.0f} {vb_h:.1f}"}
+
+
+# --- Leadership grid ---------------------------------------------------------
+_TIER1 = re.compile(r"\b(chairman|chairperson|chair|chief exec|ceo|founder|"
+                    r"managing director|md)\b", re.I)
+_TIER2 = re.compile(r"\b(chief|president|cfo|coo|cto|cio|cmo)\b", re.I)
+
+
+def exec_tiers(execs):
+    """Group officers into [top, C-suite, others] by *title* — no data source
+    publishes reporting lines, so this is an honest rank, not a fake org tree.
+    Order within a tier follows Yahoo's listing order (CEO first)."""
+    tiers = [[], [], []]
+    for e in execs:
+        t = e.get("title") or ""
+        if _TIER1.search(t):
+            tiers[0].append(e)
+        elif _TIER2.search(t):
+            tiers[1].append(e)
+        else:
+            tiers[2].append(e)
+    return [t for t in tiers if t]
+
+
+def initials(name):
+    """"Mr. Timothy D. Cook" → "TC" (first + last of the real name parts)."""
+    parts = [p for p in re.sub(r"^\s*(mr|ms|mrs|dr|prof|sir)\.?\s+", "", name or "",
+                               flags=re.I).split() if p and p[0].isalpha()]
+    if not parts:
+        return "?"
+    return (parts[0][0] + (parts[-1][0] if len(parts) > 1 else "")).upper()
 
 
 # --- dividend card (Tier C, §4.7) -------------------------------------------

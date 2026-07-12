@@ -18,9 +18,11 @@ import edgar
 import fetch
 import logos
 import metrics
+import wiki
 from db import (get_conn, init_db, save_checks, save_dcf, save_digest,
-                save_fundamentals, save_income_flow, save_insiders, save_news,
-                save_price_history, save_screener, save_snapshot)
+                save_executives, save_fundamentals, save_income_flow,
+                save_insiders, save_news, save_price_history, save_screener,
+                save_snapshot)
 
 
 def peer_symbols(symbols):
@@ -93,6 +95,12 @@ def save_deep(conn, ticker):
     except Exception:
         pass
 
+    try:  # leadership list (same Yahoo payload; Wikidata enrichment is nightly)
+        if data["officers"]:
+            save_executives(conn, ticker, data["officers"])
+    except Exception:
+        pass
+
     if "." not in ticker:                 # Form 4 is US-only (§4.8, Tier C)
         try:
             tx = edgar.insider_transactions(ticker)
@@ -124,6 +132,31 @@ def save_deep(conn, ticker):
     if checks:
         save_checks(conn, ticker, checks)
     return True
+
+
+def enrich_executives(conn, ticker, limit=8):
+    """Wikidata photo/edu/bio for this ticker's un-enriched execs (top `limit`).
+
+    Success or a confident no-match marks the row enriched (never re-queried);
+    a network error leaves it 0 for the next night. ~1s pacing keeps Wikimedia
+    from 429ing the run."""
+    import time
+    rows = conn.execute(
+        "SELECT rank, name FROM executives WHERE ticker=? AND enriched=0 "
+        "ORDER BY rank LIMIT ?", (ticker, limit)).fetchall()
+    for r in rows:
+        info = wiki.enrich_person(r["name"])         # exceptions bubble = retry later
+        photo = None
+        if info and info.get("photo_url"):
+            photo = wiki.cache_photo(f"{ticker}_{r['rank']}", info["photo_url"])
+        conn.execute(
+            "UPDATE executives SET photo=?, edu=?, bio=?, enriched=1 "
+            "WHERE ticker=? AND rank=?",
+            (photo,
+             ", ".join(info["edu"]) if info and info.get("edu") else None,
+             info.get("bio") if info else None,
+             ticker, r["rank"]))
+        time.sleep(1)
 
 
 def run_screener(conn):
@@ -221,6 +254,15 @@ def main():
                     deep_ok += 1
             except Exception as e:                       # never let one bad ticker abort the run
                 print(f"  deep refresh failed for {sym}: {e}")
+
+    # Wikidata leadership enrichment — nightly, paced, and only for people not
+    # yet resolved (enriched=0), so the API isn't re-hit for settled rows.
+    for sym in everyone:
+        try:
+            with get_conn() as conn:
+                enrich_executives(conn, sym)
+        except Exception as e:
+            print(f"  exec enrichment failed for {sym}: {e}")
 
     rate = fetch.fx_rate("USDINR=X")
     if rate:

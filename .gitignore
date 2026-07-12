@@ -37,3 +37,4 @@ static/0cbc74a6-*.JPG
 # Company logos are fetched + cached at ingest (Phase 9), not source — they
 # repopulate on the VM via the nightly refresh / any /analyze. Don't commit them.
 static/logos/
+static/execs/

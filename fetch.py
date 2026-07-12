@@ -319,7 +319,7 @@ def deep(symbol):
     try:
         t = yf.Ticker(symbol)
     except Exception:
-        return {"fundamentals": [], "ratios": {}, "news": []}
+        return {"fundamentals": [], "ratios": {}, "news": [], "officers": []}
 
     inc = bal = cf = None
     try:
@@ -378,6 +378,20 @@ def deep(symbol):
     except Exception:
         ratios = {}
 
+    # Leadership (same info payload — no extra Yahoo call). Order preserved:
+    # Yahoo lists the CEO/Chair first, which the tiered grid relies on.
+    officers = []
+    try:
+        for o in (info.get("companyOfficers") or []):
+            if not o.get("name"):
+                continue
+            officers.append({"name": o["name"].strip(),
+                             "title": (o.get("title") or "").strip() or None,
+                             "age": o.get("age"),
+                             "pay": o.get("totalPay") or None})
+    except Exception:
+        officers = []
+
     news = []
     try:
         for n in (t.news or [])[:10]:
@@ -396,4 +410,5 @@ def deep(symbol):
     except Exception:
         news = []
 
-    return {"fundamentals": fundamentals, "ratios": ratios, "news": news}
+    return {"fundamentals": fundamentals, "ratios": ratios, "news": news,
+            "officers": officers}

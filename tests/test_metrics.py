@@ -145,6 +145,26 @@ def test_income_sankey_detailed_tree():
     assert subs.get("Operating profit") == "22% margin"
 
 
+def test_exec_tiers_ranks_by_title():
+    execs = [{"name": "A", "title": "CEO & Director"},
+             {"name": "B", "title": "Senior VP & CFO"},
+             {"name": "C", "title": "Director of Investor Relations"},
+             {"name": "D", "title": "Chairman & MD"},
+             {"name": "E", "title": None}]
+    tiers = metrics.exec_tiers(execs)
+    assert [e["name"] for e in tiers[0]] == ["A", "D"]     # CEO + Chairman/MD
+    assert [e["name"] for e in tiers[1]] == ["B"]           # C-suite
+    assert [e["name"] for e in tiers[2]] == ["C", "E"]      # everyone else
+    assert metrics.exec_tiers([]) == []                      # empty tiers dropped
+
+
+def test_initials_strips_honorifics():
+    assert metrics.initials("Mr. Timothy D. Cook") == "TC"
+    assert metrics.initials("Ms. Deirdre  O'Brien") == "DO"
+    assert metrics.initials("Suhasini Chandramouli") == "SC"
+    assert metrics.initials("") == "?"
+
+
 def test_income_sankey_shape_and_none_safe():
     view = metrics.income_flow_view(
         {"revenue": 1000.0, "cost_of_rev": 600.0, "gross_profit": 400.0,

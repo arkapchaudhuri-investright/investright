@@ -696,6 +696,50 @@
   {{ explain('competitors') }}
 </section>
 
+{# 9b · Leadership — Yahoo officers in a tiered grid (title rank, not a fake
+   org tree: no free source publishes reporting lines). Hover / tap / focus a
+   person for details; photo + education + bio are Wikidata enrichment where
+   the person resolves, initials monogram otherwise. #}
+{% if exec_tiers %}
+<section class="card" id="leadership">
+  <div class="card-head"><h2>Leadership</h2>
+    <span class="asof">Yahoo Finance · photos &amp; bios via Wikidata</span></div>
+  {% for tier in exec_tiers %}
+  <ul class="exec-tier">
+    {% for e in tier %}
+    <li class="exec">
+      <button type="button" class="exec-chip" aria-expanded="false"
+              aria-label="{{ e['name'] }} — {{ e['title'] or 'details' }}">
+        {% if e['photo'] %}
+        <span class="exec-photo-ring"><img class="exec-photo" loading="lazy"
+             src="{{ url_for('static', filename='execs/' + e['photo']) }}"
+             alt="" width="56" height="56"></span>
+        {% else %}
+        <span class="exec-mono" aria-hidden="true">{{ e['initials'] }}</span>
+        {% endif %}
+        <span class="exec-name">{{ e['name'] }}</span>
+        <span class="exec-title">{{ e['title'] or '' }}</span>
+      </button>
+      <div class="exec-card" role="tooltip">
+        <p class="exec-card-name">{{ e['name'] }}</p>
+        <p class="exec-card-title">{{ e['title'] or '—' }}</p>
+        {# first-letter-only uppercase — |capitalize would lowercase "Apple" #}
+        {% if e['bio'] %}<p class="exec-card-bio">{{ (e['bio'][:1]|upper) ~ e['bio'][1:] }}</p>{% endif %}
+        <dl class="exec-facts">
+          {% if e['age'] %}<div><dt>Age</dt><dd>{{ e['age'] }}</dd></div>{% endif %}
+          {% if e['pay'] %}<div><dt>Total yearly comp</dt><dd>{{ e['pay']|bigmoney(ccy) }}</dd></div>{% endif %}
+          {% if e['edu'] %}<div><dt>Education</dt><dd>{{ e['edu'] }}</dd></div>{% endif %}
+        </dl>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+  <p class="asof perf-note">Ranked by title — reporting lines aren't public data.
+    Compensation is the total Yahoo reports; blank means it isn't disclosed there.</p>
+</section>
+{% endif %}
+
 {# 10 · News — latest headlines from yfinance (§4.10) #}
 <section class="card">
   <div class="card-head"><h2>In the news</h2></div>

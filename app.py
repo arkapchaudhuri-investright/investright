@@ -784,6 +784,10 @@ def stock(ticker):
             "SELECT * FROM income_flow WHERE ticker=? ORDER BY end_date DESC",
             (ticker,))]
 
+        # Leadership grid (Yahoo officers + nightly Wikidata enrichment).
+        execs = [dict(r) for r in conn.execute(
+            "SELECT * FROM executives WHERE ticker=? ORDER BY rank", (ticker,))]
+
         # Sentiment widget: this site's own reader signals.
         watchers = conn.execute(
             "SELECT COUNT(*) c FROM user_watchlist WHERE ticker=?",
@@ -832,6 +836,10 @@ def stock(ticker):
                   "operating_inc", "net_income", "tax"):
             if fr.get(k) is not None:
                 fr[k] *= factor
+    for e in execs:                                        # exec pay → display ccy
+        if e.get("pay") is not None:
+            e["pay"] *= factor
+        e["initials"] = metrics.initials(e["name"])
 
     # Fair value: cron's stored row, unless the reader overrode assumptions in the URL.
     g, d, tg = _float_arg("growth"), _float_arg("discount"), _float_arg("terminal")
@@ -936,6 +944,7 @@ def stock(ticker):
         income=income, income_sankey=income_sankey,
         flow_annual=annual_periods, flow_quarters=quarter_periods,
         flow_current=cur_flow["period"] if cur_flow else None,
+        exec_tiers=metrics.exec_tiers(execs),
         projection=metrics.future_projection(funds),
         dividend=metrics.dividend_card(funds, snap["div_yield"] if snap else None),
         peers=peers, insiders=insiders,
