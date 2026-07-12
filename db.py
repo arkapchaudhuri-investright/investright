@@ -233,6 +233,27 @@ CREATE TABLE IF NOT EXISTS strategy_picks (
     why        TEXT NOT NULL            -- the numbers that selected it, in words
 );
 
+-- Company leadership for the deep-dive "Leadership" grid. rank = Yahoo's
+-- listing order. Base fields come from yfinance companyOfficers at ingest;
+-- photo/edu/bio are best-effort Wikidata enrichment done by the nightly
+-- refresh (enriched=1 once attempted-and-resolved, so nobodies aren't
+-- re-queried forever). pay is total yearly comp in the listing's native
+-- currency; the page converts at display time.
+CREATE TABLE IF NOT EXISTS executives (
+    ticker     TEXT NOT NULL REFERENCES stocks(ticker) ON DELETE CASCADE,
+    rank       INTEGER NOT NULL,
+    name       TEXT NOT NULL,
+    title      TEXT,
+    age        INTEGER,
+    pay        REAL,
+    photo      TEXT,                    -- cached file under static/execs/
+    edu        TEXT,                    -- "Harvard University, IIT Bombay"
+    bio        TEXT,                    -- Wikidata's one-line description
+    enriched   INTEGER NOT NULL DEFAULT 0,
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (ticker, rank)
+);
+
 -- Income-statement breakdowns for the "Revenue & Expenses" widget (Sankey +
 -- table on the deep-dive). One row per (ticker, period): every annual year
 -- Yahoo serves (~5) plus the recent quarters (~5) — "last 5 years or max
@@ -285,6 +306,23 @@ def save_price_history(conn, ticker, rows):
     conn.executemany(
         "INSERT OR REPLACE INTO price_history (ticker, d, close) VALUES (?, ?, ?)",
         [(ticker, d, c) for d, c in rows])
+
+
+def save_executives(conn, ticker, rows):
+    """Replace this ticker's leadership list (delete-then-insert keeps ranks
+    honest when Yahoo reorders), preserving prior enrichment by name."""
+    old = {r["name"]: dict(r) for r in conn.execute(
+        "SELECT * FROM executives WHERE ticker=?", (ticker,))}
+    conn.execute("DELETE FROM executives WHERE ticker=?", (ticker,))
+    now = _now()
+    for i, o in enumerate(rows):
+        keep = old.get(o["name"], {})
+        conn.execute(
+            "INSERT INTO executives (ticker,rank,name,title,age,pay,photo,edu,"
+            "bio,enriched,fetched_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (ticker, i, o["name"], o.get("title"), o.get("age"), o.get("pay"),
+             keep.get("photo"), keep.get("edu"), keep.get("bio"),
+             keep.get("enriched", 0), now))
 
 
 INCOME_FLOW_COLS = ("ticker", "period", "ptype", "end_date", "revenue",
