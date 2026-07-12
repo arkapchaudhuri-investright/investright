@@ -443,9 +443,30 @@
 {% if income %}
 <section class="card" id="income">
   <div class="card-head"><h2>Revenue &amp; expenses</h2>
-    <span class="asof">latest FY · {{ income['period'] }}</span></div>
-  <p class="asof inc-lede">How {{ s['name'] }} turns revenue into earnings — the latest
-    reported fiscal year. Every line is a share of revenue.</p>
+    <span class="asof">{{ income['period'] }}</span></div>
+  <p class="asof inc-lede">How {{ s['name'] }} turns revenue into earnings.
+    Every line is a share of revenue{% if income['rows'][0]['yoy'] is not none %};
+    Y/Y compares the same period a year earlier{% endif %}.</p>
+
+  {# Period picker — Annual / Quarterly, then every saved period ("last 5
+     years or max whatever Yahoo has"). Plain links → server re-render, no JS. #}
+  {% if flow_annual or flow_quarters %}
+  <div class="flow-picker">
+    {% if flow_annual and flow_quarters %}
+    <nav class="seg" aria-label="Breakdown cadence">
+      <a href="?flow={{ flow_annual[0] }}#income"
+         class="{{ 'active' if flow_current in flow_annual }}">Annual</a>
+      <a href="?flow={{ flow_quarters[0] }}#income"
+         class="{{ 'active' if flow_current in flow_quarters }}">Quarterly</a>
+    </nav>
+    {% endif %}
+    <nav class="flow-pills" aria-label="Period">
+      {% for p in (flow_annual if flow_current in flow_annual else flow_quarters) %}
+      <a href="?flow={{ p }}#income" class="{{ 'active' if p == flow_current }}">{{ p }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+  {% endif %}
 
   {% if income_sankey %}
   <div class="sankey-wrap">
@@ -461,12 +482,14 @@
             text-anchor="{{ n['anchor'] }}"{% if not n['above'] %} dominant-baseline="middle"{% endif %}>
         <tspan class="sankey-name" x="{{ n['lx']|round(1) }}"{% if not n['above'] %} dy="-0.3em"{% endif %}>{{ n['label'] }}</tspan>
         <tspan class="sankey-val" x="{{ n['lx']|round(1) }}" dy="1.15em">{{ n['value']|bigmoney(ccy) }}</tspan>
+        {% if n['sub'] %}<tspan class="sankey-sub" x="{{ n['lx']|round(1) }}" dy="1.15em">{{ n['sub'] }}</tspan>{% endif %}
       </text>
       {% endfor %}
     </svg>
   </div>
   {% endif %}
 
+  {% set has_yoy = income['rows']|selectattr('yoy', 'ne', none)|list|length > 0 %}
   <table class="income-table">
     <tbody>
       {% for r in income['rows'] %}
@@ -477,6 +500,15 @@
           <span class="inc-bar" style="width: {{ [100, r['pct']|abs]|min|round(1) }}%"></span>
         </td>
         <td class="inc-pct">{{ '%.1f'|format(r['pct']) }}%</td>
+        {% if has_yoy %}
+        <td class="inc-yoy">
+          {% if r['yoy'] is not none %}
+          {# growth is good for revenue/profits, bad for costs — colour by that #}
+          <span class="{{ 'up' if (r['yoy'] >= 0) != (r['kind'] in ('cost','expense')) else 'down' }}">
+            {{ '%+.0f'|format(r['yoy']) }}%</span>
+          {% else %}<span class="inc-yoy-na">—</span>{% endif %}
+        </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>

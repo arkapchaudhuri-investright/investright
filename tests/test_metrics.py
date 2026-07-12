@@ -100,6 +100,51 @@ def test_income_flow_view_derives_gross_and_drops_absent_rd():
     assert not any(r["label"].startswith("Research") for r in v["rows"])
 
 
+def test_income_flow_view_detailed_with_yoy():
+    # Operating stage decomposes cleanly → detailed tree + margins; a prior
+    # comparable period yields Y/Y deltas per line.
+    cur = {"period": "FY2025", "ptype": "A", "revenue": 1000.0,
+           "cost_of_rev": 600.0, "gross_profit": 400.0, "rd": 100.0,
+           "sga": 80.0, "operating_inc": 220.0, "tax": 40.0,
+           "net_income": 150.0}
+    pri = {**cur, "period": "FY2024", "revenue": 900.0, "net_income": 120.0}
+    v = metrics.income_flow_view(cur, pri)
+    assert v["detailed"] and v["margins"] == {"gross": 40.0, "net": 15.0,
+                                              "operating": 22.0}
+    assert v["opex"] == 180.0                       # gross − operating
+    assert v["int_other"] == 220.0 - 40.0 - 150.0   # operating − tax − net = 30
+    labels = [r["label"] for r in v["rows"]]
+    assert "Operating profit" in labels and "Tax" in labels
+    rev_row = v["rows"][0]
+    assert rev_row["yoy"] == round(100 * (1000 - 900) / 900, 1)
+    net_row = v["rows"][-1]
+    assert net_row["yoy"] == 25.0                   # 120 → 150
+
+
+def test_income_flow_view_falls_back_when_nonop_income_dominates():
+    # Net above operating−tax (big non-operating income) → the detailed tree
+    # can't conserve flow honestly → legacy three-way split.
+    v = metrics.income_flow_view(
+        {"revenue": 1000.0, "cost_of_rev": 600.0, "gross_profit": 400.0,
+         "rd": 0.0, "sga": 50.0, "operating_inc": 100.0, "tax": 20.0,
+         "net_income": 300.0})
+    assert v["detailed"] is False
+    assert "expenses" in v and "other" in v
+
+
+def test_income_sankey_detailed_tree():
+    cur = {"period": "FY2025", "ptype": "A", "revenue": 1000.0,
+           "cost_of_rev": 600.0, "gross_profit": 400.0, "rd": 100.0,
+           "sga": 80.0, "operating_inc": 220.0, "tax": 40.0,
+           "net_income": 150.0}
+    sk = metrics.income_sankey(metrics.income_flow_view(cur))
+    labels = {n["label"] for n in sk["nodes"]}
+    assert {"Revenue", "Gross profit", "Cost of sales", "Operating profit",
+            "Operating expenses", "Net profit", "Tax"} <= labels
+    subs = {n["label"]: n["sub"] for n in sk["nodes"] if n["sub"]}
+    assert subs.get("Operating profit") == "22% margin"
+
+
 def test_income_sankey_shape_and_none_safe():
     view = metrics.income_flow_view(
         {"revenue": 1000.0, "cost_of_rev": 600.0, "gross_profit": 400.0,

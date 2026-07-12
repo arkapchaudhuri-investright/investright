@@ -778,9 +778,11 @@ def stock(ticker):
             "SELECT d, close FROM price_history WHERE ticker=? ORDER BY d",
             (ticker,)).fetchall()
 
-        # Latest-period income breakdown for the Revenue & Expenses widget.
-        flow_row = conn.execute(
-            "SELECT * FROM income_flow WHERE ticker=?", (ticker,)).fetchone()
+        # Income breakdowns (every saved period) for the Revenue & Expenses
+        # widget — annual years + recent quarters, newest first.
+        flow_rows = [dict(r) for r in conn.execute(
+            "SELECT * FROM income_flow WHERE ticker=? ORDER BY end_date DESC",
+            (ticker,))]
 
         # Sentiment widget: this site's own reader signals.
         watchers = conn.execute(
@@ -825,12 +827,11 @@ def stock(ticker):
     for i in insiders:
         if i.get("value") is not None:
             i["value"] *= ins_factor
-    flow_row = dict(flow_row) if flow_row else None        # income breakdown → display ccy
-    if flow_row:
+    for fr in flow_rows:                                   # income breakdowns → display ccy
         for k in ("revenue", "cost_of_rev", "gross_profit", "rd", "sga",
                   "operating_inc", "net_income", "tax"):
-            if flow_row.get(k) is not None:
-                flow_row[k] *= factor
+            if fr.get(k) is not None:
+                fr[k] *= factor
 
     # Fair value: cron's stored row, unless the reader overrode assumptions in the URL.
     g, d, tg = _float_arg("growth"), _float_arg("discount"), _float_arg("terminal")
@@ -860,7 +861,30 @@ def stock(ticker):
     snowflake = metrics.snowflake(scores)
     overall = metrics.overall_score(scores)
     charts = metrics.performance_charts(funds)
-    income = metrics.income_flow_view(flow_row)          # Revenue & Expenses widget
+    # Revenue & Expenses widget: pick the period (?flow=FY2025 / ?flow=2026Q1;
+    # default = latest annual), find the comparable one year earlier for Y/Y.
+    flow_map = {r["period"]: r for r in flow_rows}
+    annual_periods = [r["period"] for r in flow_rows if r["ptype"] == "A"]
+    quarter_periods = [r["period"] for r in flow_rows if r["ptype"] == "Q"]
+    cur_flow = flow_map.get(request.args.get("flow"))
+    if cur_flow is None and flow_rows:
+        cur_flow = (flow_map[annual_periods[0]] if annual_periods
+                    else flow_rows[0])
+    prior_flow = None
+    if cur_flow:
+        try:
+            end = date.fromisoformat(cur_flow["end_date"])
+            best = None
+            for r in flow_rows:
+                if r["ptype"] != cur_flow["ptype"] or r["period"] == cur_flow["period"]:
+                    continue
+                off = abs((end - date.fromisoformat(r["end_date"])).days - 365)
+                if off <= 60 and (best is None or off < best[0]):
+                    best = (off, r)
+            prior_flow = best[1] if best else None
+        except (ValueError, TypeError):
+            pass
+    income = metrics.income_flow_view(cur_flow, prior_flow)
     income_sankey = metrics.income_sankey(income)
     fund_source = funds[-1]["source"] if funds else None
     axis_detail = metrics.axis_detail(checks)
@@ -910,6 +934,8 @@ def stock(ticker):
         takeaway=metrics.takeaway(s["name"], dcf, scores),
         charts=charts, fund_source=fund_source, market_growth_pct=round(metrics.MARKET_GROWTH * 100),
         income=income, income_sankey=income_sankey,
+        flow_annual=annual_periods, flow_quarters=quarter_periods,
+        flow_current=cur_flow["period"] if cur_flow else None,
         projection=metrics.future_projection(funds),
         dividend=metrics.dividend_card(funds, snap["div_yield"] if snap else None),
         peers=peers, insiders=insiders,

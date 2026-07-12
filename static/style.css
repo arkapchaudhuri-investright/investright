@@ -848,6 +848,24 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .sankey-lbl { font-family: var(--sans); }
 .sankey-name { font-size: 12px; fill: var(--text); font-weight: 600; }
 .sankey-val { font-size: 11px; fill: var(--muted); }
+.sankey-sub { font-size: 9.5px; fill: var(--muted); opacity: .85; }
+
+/* Period picker: Annual/Quarterly seg + a row of period pills. */
+.flow-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 4px 0 6px; }
+.flow-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.flow-pills a {
+  font-size: 12.5px; text-decoration: none; color: var(--muted);
+  border: 1px solid var(--hairline); border-radius: 999px; padding: 4px 11px;
+  font-variant-numeric: tabular-nums;
+}
+.flow-pills a:hover { border-color: var(--accent); color: var(--accent); }
+.flow-pills a.active { background: var(--accent-deep); border-color: var(--accent-deep); color: #fff; }
+
+/* Y/Y column: growth green when it helps, red when it hurts. */
+.inc-yoy { text-align: right; width: 64px; font-size: 13px; white-space: nowrap; }
+.inc-yoy .up { color: var(--up); }
+.inc-yoy .down { color: var(--down); }
+.inc-yoy-na { color: var(--muted); opacity: .6; }
 
 /* the table below the diagram */
 .inc-lede { margin: 2px 0 14px; }
