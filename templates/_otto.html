@@ -1,4 +1,7 @@
 {# Otto the owl — single self-contained inline SVG, no JS, no image files (DESIGN.md §6).
+   2026-07 redesign ("Scholar Otto"): one smooth body silhouette, attached wings,
+   calmer wide-set eyes, and thin deep-green spectacles — intelligent but
+   personable. Same include API + animation classes as the original.
    mood reacts to a stock's overall score (§6):
    "happy" (default / undervalued → green badge) | "neutral" (mixed → no badge) |
    "concerned" (weak → amber badge) | "sleepy" (empty/no data → eyes half-closed). #}
@@ -9,10 +12,10 @@
   <style>
     @media (prefers-reduced-motion: no-preference) {
       .otto svg { animation: otto-float 4.5s ease-in-out infinite; }
-      .otto .o-lid { animation: otto-blink 5.2s infinite; transform-origin: center 46px; }
+      .otto .o-lid { animation: otto-blink 5.2s infinite; transform-origin: center 45px; }
       .otto .o-pupil { animation: otto-glance 7s ease-in-out infinite; }
-      .otto .o-wing-l { animation: otto-flap-l 6s ease-in-out infinite; transform-origin: 28px 70px; }
-      .otto .o-wing-r { animation: otto-flap-r 6s ease-in-out infinite; transform-origin: 92px 70px; }
+      .otto .o-wing-l { animation: otto-flap-l 6s ease-in-out infinite; transform-origin: 33px 73px; }
+      .otto .o-wing-r { animation: otto-flap-r 6s ease-in-out infinite; transform-origin: 87px 73px; }
       .otto .o-tuft { animation: otto-wiggle 6.5s ease-in-out infinite; transform-origin: 60px 22px; }
       .otto .o-spark { animation: otto-spark 2.4s ease-in-out infinite; }
     }
@@ -32,39 +35,47 @@
   </style>
   <!-- tufts -->
   <g class="o-tuft">
-    <path d="M42 26 Q40 12 50 18 Q47 22 48 27 Z" fill="#1D9E75"/>
-    <path d="M78 26 Q80 12 70 18 Q73 22 72 27 Z" fill="#1D9E75"/>
+    <path d="M40 27 Q36 12 48 17 Q44 21 45.5 27.5 Z" fill="#177E5E"/>
+    <path d="M80 27 Q84 12 72 17 Q76 21 74.5 27.5 Z" fill="#177E5E"/>
   </g>
-  <!-- wings -->
-  <ellipse class="o-wing-l" cx="27" cy="70" rx="11" ry="22" fill="#177E5E"/>
-  <ellipse class="o-wing-r" cx="93" cy="70" rx="11" ry="22" fill="#177E5E"/>
-  <!-- body + belly -->
-  <ellipse cx="60" cy="66" rx="34" ry="38" fill="#1D9E75"/>
-  <ellipse cx="60" cy="76" rx="22" ry="24" fill="#F5EEDC"/>
-  <path d="M52 68 q8 6 16 0 M50 78 q10 7 20 0" stroke="#E3D9BE" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <!-- body: one smooth silhouette -->
+  <path d="M60 24 C79 24 94 39 94 62 C94 86 79 102 60 102 C41 102 26 86 26 62 C26 39 41 24 60 24 Z" fill="#1D9E75"/>
+  <!-- wings, attached to the body curve -->
+  <path class="o-wing-l" d="M30 52 C22 60 22 78 30 88 C35 94 41 96 44 95 C36 84 33 66 36 51 C34 50 32 50 30 52 Z" fill="#177E5E"/>
+  <path class="o-wing-r" d="M90 52 C98 60 98 78 90 88 C85 94 79 96 76 95 C84 84 87 66 84 51 C86 50 88 50 90 52 Z" fill="#177E5E"/>
+  <!-- belly with feather scallops -->
+  <path d="M60 58 C74 58 82 68 82 79 C82 92 72 100 60 100 C48 100 38 92 38 79 C38 68 46 58 60 58 Z" fill="#F5EEDC"/>
+  <path d="M51 70 q9 6.5 18 0 M48 80 q12 8 24 0 M50 90 q10 6.5 20 0" stroke="#E3D9BE" stroke-width="1.7" fill="none" stroke-linecap="round"/>
   <!-- eyes -->
-  <circle cx="47" cy="46" r="13" fill="#FFFFFF"/>
-  <circle cx="73" cy="46" r="13" fill="#FFFFFF"/>
+  <circle cx="45" cy="45" r="12.5" fill="#FFFFFF"/>
+  <circle cx="75" cy="45" r="12.5" fill="#FFFFFF"/>
   <g class="o-pupil">
-    <circle cx="49" cy="47" r="5.5" fill="#26251F"/>
-    <circle cx="75" cy="47" r="5.5" fill="#26251F"/>
-    <circle cx="51" cy="45" r="1.7" fill="#FFFFFF"/>
-    <circle cx="77" cy="45" r="1.7" fill="#FFFFFF"/>
+    <circle cx="46.5" cy="46" r="6.4" fill="#26251F"/>
+    <circle cx="76.5" cy="46" r="6.4" fill="#26251F"/>
+    <circle cx="44.2" cy="43.4" r="2.1" fill="#FFFFFF"/>
+    <circle cx="74.2" cy="43.4" r="2.1" fill="#FFFFFF"/>
   </g>
   <g class="o-lid">
-    <circle cx="47" cy="46" r="13" fill="#1D9E75"/>
-    <circle cx="73" cy="46" r="13" fill="#1D9E75"/>
+    <circle cx="45" cy="45" r="12.5" fill="#1D9E75"/>
+    <circle cx="75" cy="45" r="12.5" fill="#1D9E75"/>
+  </g>
+  <!-- spectacles: thin deep-green rims, sized to clear the blink lids -->
+  <g fill="none" stroke="#134F3B" stroke-linecap="round">
+    <circle cx="45" cy="45" r="15.2" stroke-width="3"/>
+    <circle cx="75" cy="45" r="15.2" stroke-width="3"/>
+    <path d="M56.9 41.8 Q60 38.8 63.1 41.8" stroke-width="2.4"/>
+    <path d="M29.8 43.5 L26 41.5 M90.2 43.5 L94 41.5" stroke-width="2.4"/>
   </g>
   <!-- beak + feet -->
-  <path d="M60 52 L54 60 Q60 66 66 60 Z" fill="#E8A33D"/>
-  <path d="M50 103 l-3 6 M54 104 l0 6 M70 103 l3 6 M66 104 l0 6" stroke="#E8A33D" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M60 53 L54.5 60 Q60 65.5 65.5 60 Z" fill="#E8A33D"/>
+  <path d="M51 102 l-3 7 M55 103 l-.5 7 M69 102 l3 7 M65 103 l.5 7" stroke="#E8A33D" stroke-width="2.6" stroke-linecap="round"/>
   <!-- trend-up badge -->
   <g class="o-badge">
-    <circle cx="97" cy="34" r="12" fill="#134F3B"/>
-    <path d="M90 39 l5 -5 l3 3 l6 -7" stroke="#4ADE9C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M101 30 h3 v3" stroke="#4ADE9C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle class="o-spark" cx="108" cy="22" r="1.6" fill="#4ADE9C"/>
-    <circle class="o-spark" cx="86" cy="20" r="1.2" fill="#4ADE9C" style="animation-delay:.8s"/>
+    <circle cx="97" cy="30" r="12" fill="#134F3B"/>
+    <path d="M90 35 l5 -5 l3 3 l6 -7" stroke="#4ADE9C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M101 26 h3 v3" stroke="#4ADE9C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="o-spark" cx="108" cy="18" r="1.6" fill="#4ADE9C"/>
+    <circle class="o-spark" cx="86" cy="16" r="1.2" fill="#4ADE9C" style="animation-delay:.8s"/>
   </g>
 </svg>
 </div>
