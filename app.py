@@ -860,6 +860,8 @@ def stock(ticker):
     snowflake = metrics.snowflake(scores)
     overall = metrics.overall_score(scores)
     charts = metrics.performance_charts(funds)
+    income = metrics.income_flow_view(flow_row)          # Revenue & Expenses widget
+    income_sankey = metrics.income_sankey(income)
     fund_source = funds[-1]["source"] if funds else None
     axis_detail = metrics.axis_detail(checks)
     checks_by_axis = {key: [c for c in checks if c["axis"] == key]
@@ -907,7 +909,7 @@ def stock(ticker):
         mood=metrics.mood_for(overall),
         takeaway=metrics.takeaway(s["name"], dcf, scores),
         charts=charts, fund_source=fund_source, market_growth_pct=round(metrics.MARKET_GROWTH * 100),
-        income=metrics.income_flow_view(flow_row),
+        income=income, income_sankey=income_sankey,
         projection=metrics.future_projection(funds),
         dividend=metrics.dividend_card(funds, snap["div_yield"] if snap else None),
         peers=peers, insiders=insiders,

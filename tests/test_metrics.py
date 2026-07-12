@@ -100,6 +100,17 @@ def test_income_flow_view_derives_gross_and_drops_absent_rd():
     assert not any(r["label"].startswith("Research") for r in v["rows"])
 
 
+def test_income_sankey_shape_and_none_safe():
+    view = metrics.income_flow_view(
+        {"revenue": 1000.0, "cost_of_rev": 600.0, "gross_profit": 400.0,
+         "rd": 100.0, "sga": 80.0, "net_income": 150.0})
+    sk = metrics.income_sankey(view)
+    labels = {n["label"] for n in sk["nodes"]}
+    assert {"Revenue", "Gross profit", "Cost of sales", "Earnings", "Expenses"} <= labels
+    assert len(sk["links"]) >= 4 and sk["vb"]
+    assert metrics.income_sankey(None) is None
+
+
 def test_income_flow_view_none_when_too_thin():
     assert metrics.income_flow_view(None) is None
     assert metrics.income_flow_view({"revenue": None, "net_income": 5.0}) is None
