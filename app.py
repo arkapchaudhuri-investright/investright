@@ -210,6 +210,26 @@ def convert_row(r, ccy, rate):
     return r
 
 
+# Money columns on the deep-dive, by table. Ratios (pe/pb/ps/change_pct/
+# div_yield/rec_mean), counts (analyst_n), share counts and years are NOT money
+# and must never be scaled by the FX factor.
+_SNAP_MONEY = ("price", "prev_close", "market_cap", "wk52_low", "wk52_high",
+               "eps", "target_mean")
+_FUND_MONEY = ("revenue", "net_income", "fcf", "total_assets", "total_liab",
+               "current_assets", "current_liab", "long_term_debt", "equity",
+               "ebit", "op_cash_flow", "dividends_paid")
+
+
+def _fx_factor(native, display, rate):
+    """(factor, label_ccy): multiply a `native`-currency amount by `factor` to
+    express it in `display`. Falls back to (1.0, native) when conversion isn't
+    possible (unknown currency, no rate) so callers can always multiply safely."""
+    if (native == display or not rate
+            or native not in ("USD", "INR") or display not in ("USD", "INR")):
+        return 1.0, native
+    return (rate if native == "USD" else 1.0 / rate), display
+
+
 def greeting():
     h = datetime.now().hour
     return "Good morning" if h < 12 else "Good afternoon" if h < 17 else "Good evening"
@@ -771,10 +791,42 @@ def stock(ticker):
     for c in checks:
         c["passed"] = None if c["passed"] is None else bool(c["passed"])
 
+    # --- Display currency (gear $/₹ toggle) -------------------------------
+    # Re-express EVERY money figure on the page in the reader's chosen currency,
+    # from the stock's native reporting currency. Ratios / % / share counts are
+    # left alone. Done at the source (snap, funds, price, peers, insiders, trend)
+    # so the charts/DCF/projection built below inherit it automatically; the
+    # trend.json / spark.json endpoints apply the same factor for range tabs.
+    display_ccy = request.args.get("ccy") or request.cookies.get("ccy") or "USD"
+    if display_ccy not in ("USD", "INR"):
+        display_ccy = "USD"
+    rate, _ = get_usdinr()
+    factor, ccy = _fx_factor(s["currency"], display_ccy, rate)
+    snap = dict(snap) if snap else None
+    if snap:
+        for k in _SNAP_MONEY:
+            if snap.get(k) is not None:
+                snap[k] *= factor
+    for f in funds:
+        for k in _FUND_MONEY:
+            if f.get(k) is not None:
+                f[k] *= factor
+    hist = [(r["d"], r["close"] * factor) for r in hist]   # trend closes → display ccy
+    for p in peers:                                        # each peer may be a different native ccy
+        if not p.get("missing") and p.get("price") is not None:
+            pf, pccy = _fx_factor(p.get("currency"), display_ccy, rate)
+            p["price"] *= pf
+            p["currency"] = pccy
+    ins_factor, _ = _fx_factor("USD", display_ccy, rate)   # EDGAR insider values are USD
+    for i in insiders:
+        if i.get("value") is not None:
+            i["value"] *= ins_factor
+
     # Fair value: cron's stored row, unless the reader overrode assumptions in the URL.
     g, d, tg = _float_arg("growth"), _float_arg("discount"), _float_arg("terminal")
     overridden = any(x is not None for x in (g, d, tg))
     dcf = dict(dcf_row) if dcf_row else None
+    dcf_is_native = dcf is not None      # stored cron row is in the native currency
     price = snap["price"] if snap else None
     if funds and (overridden or dcf is None):
         shares = next((f["shares"] for f in reversed(funds) if f.get("shares")), None)
@@ -786,6 +838,11 @@ def stock(ticker):
             terminal=tg if tg is not None else (base.get("terminal_growth")))
         if recomputed:
             dcf = recomputed
+            dcf_is_native = False        # built from already-converted funds + price
+    # A stored DCF is per-share money in the native currency → scale to display.
+    # upside_pct is a ratio (fair/price), so it's currency-invariant either way.
+    if dcf and dcf_is_native and factor != 1.0:
+        dcf["fair_value"] *= factor
     if dcf and dcf.get("assumptions_json") and "basis" not in dcf:
         dcf["basis"] = json.loads(dcf["assumptions_json"]).get("basis")
 
@@ -810,8 +867,8 @@ def stock(ticker):
     spans = {"1m": 21, "6m": 126, "1y": 252, "5y": 1260, "max": None}
     if rng not in spans:
         rng = "1y"
-    sel = hist if spans[rng] is None else hist[-spans[rng]:]
-    trend = metrics.trend_chart([(r["d"], r["close"]) for r in sel])
+    sel = hist if spans[rng] is None else hist[-spans[rng]:]   # hist already (date, close-in-display-ccy) tuples
+    trend = metrics.trend_chart(list(sel))
     rng_label = {"1m": "the last month", "6m": "six months", "1y": "one year",
                  "5y": "five years", "max": "all saved history"}[rng]
 
@@ -833,7 +890,7 @@ def stock(ticker):
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
         logo=logos.find(ticker),
-        ccy=s["currency"], dcf=dcf, price=price, overridden=overridden,
+        ccy=ccy, native_ccy=s["currency"], dcf=dcf, price=price, overridden=overridden,
         checks_by_axis=checks_by_axis, axis_names=dict(metrics.AXES),
         axis_detail=axis_detail, top6=top6, applicable_n=len(applicable),
         scores=scores, snowflake=snowflake, overall=overall,
@@ -857,12 +914,19 @@ def spark_json(ticker):
     a friendly error instead of a 500."""
     ticker = ticker.upper()
     with get_conn() as conn:
-        if not conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
+        s = conn.execute("SELECT currency FROM stocks WHERE ticker=?", (ticker,)).fetchone()
+        if not s:
             abort(404)
     points = fetch.intraday(ticker)
     if len(points) < 2:
         return jsonify(error="No intraday prices right now — the market may be closed.")
-    chart = metrics.trend_chart(points)
+    # Convert to the display currency so the 1D tab reads out the same units as
+    # the rest of the page (matches the main route + trend.json).
+    ccy = request.args.get("ccy") or request.cookies.get("ccy") or "USD"
+    if ccy not in ("USD", "INR"):
+        ccy = "USD"
+    factor, _ = _fx_factor(s["currency"], ccy, get_usdinr()[0])
+    chart = metrics.trend_chart([(t, c * factor) for t, c in points])
     return jsonify(points=chart["points"], area=chart["area"],
                    width=chart["width"], height=chart["height"],
                    dir=chart["dir"], change_pct=chart["change_pct"],
@@ -892,11 +956,7 @@ def trend_json(ticker):
             "SELECT d, close FROM price_history WHERE ticker=? ORDER BY d",
             (ticker,)).fetchall()
     sel = hist if spans[rng] is None else hist[-spans[rng]:]
-    fx, _ = get_usdinr()
-    native = s["currency"]
-    factor = 1.0
-    if fx and native in ("USD", "INR") and native != ccy:
-        factor = fx if native == "USD" else 1 / fx
+    factor, _ = _fx_factor(s["currency"], ccy, get_usdinr()[0])
     chart = metrics.trend_chart([(r["d"], r["close"] * factor) for r in sel])
     if not chart:
         return jsonify(error="No saved history for this range yet.")
