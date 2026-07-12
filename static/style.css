@@ -835,8 +835,21 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .perf-note { margin-top: 12px; }
 
-/* Revenue & expenses breakdown — income-statement flow as a table with an
-   inline proportion bar (the pictorial Sankey is a follow-up). */
+/* Revenue & expenses — pictorial Sankey (inline SVG, no JS libs) + the table. */
+.sankey-wrap { margin: 18px 0 6px; overflow-x: auto; }
+.sankey { width: 100%; min-width: 520px; height: auto; display: block; }
+.sankey-flow { stroke: none; }
+.flow-in  { fill: var(--accent); opacity: .30; }   /* profit / earnings side */
+.flow-out { fill: var(--down);   opacity: .22; }   /* cost / expense side */
+.sankey-node { opacity: .95; }
+.node-revenue, .node-subtotal { fill: var(--accent); }
+.node-earnings { fill: var(--up); }
+.node-cost, .node-expense { fill: var(--down); }
+.sankey-lbl { font-family: var(--sans); }
+.sankey-name { font-size: 12px; fill: var(--text); font-weight: 600; }
+.sankey-val { font-size: 11px; fill: var(--muted); }
+
+/* the table below the diagram */
 .inc-lede { margin: 2px 0 14px; }
 .income-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .income-table td { padding: 9px 0; border-top: 1px solid var(--hairline); vertical-align: middle; }

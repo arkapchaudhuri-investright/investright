@@ -621,6 +621,86 @@ def income_flow_view(row):
             "other": other, "net_income": net, "margin_pct": pct(net), "rows": rows}
 
 
+def income_sankey(view, width=620, height=300, nw=13):
+    """Pure-Python Sankey geometry for the Revenue & Expenses flow (§ no JS libs).
+
+    A conserved tree, so it lays out cleanly without crossings: Revenue splits
+    into Gross profit + Cost of sales; Gross profit into Earnings + Expenses;
+    Expenses into R&D + SG&A + Tax & other. Each column is centred vertically,
+    which fans the ribbons out for the classic Sankey look. Returns nodes (thin
+    bars + label positions) and ribbon paths, plus a fitted viewBox; None when
+    `view` is too thin. Money is whatever currency `view` is already in."""
+    if not view:
+        return None
+    rev = view["revenue"]
+    if not rev or rev <= 0:
+        return None
+    ys = height / rev                       # pixels per currency unit
+    gap = 30                                # vertical node padding (room for labels)
+
+    # Columns, each a list of (label, value, kind), top→bottom. Drop empty flows.
+    def col(*items):
+        return [(l, v, k) for (l, v, k) in items if v and v > 0]
+    cols = [
+        col(("Revenue", rev, "revenue")),
+        col(("Gross profit", view["gross_profit"], "subtotal"),
+            ("Cost of sales", view["cost"], "cost")),
+        col(("Earnings", view["net_income"], "earnings"),
+            ("Expenses", view["expenses"], "expense")),
+        col(("R&D", view["rd"], "expense"),
+            ("SG&A", view["sga"], "expense"),
+            ("Tax & other", view["other"], "expense")),
+    ]
+    col_x = [i * (width - nw) / 3 for i in range(4)]
+
+    nodes = {}
+    for ci, column in enumerate(cols):
+        stack_h = sum(v * ys for _, v, _ in column) + gap * max(0, len(column) - 1)
+        y = (height - stack_h) / 2          # centre the column
+        for (label, val, kind) in column:
+            h = val * ys
+            nodes[label] = {"label": label, "x": col_x[ci], "y": y, "w": nw, "h": h,
+                            "value": val, "pct": round(100 * val / rev, 1),
+                            "kind": kind, "col": ci, "_out": y}
+            y += h + gap
+
+    def ribbon(x1, sy0, sy1, x2, ty0, ty1):
+        xm = (x1 + x2) / 2
+        return (f"M{x1:.1f},{sy0:.1f} C{xm:.1f},{sy0:.1f} {xm:.1f},{ty0:.1f} {x2:.1f},{ty0:.1f} "
+                f"L{x2:.1f},{ty1:.1f} C{xm:.1f},{ty1:.1f} {xm:.1f},{sy1:.1f} {x1:.1f},{sy1:.1f} Z")
+
+    links = []
+    def link(src, dst):
+        s, t = nodes.get(src), nodes.get(dst)
+        if not s or not t:
+            return
+        sy0 = s["_out"]
+        sy1 = sy0 + t["h"]                   # ribbon carries the whole child flow
+        s["_out"] = sy1
+        # green ribbons for the "kept" side (profit/earnings), warm for costs/expenses
+        flow = "in" if t["kind"] in ("subtotal", "earnings") else "out"
+        links.append({"d": ribbon(s["x"] + s["w"], sy0, sy1, t["x"], t["y"], t["y"] + t["h"]),
+                      "flow": flow})
+
+    link("Revenue", "Gross profit"); link("Revenue", "Cost of sales")
+    link("Gross profit", "Earnings"); link("Gross profit", "Expenses")
+    for lbl in ("R&D", "SG&A", "Tax & other"):
+        link("Expenses", lbl)
+
+    # Label placement: rightmost column beside the bar, the rest above it.
+    for n in nodes.values():
+        if n["col"] == 3:
+            n["lx"], n["ly"], n["anchor"], n["above"] = n["x"] + nw + 8, n["y"] + n["h"] / 2, "start", False
+        else:
+            n["lx"], n["ly"], n["anchor"], n["above"] = n["x"], n["y"] - 20, "start", True
+
+    ys_all = [n["y"] for n in nodes.values()] + [n["y"] + n["h"] for n in nodes.values()]
+    vb_y = min(ys_all) - 34                  # headroom for the two-line labels above the top nodes
+    vb_h = (max(ys_all) + 10) - vb_y
+    return {"nodes": list(nodes.values()), "links": links,
+            "vb": f"-6 {vb_y:.1f} {width + 116:.0f} {vb_h:.1f}"}
+
+
 # --- dividend card (Tier C, §4.7) -------------------------------------------
 def dividend_card(funds, div_yield):
     """Payout history bars, payout-ratio gauge and no-cut streak from cash

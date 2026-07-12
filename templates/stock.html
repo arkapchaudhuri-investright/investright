@@ -446,6 +446,27 @@
     <span class="asof">latest FY · {{ income['period'] }}</span></div>
   <p class="asof inc-lede">How {{ s['name'] }} turns revenue into earnings — the latest
     reported fiscal year. Every line is a share of revenue.</p>
+
+  {% if income_sankey %}
+  <div class="sankey-wrap">
+    <svg class="sankey" viewBox="{{ income_sankey['vb'] }}" role="img"
+         aria-label="Revenue and expenses flow for {{ s['name'] }}">
+      {% for lk in income_sankey['links'] %}
+      <path class="sankey-flow flow-{{ lk['flow'] }}" d="{{ lk['d'] }}"/>
+      {% endfor %}
+      {% for n in income_sankey['nodes'] %}
+      <rect class="sankey-node node-{{ n['kind'] }}" x="{{ n['x']|round(1) }}" y="{{ n['y']|round(1) }}"
+            width="{{ n['w'] }}" height="{{ n['h']|round(1) }}" rx="2"/>
+      <text class="sankey-lbl" x="{{ n['lx']|round(1) }}" y="{{ n['ly']|round(1) }}"
+            text-anchor="{{ n['anchor'] }}"{% if not n['above'] %} dominant-baseline="middle"{% endif %}>
+        <tspan class="sankey-name" x="{{ n['lx']|round(1) }}"{% if not n['above'] %} dy="-0.3em"{% endif %}>{{ n['label'] }}</tspan>
+        <tspan class="sankey-val" x="{{ n['lx']|round(1) }}" dy="1.15em">{{ n['value']|bigmoney(ccy) }}</tspan>
+      </text>
+      {% endfor %}
+    </svg>
+  </div>
+  {% endif %}
+
   <table class="income-table">
     <tbody>
       {% for r in income['rows'] %}
