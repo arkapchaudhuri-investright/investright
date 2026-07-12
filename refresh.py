@@ -198,7 +198,7 @@ def main():
             with get_conn() as conn:
                 seen = conn.execute("SELECT 1 FROM price_history WHERE ticker=? LIMIT 1",
                                     (sym,)).fetchone()
-            rows = fetch.price_history(sym, "1mo" if seen else "max")
+            rows = fetch.price_history_resilient(sym, "1mo" if seen else "max")
             if rows:
                 with get_conn() as conn:
                     save_price_history(conn, sym, rows)

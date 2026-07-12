@@ -338,7 +338,9 @@ def _ingest_stock(symbol):
         except Exception:
             pass
         try:  # full price history so the trend chart works immediately too
-            rows = fetch.price_history(meta["ticker"], "max")
+            # resilient: BSE (.BO) history is often empty on Yahoo — fall back
+            # to the NSE twin so a first-time search always gets a real chart.
+            rows = fetch.price_history_resilient(meta["ticker"], "max")
             if rows:
                 save_price_history(conn, meta["ticker"], rows)
         except Exception:

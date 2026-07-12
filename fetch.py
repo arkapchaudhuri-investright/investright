@@ -142,6 +142,34 @@ def price_history(symbol, period="max"):
         return []
 
 
+def _sibling_symbol(symbol):
+    """The other-exchange twin for an Indian listing: BSE (.BO) ↔ NSE (.NS)."""
+    if symbol.endswith(".BO"):
+        return symbol[:-3] + ".NS"
+    if symbol.endswith(".NS"):
+        return symbol[:-3] + ".BO"
+    return None
+
+
+def price_history_resilient(symbol, period="max", min_rows=2):
+    """price_history(), but resilient to Yahoo's near-empty BSE (.BO) series.
+
+    Yahoo often returns just today's close for a `.BO` ticker while its NSE
+    (`.NS`) twin has years of data (e.g. IRFC.BO → 1 row, IRFC.NS → 1,348). The
+    two track to the paisa, so for the trend chart they're interchangeable. If
+    the requested symbol comes back thin, fall back to the sibling exchange and
+    return whichever series is richer — so a first-time search always charts."""
+    rows = price_history(symbol, period)
+    if len(rows) >= min_rows:
+        return rows
+    sib = _sibling_symbol(symbol)
+    if sib:
+        alt = price_history(sib, period)
+        if len(alt) > len(rows):
+            return alt
+    return rows
+
+
 def intraday(symbol):
     """Today's 5-minute closes as [(HH:MM, close)] — the 1D trend tab. Fetched
     live per request (read-only; never written to the DB)."""
