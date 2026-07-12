@@ -574,15 +574,18 @@ def future_projection(funds, years_out=3):
 
 
 # --- Revenue & Expenses breakdown (income-statement flow) -------------------
-def income_flow_view(row):
-    """Shape a saved income_flow row (money already in the display currency) into
-    the Revenue & Expenses widget's data — headline flows + a table of lines as
-    a % of revenue. None when too thin to be meaningful.
+def _flow_parts(row):
+    """Decompose one income_flow row into conserved flow parts, or None.
 
-    Income-statement flow (no geography):
-      Revenue      → Cost of sales + Gross profit
-      Gross profit → Net income (earnings) + Expenses
-      Expenses     → R&D + SG&A + Tax & other (balancing bucket)
+    Detailed tree (when Yahoo served an operating-income line that decomposes
+    cleanly — the usual case):
+      Revenue → Cost of sales + Gross profit
+      Gross profit → Operating profit + Operating expenses
+      Operating expenses → R&D + SG&A + other operating costs
+      Operating profit → Net profit + Tax + Interest & other
+    Fallback (missing/unclean operating data — e.g. heavy non-operating income
+    pushing net above operating): the original three-way split, with
+    "detailed": False.
     """
     if not row:
         return None
@@ -597,28 +600,92 @@ def income_flow_view(row):
     if gp is None or cost is None:
         return None
     rd, sga = row.get("rd") or 0.0, row.get("sga") or 0.0
-    expenses = gp - net                       # all of gross profit not kept as earnings
-    other = expenses - rd - sga               # tax + non-operating + unallocated
+    p = {"rev": rev, "cost": cost, "gross": gp, "rd": rd, "sga": sga,
+         "net": net, "detailed": False}
+
+    op, tax = row.get("operating_inc"), row.get("tax")
+    tol = 0.005 * rev
+    if op is not None and 0 < op <= gp + tol:
+        opex = gp - op
+        int_other = op - (tax or 0.0) - net     # non-op costs; <0 = non-op income
+        opex_other = opex - rd - sga
+        if int_other >= -tol and opex_other >= -tol and rd + sga <= opex + tol:
+            p.update({"detailed": True, "op": op, "opex": max(opex, 0.0),
+                      "tax": tax or 0.0, "int_other": max(int_other, 0.0),
+                      "opex_other": max(opex_other, 0.0)})
+    if not p["detailed"]:
+        expenses = gp - net                     # gross profit not kept as earnings
+        p.update({"expenses": expenses, "other": expenses - rd - sga})
+    return p
+
+
+def income_flow_view(row, prior=None):
+    """Shape a saved income_flow row (money already in the display currency)
+    into the Revenue & Expenses widget's data — flow parts, margins, and a
+    table of lines as a % of revenue, each with a Y/Y delta when `prior` (the
+    comparable period one year earlier, same currency) is given. None when too
+    thin to be meaningful."""
+    p = _flow_parts(row)
+    if not p:
+        return None
+    pp = _flow_parts(prior) or {}
+    rev = p["rev"]
 
     def pct(v):
         return round(100 * v / rev, 1)
 
-    rows = [
-        {"label": "Revenue",       "amount": rev,  "pct": 100.0,     "kind": "revenue"},
-        {"label": "Cost of sales", "amount": cost, "pct": pct(cost), "kind": "cost"},
-        {"label": "Gross profit",  "amount": gp,   "pct": pct(gp),   "kind": "subtotal"},
-    ]
-    if rd:
-        rows.append({"label": "Research & development", "amount": rd, "pct": pct(rd), "kind": "expense"})
-    if sga:
-        rows.append({"label": "Sales, general & admin", "amount": sga, "pct": pct(sga), "kind": "expense"})
-    if abs(other) >= 0.005 * rev:             # show the bucket only if it's material
-        rows.append({"label": "Tax & other", "amount": other, "pct": pct(other), "kind": "expense"})
-    rows.append({"label": "Net income", "amount": net, "pct": pct(net), "kind": "earnings"})
+    def yoy(key):
+        prev = pp.get(key)
+        if not prev:
+            return None
+        return round(100 * (p.get(key, 0) - prev) / abs(prev), 1)
 
-    return {"period": row.get("period_label"), "revenue": rev, "cost": cost,
-            "gross_profit": gp, "expenses": expenses, "rd": rd, "sga": sga,
-            "other": other, "net_income": net, "margin_pct": pct(net), "rows": rows}
+    def line(label, key, kind):
+        return {"label": label, "amount": p[key], "pct": pct(p[key]),
+                "kind": kind, "yoy": yoy(key)}
+
+    rows = [line("Revenue", "rev", "revenue"),
+            line("Cost of sales", "cost", "cost"),
+            line("Gross profit", "gross", "subtotal")]
+    if p["detailed"]:
+        if p["rd"]:
+            rows.append(line("Research & development", "rd", "expense"))
+        if p["sga"]:
+            rows.append(line("Sales, general & admin", "sga", "expense"))
+        if p["opex_other"] >= 0.005 * rev:
+            rows.append(line("Other operating costs", "opex_other", "expense"))
+        rows.append(line("Operating profit", "op", "subtotal"))
+        if p["tax"]:
+            rows.append(line("Tax", "tax", "expense"))
+        if p["int_other"] >= 0.005 * rev:
+            rows.append(line("Interest & other", "int_other", "expense"))
+    else:
+        if p["rd"]:
+            rows.append(line("Research & development", "rd", "expense"))
+        if p["sga"]:
+            rows.append(line("Sales, general & admin", "sga", "expense"))
+        if abs(p["other"]) >= 0.005 * rev:
+            rows.append(line("Tax & other", "other", "expense"))
+    rows.append(line("Net income", "net", "earnings"))
+
+    period = row.get("period") or row.get("period_label")
+    if period and "Q" in str(period) and not str(period).startswith("FY"):
+        yr, q = str(period).split("Q")
+        period = f"Q{q} {yr}"
+
+    view = {"period": period, "ptype": row.get("ptype"),
+            "revenue": rev, "cost": p["cost"], "gross_profit": p["gross"],
+            "rd": p["rd"], "sga": p["sga"], "net_income": p["net"],
+            "margin_pct": pct(p["net"]), "rows": rows, "detailed": p["detailed"],
+            "margins": {"gross": pct(p["gross"]), "net": pct(p["net"])},
+            "rev_yoy": yoy("rev")}
+    if p["detailed"]:
+        view.update({"operating": p["op"], "opex": p["opex"], "tax": p["tax"],
+                     "int_other": p["int_other"], "opex_other": p["opex_other"]})
+        view["margins"]["operating"] = pct(p["op"])
+    else:
+        view.update({"expenses": p["expenses"], "other": p["other"]})
+    return view
 
 
 def income_sankey(view, width=620, height=300, nw=13):
@@ -641,16 +708,43 @@ def income_sankey(view, width=620, height=300, nw=13):
     # Columns, each a list of (label, value, kind), top→bottom. Drop empty flows.
     def col(*items):
         return [(l, v, k) for (l, v, k) in items if v and v > 0]
-    cols = [
-        col(("Revenue", rev, "revenue")),
-        col(("Gross profit", view["gross_profit"], "subtotal"),
-            ("Cost of sales", view["cost"], "cost")),
-        col(("Earnings", view["net_income"], "earnings"),
-            ("Expenses", view["expenses"], "expense")),
-        col(("R&D", view["rd"], "expense"),
-            ("SG&A", view["sga"], "expense"),
-            ("Tax & other", view["other"], "expense")),
-    ]
+    if view.get("detailed"):
+        # PepsiCo-style depth: the operating stage + tax/interest leaves.
+        cols = [
+            col(("Revenue", rev, "revenue")),
+            col(("Gross profit", view["gross_profit"], "subtotal"),
+                ("Cost of sales", view["cost"], "cost")),
+            col(("Operating profit", view["operating"], "subtotal"),
+                ("Operating expenses", view["opex"], "expense")),
+            col(("Net profit", view["net_income"], "earnings"),
+                ("Tax", view["tax"], "expense"),
+                ("Interest & other", view["int_other"], "expense"),
+                ("R&D", view["rd"], "expense"),
+                ("SG&A", view["sga"], "expense"),
+                ("Other op. costs", view["opex_other"], "expense")),
+        ]
+        tree = [("Revenue", "Gross profit"), ("Revenue", "Cost of sales"),
+                ("Gross profit", "Operating profit"),
+                ("Gross profit", "Operating expenses"),
+                ("Operating profit", "Net profit"), ("Operating profit", "Tax"),
+                ("Operating profit", "Interest & other"),
+                ("Operating expenses", "R&D"), ("Operating expenses", "SG&A"),
+                ("Operating expenses", "Other op. costs")]
+    else:
+        cols = [
+            col(("Revenue", rev, "revenue")),
+            col(("Gross profit", view["gross_profit"], "subtotal"),
+                ("Cost of sales", view["cost"], "cost")),
+            col(("Earnings", view["net_income"], "earnings"),
+                ("Expenses", view["expenses"], "expense")),
+            col(("R&D", view["rd"], "expense"),
+                ("SG&A", view["sga"], "expense"),
+                ("Tax & other", view["other"], "expense")),
+        ]
+        tree = [("Revenue", "Gross profit"), ("Revenue", "Cost of sales"),
+                ("Gross profit", "Earnings"), ("Gross profit", "Expenses"),
+                ("Expenses", "R&D"), ("Expenses", "SG&A"),
+                ("Expenses", "Tax & other")]
     col_x = [i * (width - nw) / 3 for i in range(4)]
 
     nodes = {}
@@ -682,20 +776,34 @@ def income_sankey(view, width=620, height=300, nw=13):
         links.append({"d": ribbon(s["x"] + s["w"], sy0, sy1, t["x"], t["y"], t["y"] + t["h"]),
                       "flow": flow})
 
-    link("Revenue", "Gross profit"); link("Revenue", "Cost of sales")
-    link("Gross profit", "Earnings"); link("Gross profit", "Expenses")
-    for lbl in ("R&D", "SG&A", "Tax & other"):
-        link("Expenses", lbl)
+    for src, dst in tree:
+        link(src, dst)
+
+    # Margin / Y-o-Y sub-labels on the key nodes (kept to one short line each).
+    margins = view.get("margins") or {}
+    subs = {"Revenue": (f"{view['rev_yoy']:+.0f}% Y/Y"
+                        if view.get("rev_yoy") is not None else None),
+            "Gross profit": (f"{margins['gross']:.0f}% margin"
+                             if margins.get("gross") is not None else None),
+            "Operating profit": (f"{margins['operating']:.0f}% margin"
+                                 if margins.get("operating") is not None else None),
+            "Net profit": (f"{margins['net']:.0f}% margin"
+                           if margins.get("net") is not None else None),
+            "Earnings": (f"{margins['net']:.0f}% margin"
+                         if margins.get("net") is not None else None)}
+    for n in nodes.values():
+        n["sub"] = subs.get(n["label"])
 
     # Label placement: rightmost column beside the bar, the rest above it.
     for n in nodes.values():
         if n["col"] == 3:
             n["lx"], n["ly"], n["anchor"], n["above"] = n["x"] + nw + 8, n["y"] + n["h"] / 2, "start", False
         else:
-            n["lx"], n["ly"], n["anchor"], n["above"] = n["x"], n["y"] - 20, "start", True
+            lift = 32 if n["sub"] else 20
+            n["lx"], n["ly"], n["anchor"], n["above"] = n["x"], n["y"] - lift, "start", True
 
     ys_all = [n["y"] for n in nodes.values()] + [n["y"] + n["h"] for n in nodes.values()]
-    vb_y = min(ys_all) - 34                  # headroom for the two-line labels above the top nodes
+    vb_y = min(ys_all) - 46                  # headroom for up-to-three-line labels
     vb_h = (max(ys_all) + 10) - vb_y
     return {"nodes": list(nodes.values()), "links": links,
             "vb": f"-6 {vb_y:.1f} {width + 116:.0f} {vb_h:.1f}"}

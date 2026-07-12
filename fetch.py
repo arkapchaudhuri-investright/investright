@@ -241,28 +241,49 @@ _INCOME_FLOW = {
 }
 
 
-def income_breakdown(symbol):
-    """Latest fiscal year's income-statement split for the Revenue & Expenses
-    widget, in the stock's native currency. None if Yahoo has no usable income
-    data. Fills gross_profit / cost_of_rev from each other when one is missing."""
-    try:
-        inc = yf.Ticker(symbol).financials
-    except Exception:
-        return None
-    years = _by_year(inc)
-    if not years:
-        return None
-    latest = max(years)
-    col = years[latest]
-    out = {k: _pick(inc, al, col) for k, al in _INCOME_FLOW.items()}
+def _flow_from_col(df, col):
+    """One period's income-flow dict from statement column `col`, or None.
+    Fills gross_profit / cost_of_rev from each other when one is missing."""
+    out = {k: _pick(df, al, col) for k, al in _INCOME_FLOW.items()}
     if out.get("revenue") is None:
         return None
     if out.get("gross_profit") is None and out.get("cost_of_rev") is not None:
         out["gross_profit"] = out["revenue"] - out["cost_of_rev"]
     elif out.get("cost_of_rev") is None and out.get("gross_profit") is not None:
         out["cost_of_rev"] = out["revenue"] - out["gross_profit"]
-    out["period_label"] = f"FY{latest}"
     return out
+
+
+def income_breakdowns(symbol):
+    """Every income-statement period Yahoo serves for the Revenue & Expenses
+    widget: ~5 annual years + the recent ~5 quarters ("last 5 years or max
+    whatever is there"), in the stock's native currency. [] on failure.
+
+    Each row: period ("FY2025" | "2026Q1"), ptype ("A" | "Q"), end_date, and
+    the line items. Quarter numbering is calendar (end-month // 3) — a display
+    label, not a fiscal-quarter claim; Y/Y matching uses end_date."""
+    try:
+        t = yf.Ticker(symbol)
+        annual, quarterly = t.income_stmt, t.quarterly_income_stmt
+    except Exception:
+        return []
+    rows = []
+    for df, ptype in ((annual, "A"), (quarterly, "Q")):
+        for col in getattr(df, "columns", []):
+            try:
+                end = col.date().isoformat()
+            except AttributeError:
+                continue
+            flow = _flow_from_col(df, col)
+            if not flow:
+                continue
+            if ptype == "A":
+                period = f"FY{col.year}"
+            else:
+                period = f"{col.year}Q{(col.month + 2) // 3}"
+            rows.append({**flow, "period": period, "ptype": ptype,
+                         "end_date": end})
+    return rows
 
 
 def _pick(df, aliases, col):

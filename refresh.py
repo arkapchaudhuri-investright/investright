@@ -86,10 +86,10 @@ def save_deep(conn, ticker):
     if news:
         save_news(conn, ticker, news)
 
-    try:  # latest-period income breakdown for the Revenue & Expenses widget
-        flow = fetch.income_breakdown(ticker)
-        if flow:
-            save_income_flow(conn, ticker, flow)
+    try:  # per-period income breakdowns for the Revenue & Expenses widget
+        flows = fetch.income_breakdowns(ticker)
+        if flows:
+            save_income_flow(conn, ticker, flows)
     except Exception:
         pass
 
