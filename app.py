@@ -1082,10 +1082,18 @@ def _stock_context(conn, ticker):
     ins = conn.execute(
         "SELECT SUM(action='buy') buys, SUM(action='sell') sells FROM insider_tx "
         "WHERE ticker=? AND filed_at >= date('now','-90 day')", (ticker,)).fetchone()
+    execs = [dict(r) for r in conn.execute(
+        "SELECT name, title FROM executives WHERE ticker=? ORDER BY rank LIMIT 10", (ticker,))]
 
     cur = s["currency"]
     scores = metrics.axis_scores(checks)
-    lines = [f"Company: {s['name']} ({ticker}) on {s['exchange']}. Prices in {cur}."]
+    sector_bits = " · ".join(x for x in (s["sector"], s["industry"]) if x)
+    lines = [f"Company: {s['name']} ({ticker}) on {s['exchange']}"
+             + (f", {sector_bits}" if sector_bits else "") + f". Prices in {cur}."]
+    if execs:
+        # Leadership so Otto can answer "who is the CEO?" etc. from real data.
+        lines.append("Leadership / key people (from Yahoo, by seniority): " + "; ".join(
+            f"{e['name']} — {e['title']}" if e["title"] else e["name"] for e in execs))
     if snap:
         lines.append(
             f"Price {snap['price']}, change today {snap['change_pct']}%. "
