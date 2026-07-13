@@ -910,11 +910,11 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .exec:hover .exec-chip, .exec:focus-within .exec-chip {
   border-color: var(--hairline); background: var(--wash);
 }
-.exec-card-google {
+.exec-card-linkedin {
   display: inline-block; margin-top: 10px; font-size: 12px; color: var(--accent);
   text-decoration: none;
 }
-.exec-card-google:hover { text-decoration: underline; }
+.exec-card-linkedin:hover { text-decoration: underline; }
 /* Portrait: greyscale in a brand-green ring (the founders treatment) — the
    ring sits on a wrapper so the filter can't wash the green out. */
 .exec-photo-ring {
