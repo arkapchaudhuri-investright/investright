@@ -1,0 +1,26 @@
+{# Inline SVG market flags. Regional-indicator emoji (🇺🇸 / 🇮🇳) don't render on
+   Windows (it shows "US"/"IN" letters or blank boxes), so we draw them — the
+   same inline-SVG-everywhere rule as Otto, the gear, and the search icons.
+   Usage:  {% from "_flags.html" import flag %} … {{ flag('US') }} #}
+{% macro flag(code) -%}
+{%- if code == 'US' -%}
+<svg class="flagicon" viewBox="0 0 21 15" width="21" height="15" role="img" aria-label="United States">
+  <rect width="21" height="15" fill="#fff"/>
+  <g fill="#b22234"><rect width="21" height="1.15"/><rect y="2.3" width="21" height="1.15"/><rect y="4.6" width="21" height="1.15"/><rect y="6.9" width="21" height="1.15"/><rect y="9.2" width="21" height="1.15"/><rect y="11.5" width="21" height="1.15"/><rect y="13.85" width="21" height="1.15"/></g>
+  <rect width="9" height="8.05" fill="#3c3b6e"/>
+  <g fill="#fff"><circle cx="1.8" cy="1.6" r=".5"/><circle cx="4.3" cy="1.6" r=".5"/><circle cx="6.8" cy="1.6" r=".5"/><circle cx="3" cy="3.3" r=".5"/><circle cx="5.5" cy="3.3" r=".5"/><circle cx="1.8" cy="5" r=".5"/><circle cx="4.3" cy="5" r=".5"/><circle cx="6.8" cy="5" r=".5"/><circle cx="3" cy="6.7" r=".5"/><circle cx="5.5" cy="6.7" r=".5"/></g>
+</svg>
+{%- elif code == 'IN' -%}
+<svg class="flagicon" viewBox="0 0 21 15" width="21" height="15" role="img" aria-label="India">
+  <rect width="21" height="5" fill="#ff9933"/>
+  <rect y="5" width="21" height="5" fill="#fff"/>
+  <rect y="10" width="21" height="5" fill="#138808"/>
+  <circle cx="10.5" cy="7.5" r="2" fill="none" stroke="#000080" stroke-width=".45"/>
+  <circle cx="10.5" cy="7.5" r=".45" fill="#000080"/>
+  <g stroke="#000080" stroke-width=".28">
+    <line x1="10.5" y1="5.5" x2="10.5" y2="9.5"/><line x1="8.5" y1="7.5" x2="12.5" y2="7.5"/>
+    <line x1="9.1" y1="6.1" x2="11.9" y2="8.9"/><line x1="11.9" y1="6.1" x2="9.1" y2="8.9"/>
+  </g>
+</svg>
+{%- endif -%}
+{%- endmacro %}

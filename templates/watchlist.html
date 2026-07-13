@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Watchlist · InvestRight{% endblock %}
 {% block content %}
+{% from "_flags.html" import flag %}
 
 {# 30-session sparkline (last-good closes from price_history), coloured up/down
    vs the window's first close — same hue language as the change pill. #}
@@ -34,10 +35,10 @@
   {% if current_user and total %}
   {# Market filter — US / India / Both, same shape as /today. Plain links. #}
   <nav class="seg today-mkt-seg" aria-label="Which market to show">
-    {% for key, label in (('US', '🇺🇸 US'), ('IN', '🇮🇳 India'), ('BOTH', 'Both')) %}
+    {% for key, label in (('US', 'US'), ('IN', 'India'), ('BOTH', 'Both')) %}
     <a href="{{ url_for('watchlist_page', market=key) }}"
        class="{{ 'active' if market == key }}"
-       {% if market == key %}aria-current="true"{% endif %}>{{ label }}</a>
+       {% if market == key %}aria-current="true"{% endif %}>{% if key != 'BOTH' %}{{ flag(key) }}{% endif %}{{ label }}</a>
     {% endfor %}
   </nav>
   {% endif %}
