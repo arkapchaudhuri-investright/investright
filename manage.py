@@ -290,6 +290,47 @@ def backfill_industry(apply=False):
               else "\ndry run — re-run with --apply to write")
 
 
+def enrich_execs(reset=False):
+    """Recover / fill leadership photos+bios across ALL stocks (the nightly
+    refresh only enriches watchlist tickers). First re-links any cached photo
+    file whose DB pointer went missing, then runs the (now throttle-resilient)
+    Wikidata enrichment for every pending exec. Long-running — background it."""
+    import re
+    import time
+
+    import refresh
+    import wiki
+    with get_conn() as conn:
+        relinked = 0
+        for row in conn.execute(
+                "SELECT ticker, rank FROM executives WHERE photo IS NULL OR photo=''"):
+            safe = re.sub(r"[^A-Za-z0-9._-]", "_", f"{row['ticker']}_{row['rank']}")
+            f = wiki.EXEC_DIR / (safe + ".jpg")
+            if f.exists():
+                conn.execute("UPDATE executives SET photo=?, enriched=1 "
+                             "WHERE ticker=? AND rank=?", (f.name, row["ticker"], row["rank"]))
+                relinked += 1
+        conn.commit()
+        print(f"relinked {relinked} cached photo(s) whose DB pointer was lost")
+        if reset:
+            n = conn.execute("UPDATE executives SET enriched=0 "
+                             "WHERE photo IS NULL OR photo=''").rowcount
+            conn.commit()
+            print(f"reset {n} photo-less row(s) to re-query")
+        tickers = [r["ticker"] for r in conn.execute(
+            "SELECT ticker FROM stocks ORDER BY ticker")]
+        for t in tickers:
+            try:
+                refresh.enrich_executives(conn, t)
+            except Exception as e:                       # transient throttle → retry next run
+                print(f"  {t}: {type(e).__name__} (will retry next run)")
+            conn.commit()
+            time.sleep(1)
+        got = conn.execute("SELECT COUNT(*) FROM executives "
+                           "WHERE photo IS NOT NULL AND photo!=''").fetchone()[0]
+        print(f"done — execs with photos now: {got}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -307,6 +348,12 @@ def main():
     p.add_argument("--password", help="skip the hidden prompt (leaks into shell history)")
     p.add_argument("--apply", action="store_true",
                    help="actually write (default is a dry run)")
+
+    ee = sub.add_parser("enrich-execs",
+                        help="recover/fill leadership photos across all stocks "
+                             "(relink lost files + throttle-resilient Wikidata)")
+    ee.add_argument("--reset", action="store_true",
+                    help="also re-queue photo-less rows already marked done")
 
     bi = sub.add_parser("backfill-industry",
                         help="fill stocks.industry for rows Yahoo can supply it for "
@@ -334,6 +381,8 @@ def main():
         migrate_watchlist(args.email, args.apply)
     elif args.cmd == "set-password":
         set_user_password(args.email, args.password, args.apply)
+    elif args.cmd == "enrich-execs":
+        enrich_execs(args.reset)
     elif args.cmd == "backfill-industry":
         backfill_industry(args.apply)
     elif args.cmd == "purge-small-logos":
