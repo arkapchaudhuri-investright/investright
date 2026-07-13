@@ -53,6 +53,15 @@ def ensure_stock(conn, ticker):
         logos.ensure(meta["ticker"], meta.get("website"), meta.get("name"))
     except Exception:
         pass
+    try:
+        # Full price series too — a peer chip links straight to its deep-dive,
+        # and the chart must work on the very first view (no "come back after
+        # the refresh" copy anywhere).
+        rows = fetch.price_history_resilient(meta["ticker"], "max")
+        if rows:
+            save_price_history(conn, meta["ticker"], rows)
+    except Exception:
+        pass
     return True
 
 

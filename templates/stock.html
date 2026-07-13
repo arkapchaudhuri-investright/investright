@@ -44,7 +44,7 @@
         {% endif %}
         {% if as_of %}<span class="asof">as of {{ as_of }}</span>{% endif %}
       {% else %}
-        <span class="asof">No saved price yet — Otto will fetch one on the next refresh.</span>
+        <span class="asof">Couldn't load a live price right now — hit ↻ Refresh to retry.</span>
       {% endif %}
       <form action="{{ url_for('refresh_stock', ticker=s['ticker']) }}" method="post" class="refresh-form">
         <input type="hidden" name="csrf" value="{{ csrf_token }}">
@@ -181,8 +181,10 @@
   })();
   </script>
   {% else %}
-  <p class="asof">No saved price history for {{ s['ticker'] }} yet — the chart lands
-    with the next refresh (or hit ↻ on the watchlist page).</p>
+  {# Only reachable when even the live fetch failed (page pulls history
+     in-memory on first view) — so this is a transient network miss. #}
+  <p class="asof">Couldn't load {{ s['ticker'] }}'s price history right now —
+    hit ↻ Refresh (top of the page) to retry.</p>
   {% endif %}
 </section>
 
@@ -242,7 +244,7 @@
     {% endif %}
     <p class="asof perf-note">Yahoo Finance's analyst aggregate. Sentiment, not advice.</p>
     {% else %}
-    <p class="asof">Analyst consensus lands with the next nightly refresh.</p>
+    <p class="asof">No analyst consensus is available for {{ s['ticker'] }}.</p>
     {% endif %}
   </div>
 
@@ -286,7 +288,7 @@
 {% if not has_data %}
 <section class="card">
   <p class="empty serif">Otto's still crunching {{ s['name'].split(' ')[0] }}'s numbers.<br>
-    <span class="empty-sub">Deeper data lands after the next refresh — hit ↻ on the home page to fetch it now.</span></p>
+    <span class="empty-sub">Hit ↻ Refresh at the top of this page to pull the full statements now — it takes a few seconds.</span></p>
 </section>
 {% else %}
 
