@@ -12,6 +12,28 @@
 // boxEl is a <ul> that gets `hidden` toggled and its <li>s filled. onPick(sym)
 // fires when a suggestion is chosen (default: submit the input's form).
 (function (global) {
+  // Search dataset: starts as the small curated TICKERS baked into the page
+  // (instant), then grows to the full listed universe (~8k US+NSE symbols) the
+  // first time a search field is touched — one static fetch, then everything
+  // stays client-side, so there's still no API per keystroke (DESIGN §2).
+  var DATA = (typeof TICKERS !== 'undefined') ? TICKERS.slice() : [];
+  var fullState = 0;                        // 0 = not loaded, 1 = loading, 2 = done
+  function loadFull() {
+    if (fullState) return;
+    fullState = 1;
+    fetch('/static/symbols.json')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rows) {
+        if (rows && rows.length) {
+          var seen = {};
+          DATA.forEach(function (t) { seen[t[0]] = 1; });
+          rows.forEach(function (t) { if (!seen[t[0]]) { seen[t[0]] = 1; DATA.push(t); } });
+        }
+        fullState = 2;
+      })
+      .catch(function () { fullState = 0; });   // let a later focus retry
+  }
+
   function norm(s) { return s.toLowerCase().replace(/[^a-z0-9 ]/g, ''); }
   function subseq(q, t) {   // are all of q's chars in t, in order? (cheap fuzzy)
     var i = 0;
@@ -46,11 +68,15 @@
     };
     var sel = -1;
 
+    // Warm the full universe as soon as the field is engaged.
+    input.addEventListener('focus', loadFull);
+
     input.addEventListener('input', function () {
+      loadFull();
       var q = input.value.trim();
       sel = -1;
-      if (q.length < 1 || typeof TICKERS === 'undefined') { box.hidden = true; box.innerHTML = ''; return; }
-      var hits = TICKERS.map(function (t) { return [score(q, t[0], t[1]), t]; })
+      if (q.length < 1 || !DATA.length) { box.hidden = true; box.innerHTML = ''; return; }
+      var hits = DATA.map(function (t) { return [score(q, t[0], t[1]), t]; })
         .filter(function (p) { return p[0] > 0; })
         .sort(function (a, b) { return b[0] - a[0]; })
         .slice(0, 8).map(function (p) { return p[1]; });
