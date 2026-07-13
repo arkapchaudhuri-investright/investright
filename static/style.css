@@ -888,16 +888,25 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   border-bottom: 1px dashed var(--hairline);
 }
 .exec-tier:last-of-type { border-bottom: 0; padding-bottom: 4px; }
-.exec { position: relative; }
+.exec { position: relative; width: 128px; display: flex; flex-direction: column; align-items: center; }
+/* Avatar links out to Google (person + company); the ring/mono live inside it. */
+.exec-photo-link { display: inline-flex; border-radius: 50%; margin-bottom: 6px; text-decoration: none; }
+.exec-photo-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.exec-photo-link:hover .exec-photo { filter: grayscale(0); }   /* colour on hover — a hint it's live */
 .exec-chip {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  width: 128px; padding: 12px 8px 10px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 100%; padding: 4px 8px 8px; cursor: pointer;
   background: none; border: 1px solid transparent; border-radius: 14px;
   font-family: inherit; color: var(--text); text-align: center;
 }
 .exec:hover .exec-chip, .exec:focus-within .exec-chip {
   border-color: var(--hairline); background: var(--wash);
 }
+.exec-card-google {
+  display: inline-block; margin-top: 10px; font-size: 12px; color: var(--accent);
+  text-decoration: none;
+}
+.exec-card-google:hover { text-decoration: underline; }
 /* Portrait: greyscale in a brand-green ring (the founders treatment) — the
    ring sits on a wrapper so the filter can't wash the green out. */
 .exec-photo-ring {
