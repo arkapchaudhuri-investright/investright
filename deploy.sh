@@ -10,6 +10,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "==> git pull (ff-only)"
+# The monthly investright-symbols timer rewrites the tracked static/symbols.json
+# in place on this host, which would block a fast-forward pull. Discard the local
+# copy first — the pull restores the committed baseline and the timer refreshes
+# it again on its next run.
+git checkout -- static/symbols.json 2>/dev/null || true
 git pull --ff-only origin main
 
 echo "==> pip install -r requirements.txt (no-op unless deps changed)"

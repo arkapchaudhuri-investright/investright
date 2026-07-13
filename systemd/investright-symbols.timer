@@ -1,0 +1,14 @@
+[Unit]
+Description=Rebuild the InvestRight symbol universe monthly
+
+[Timer]
+# 1st of each month at 04:00 — listings drift slowly, and this is well clear of
+# the nightly 22:00 refresh and 22:30 backup.
+OnCalendar=*-*-01 04:00:00
+# A reboot or sleeping host must not skip the month.
+Persistent=true
+# Stagger the hit on the upstream sources.
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

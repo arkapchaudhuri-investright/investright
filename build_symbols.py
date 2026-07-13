@@ -21,6 +21,7 @@ Run:  .venv/bin/python build_symbols.py   (writes static/symbols.json)
 import csv
 import io
 import json
+import os
 import re
 from pathlib import Path
 
@@ -110,7 +111,12 @@ def main():
             continue
         seen.add(sym)
         merged.append([sym, name, exch])
-    OUT.write_text(json.dumps(merged, ensure_ascii=False, separators=(",", ":")))
+    # Atomic write: a crash mid-write must not truncate the live file (this runs
+    # unattended from a monthly timer). Fetches happen before this, so a source
+    # outage aborts earlier and leaves the previous symbols.json untouched.
+    tmp = OUT.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(merged, ensure_ascii=False, separators=(",", ":")))
+    os.replace(tmp, OUT)
     kb = OUT.stat().st_size / 1024
     print(f"wrote {len(merged)} symbols → {OUT} ({kb:.0f} KB)")
     print(f"  US: {len(us)}  ·  NSE: {len(nse)}  ·  after dedup: {len(merged)}")
