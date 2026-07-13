@@ -154,6 +154,8 @@ def enrich_executives(conn, ticker, limit=8):
     a network error leaves it 0 for the next night. ~1s pacing keeps Wikimedia
     from 429ing the run."""
     import time
+    srow = conn.execute("SELECT name FROM stocks WHERE ticker=?", (ticker,)).fetchone()
+    company = srow["name"] if srow else None
     rows = conn.execute(
         "SELECT rank, name FROM executives WHERE ticker=? AND enriched=0 "
         "ORDER BY rank LIMIT ?", (ticker, limit)).fetchall()
@@ -162,6 +164,10 @@ def enrich_executives(conn, ticker, limit=8):
         photo = None
         if info and info.get("photo_url"):
             photo = wiki.cache_photo(f"{ticker}_{r['rank']}", info["photo_url"])
+        if not photo and company:                    # web-image fallback fills the gaps
+            img = wiki.image_search(f"{wiki._clean_name(r['name'])} {company}")
+            if img:
+                photo = wiki.cache_photo(f"{ticker}_{r['rank']}", img)
         # COALESCE keeps any photo we already had if this pass found none — a
         # transient miss must never blank a good portrait.
         conn.execute(

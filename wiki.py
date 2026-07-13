@@ -20,6 +20,10 @@ TIMEOUT = 12
 # photos (see _api's retry note).
 _UA = {"User-Agent": "InvestRight/1.0 (https://investright.us; leadership photo "
                      "enrichment) python-requests"}
+# DuckDuckGo's image endpoint expects a browser-like UA to hand out the vqd token.
+_BROWSER_UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                             "AppleWebKit/537.36 (KHTML, like Gecko) "
+                             "Chrome/124.0 Safari/537.36"}
 # The Wikidata search hit must *describe* a business person, or we don't trust
 # the match — "Tim Cook" must not resolve to a chef.
 _ROLE_WORDS = ("executive", "business", "chairman", "chairperson", "chief",
@@ -128,7 +132,7 @@ def cache_photo(key, url):
     EXEC_DIR.mkdir(parents=True, exist_ok=True)
     safe = re.sub(r"[^A-Za-z0-9._-]", "_", key)
     try:
-        r = requests.get(url, timeout=TIMEOUT, headers=_UA)
+        r = requests.get(url, timeout=TIMEOUT, headers=_BROWSER_UA)
         if r.status_code == 200 and "image" in r.headers.get("content-type", "") \
                 and len(r.content) > 2000:
             dest = EXEC_DIR / (safe + ".jpg")
@@ -137,3 +141,34 @@ def cache_photo(key, url):
     except Exception:
         pass
     return None
+
+
+def image_search(query, safe=True):
+    """First web-image result for `query` via DuckDuckGo's image endpoint — a
+    free stand-in for a Google-image lookup (Google has no free/scrapable API).
+    Used only when the licensed sources (Wikidata P18 / Wikipedia) have no
+    portrait, so we prefer clean licensed photos and fall back to a web image
+    for the rest. Returns a proxied thumbnail URL (reliable to fetch) or None.
+    Unofficial + best-effort: any failure just yields the initials monogram.
+
+    Web images may be a wrong match or unlicensed — acceptable here as an
+    opt-in gap-filler for a personal dashboard; the primary sources come first.
+    """
+    if not query:
+        return None
+    try:
+        home = requests.get("https://duckduckgo.com/",
+                            params={"q": query, "iax": "images", "ia": "images"},
+                            headers=_BROWSER_UA, timeout=TIMEOUT)
+        m = re.search(r'vqd=["\']?([\d-]+)', home.text)
+        if not m:
+            return None
+        r = requests.get("https://duckduckgo.com/i.js",
+                         params={"l": "us-en", "o": "json", "q": query,
+                                 "vqd": m.group(1), "f": ",,,", "p": "1" if safe else "-1"},
+                         headers={**_BROWSER_UA, "Referer": "https://duckduckgo.com/"},
+                         timeout=TIMEOUT)
+        results = r.json().get("results") or []
+        return (results[0].get("thumbnail") or results[0].get("image")) if results else None
+    except Exception:
+        return None
