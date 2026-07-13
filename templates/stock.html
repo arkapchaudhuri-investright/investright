@@ -452,7 +452,7 @@
 {% set _vq = '&flowview=data' if flow_view == 'data' else '' %}
 <section class="card" id="income">
   <div class="card-head"><h2>Revenue &amp; expenses</h2>
-    <span class="asof">{{ flow_current|flowlabel if flow_current else income['period'] }}</span></div>
+    <span class="asof">{% if flow_view == 'data' %}{{ 'Annual' if flow_current in flow_annual else 'Quarterly' }} · all periods{% else %}{{ flow_current|flowlabel if flow_current else income['period'] }}{% endif %}</span></div>
 
   {% if flow_annual or flow_quarters %}
   <div class="flow-picker">
@@ -464,8 +464,10 @@
          class="{{ 'active' if flow_current in flow_quarters }}">Quarterly</a>
     </nav>
     {% endif %}
+    {# Chart view picks one period; Data view shows every period as columns, so
+       the dropdown is only needed for the chart. #}
+    {% if flow_view == 'chart' %}
     <form class="flow-form" method="get" action="{{ url_for('stock', ticker=s['ticker']) }}">
-      {% if flow_view == 'data' %}<input type="hidden" name="flowview" value="data">{% endif %}
       <select name="flow" aria-label="Choose the exact period">
         {% for p in (flow_annual if flow_current in flow_annual else flow_quarters) %}
         <option value="{{ p }}" {{ 'selected' if p == flow_current }}>{{ p|flowlabel }}</option>
@@ -473,6 +475,7 @@
       </select>
       <button type="submit" class="ghost flow-go">Go</button>
     </form>
+    {% endif %}
     {% if income_sankey %}
     <nav class="seg flow-viewseg" aria-label="Chart or data view">
       <a href="?flow={{ flow_current }}#income"
@@ -505,42 +508,44 @@
   </div>
   {% endif %}
 
-  {% if flow_view == 'data' %}
-  {% set has_yoy = income['rows']|selectattr('yoy', 'ne', none)|list|length > 0 %}
-  <table class="income-table">
-    <tbody>
-      {% for r in income['rows'] %}
-      <tr class="inc-{{ r['kind'] }}">
-        <td class="inc-label">{{ r['label'] }}</td>
-        <td class="inc-amt">{{ r['amount']|bigmoney(ccy) }}</td>
-        <td class="inc-bar-cell">
-          <span class="inc-bar" style="width: {{ [100, r['pct']|abs]|min|round(1) }}%"></span>
-        </td>
-        <td class="inc-pct">{{ '%.1f'|format(r['pct']) }}%</td>
-        {% if has_yoy %}
-        <td class="inc-yoy">
-          {% if r['yoy'] is not none %}
-          {# growth is good for revenue/profits, bad for costs — colour by that #}
-          <span class="{{ 'up' if (r['yoy'] >= 0) != (r['kind'] in ('cost','expense')) else 'down' }}">
-            {{ '%+.0f'|format(r['yoy']) }}%</span>
-          {% else %}<span class="inc-yoy-na">—</span>{% endif %}
-        </td>
-        {% endif %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  {% if flow_view == 'data' and flow_matrix %}
+  {# One column per period of the chosen cadence; each cell is the amount with
+     its Y/Y % change in brackets (green/red by whether the move is good for
+     that line — a rising cost is red, rising profit green). #}
+  <div class="income-matrix-wrap">
+    <table class="income-matrix">
+      <thead>
+        <tr>
+          <th class="im-corner" scope="col"></th>
+          {% for p in flow_matrix['periods'] %}
+          <th scope="col">{{ p|flowlabel }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in flow_matrix['rows'] %}
+        <tr class="inc-{{ row['kind'] }}">
+          <th class="im-label" scope="row">{{ row['label'] }}</th>
+          {% for c in row['cells'] %}
+          <td class="im-cell">
+            {% if c['amount'] is not none %}
+            <span class="im-amt">{{ c['amount']|bigmoney(ccy) }}</span>
+            {% if c['change'] is not none %}
+            <span class="im-chg {{ 'up' if (c['change'] >= 0) != (row['kind'] in ('cost','expense')) else 'down' }}">({{ '%+.0f'|format(c['change']) }}%)</span>
+            {% endif %}
+            {% else %}<span class="im-na">—</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="asof perf-note">Change in brackets is vs. the same period a year
+    earlier. Reported figures from Yahoo Finance, shown in {{ ccy }}.</p>
   {% endif %}
 
-  {# "What does this show" — plain English, directly under the visual (§5 voice). #}
-  <p class="asof inc-explain"><b>What this shows:</b> everything {{ s['name'] }}
-    billed customers in {{ flow_current|flowlabel if flow_current else income['period'] }}
-    (<b>revenue</b>), what delivering that directly cost (<b>cost of sales</b>),
-    and the <b>gross profit</b> left over. Operating costs like R&amp;D and
-    SG&amp;A, plus tax, then come out — what survives is
-    <b>earnings</b>{% if income['rows'][0]['yoy'] is not none %}; Y/Y compares
-    the same period a year earlier{% endif %}.</p>
-  <p class="asof perf-note">Reported figures from Yahoo Finance, shown in {{ ccy }}.</p>
+  {{ explain('revenue_expenses') }}
   <script>
   // Progressive enhancement: picking a period navigates immediately (the Go
   // button is the no-JS path) and lands back on this card.

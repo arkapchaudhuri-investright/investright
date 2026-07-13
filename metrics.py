@@ -9,6 +9,7 @@ quality, "top 25% of payers") return `passed=None` ("n/a") rather than guess
 import json
 import math
 import re
+from datetime import date
 
 # Transparent benchmarks — labelled in the UI, not licensed analyst data (§1).
 MARKET_GROWTH = 0.09      # ~ long-run nominal earnings growth of a broad index
@@ -780,20 +781,29 @@ def income_sankey(view, width=620, height=300, nw=13):
     for src, dst in tree:
         link(src, dst)
 
-    # Margin / Y-o-Y sub-labels on the key nodes (kept to one short line each).
+    # Every node carries its share of revenue as a sub-label. Profit nodes read
+    # as "X% margin" (that IS their % of revenue); Revenue itself shows Y/Y
+    # instead of a pointless 100%; costs/expenses read "X% of revenue".
     margins = view.get("margins") or {}
-    subs = {"Revenue": (f"{view['rev_yoy']:+.0f}% Y/Y"
-                        if view.get("rev_yoy") is not None else None),
-            "Gross profit": (f"{margins['gross']:.0f}% margin"
-                             if margins.get("gross") is not None else None),
-            "Operating profit": (f"{margins['operating']:.0f}% margin"
-                                 if margins.get("operating") is not None else None),
-            "Net profit": (f"{margins['net']:.0f}% margin"
-                           if margins.get("net") is not None else None),
-            "Earnings": (f"{margins['net']:.0f}% margin"
-                         if margins.get("net") is not None else None)}
+    special = {
+        "Revenue": (f"{view['rev_yoy']:+.0f}% Y/Y"
+                    if view.get("rev_yoy") is not None else None),
+        "Gross profit": (f"{margins['gross']:.0f}% margin"
+                         if margins.get("gross") is not None else None),
+        "Operating profit": (f"{margins['operating']:.0f}% margin"
+                             if margins.get("operating") is not None else None),
+        "Net profit": (f"{margins['net']:.0f}% margin"
+                       if margins.get("net") is not None else None),
+        "Earnings": (f"{margins['net']:.0f}% margin"
+                     if margins.get("net") is not None else None),
+    }
     for n in nodes.values():
-        n["sub"] = subs.get(n["label"])
+        if n["label"] in special:
+            n["sub"] = special[n["label"]]
+        elif n["pct"] < 1:                       # a rounded "0%" reads like an error
+            n["sub"] = "<1% of revenue"
+        else:                                    # every remaining node → % of revenue
+            n["sub"] = f"{n['pct']:.0f}% of revenue"
 
     # Label placement: rightmost column beside the bar, the rest above it.
     for n in nodes.values():
@@ -808,6 +818,73 @@ def income_sankey(view, width=620, height=300, nw=13):
     vb_h = (max(ys_all) + 10) - vb_y
     return {"nodes": list(nodes.values()), "links": links,
             "vb": f"-6 {vb_y:.1f} {width + 116:.0f} {vb_h:.1f}"}
+
+
+# Canonical income-statement lines for the multi-period Data table, in reading
+# order. Keys match _flow_parts(); detailed-only + fallback-only lines are both
+# listed and filtered per company below.
+_MATRIX_LINES = [
+    ("Revenue", "rev", "revenue"),
+    ("Cost of sales", "cost", "cost"),
+    ("Gross profit", "gross", "subtotal"),
+    ("Research & development", "rd", "expense"),
+    ("Sales, general & admin", "sga", "expense"),
+    ("Other operating costs", "opex_other", "expense"),
+    ("Operating profit", "op", "subtotal"),
+    ("Tax", "tax", "expense"),
+    ("Interest & other", "int_other", "expense"),
+    ("Tax & other", "other", "expense"),
+    ("Net income", "net", "earnings"),
+]
+_MATRIX_CORE = {"rev", "cost", "gross", "net"}   # always shown even if tiny
+
+
+def income_flow_matrix(rows):
+    """Multi-period comparison for the Data view: one column per period (rows
+    passed newest-first), one row per income line, each cell an amount plus a
+    Y/Y % change vs the same-cadence period ~1yr earlier. `rows` are income_flow
+    dicts already in the display currency. None if no period is usable."""
+    parts = [(r, _flow_parts(r)) for r in rows]
+    parts = [(r, p) for (r, p) in parts if p]
+    if not parts:
+        return None
+
+    def prior_for(r):
+        try:
+            end = date.fromisoformat(r["end_date"])
+        except (ValueError, TypeError, KeyError):
+            return None
+        best = None
+        for (rr, pp) in parts:
+            if rr["period"] == r["period"]:
+                continue
+            try:
+                off = abs((end - date.fromisoformat(rr["end_date"])).days - 365)
+            except (ValueError, TypeError, KeyError):
+                continue
+            if off <= 60 and (best is None or off < best[0]):
+                best = (off, pp)
+        return best[1] if best else None
+
+    priors = [prior_for(r) for (r, _) in parts]
+    out_rows = []
+    for label, key, kind in _MATRIX_LINES:
+        material = any(p.get(key) is not None and abs(p[key]) >= 0.005 * p["rev"]
+                       for (_, p) in parts)
+        if key not in _MATRIX_CORE and not material:
+            continue
+        cells = []
+        for i, (_, p) in enumerate(parts):
+            v = p.get(key)
+            if v is None:
+                cells.append({"amount": None, "pct": None, "change": None})
+                continue
+            prev = priors[i].get(key) if priors[i] else None
+            change = round(100 * (v - prev) / abs(prev), 1) if prev else None
+            cells.append({"amount": v, "pct": round(100 * v / p["rev"], 1),
+                          "change": change})
+        out_rows.append({"label": label, "kind": kind, "cells": cells})
+    return {"periods": [r["period"] for (r, _) in parts], "rows": out_rows}
 
 
 # --- Leadership grid ---------------------------------------------------------
@@ -1040,6 +1117,16 @@ GRAPH_EXPLAINERS = {
                 "that cash as a % of the price; the payout gauge shows how much of "
                 "earnings is paid out (over ~75% can be hard to sustain).",
         "url": "https://www.investopedia.com/terms/d/dividendyield.asp",
+    },
+    "revenue_expenses": {
+        "title": "Revenue & expenses",
+        "body": "How a company turns sales into profit. Revenue splits into the "
+                "direct cost of sales and the gross profit left over; from that "
+                "gross profit come operating costs (R&D, SG&A), tax and interest "
+                "— what survives is net income. Every figure is also shown as a "
+                "share of revenue, so you can compare periods and companies of "
+                "different sizes.",
+        "url": "https://www.investopedia.com/terms/i/incomestatement.asp",
     },
     "competitors": {
         "title": "Competitors",
