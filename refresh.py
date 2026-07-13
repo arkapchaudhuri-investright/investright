@@ -162,14 +162,16 @@ def enrich_executives(conn, ticker, limit=8):
         photo = None
         if info and info.get("photo_url"):
             photo = wiki.cache_photo(f"{ticker}_{r['rank']}", info["photo_url"])
+        # COALESCE keeps any photo we already had if this pass found none — a
+        # transient miss must never blank a good portrait.
         conn.execute(
-            "UPDATE executives SET photo=?, edu=?, bio=?, enriched=1 "
+            "UPDATE executives SET photo=COALESCE(?, photo), edu=?, bio=?, enriched=1 "
             "WHERE ticker=? AND rank=?",
             (photo,
              ", ".join(info["edu"]) if info and info.get("edu") else None,
              info.get("bio") if info else None,
              ticker, r["rank"]))
-        time.sleep(1)
+        time.sleep(1.5)
 
 
 def run_screener(conn):

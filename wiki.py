@@ -15,7 +15,11 @@ import requests
 
 EXEC_DIR = Path(__file__).parent / "static" / "execs"
 TIMEOUT = 12
-_UA = {"User-Agent": "InvestRight/1.0 (leadership enrichment)"}
+# Wikimedia throttles generic User-Agents hard; their policy wants a real client
+# name + contact URL. A descriptive UA markedly cuts the 429s that were wiping
+# photos (see _api's retry note).
+_UA = {"User-Agent": "InvestRight/1.0 (https://investright.us; leadership photo "
+                     "enrichment) python-requests"}
 # The Wikidata search hit must *describe* a business person, or we don't trust
 # the match — "Tim Cook" must not resolve to a chef.
 _ROLE_WORDS = ("executive", "business", "chairman", "chairperson", "chief",
@@ -48,8 +52,25 @@ def _clean_name(name):
 
 
 def _api(params):
-    return requests.get("https://www.wikidata.org/w/api.php", params={
-        **params, "format": "json"}, timeout=TIMEOUT, headers=_UA).json()
+    """Wikidata API GET with a few polite retries. On persistent throttling it
+    RAISES rather than returning empty — critical, because enrich_person treats
+    "no hits" as a confident no-match and marks the row done. If a 429 looked
+    like a no-match, a rate-limited night would permanently blank every exec
+    photo (which is exactly what happened once). Raising keeps the row for a
+    later retry instead."""
+    last = None
+    for attempt in range(3):
+        try:
+            r = requests.get("https://www.wikidata.org/w/api.php",
+                             params={**params, "format": "json"},
+                             timeout=TIMEOUT, headers=_UA)
+            if r.status_code == 429:
+                raise requests.HTTPError("Wikidata 429")
+            return r.json()                       # ValueError if body is empty/HTML
+        except (ValueError, requests.RequestException) as e:
+            last = e
+            time.sleep(1.5 * (attempt + 1))
+    raise last if last else RuntimeError("Wikidata API unreachable")
 
 
 def enrich_person(name):
