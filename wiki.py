@@ -20,7 +20,25 @@ _UA = {"User-Agent": "InvestRight/1.0 (leadership enrichment)"}
 # the match — "Tim Cook" must not resolve to a chef.
 _ROLE_WORDS = ("executive", "business", "chairman", "chairperson", "chief",
                "entrepreneur", "industrialist", "banker", "director",
-               "officer", "manager", "founder", "billionaire", "investor")
+               "officer", "manager", "founder", "co-founder", "billionaire",
+               "investor", "ceo", "cfo", "president", "economist", "financier",
+               "magnate")
+
+
+def _enwiki_image(title):
+    """Wikipedia page lead image for an article title, or None — a free photo
+    source that often exists even when Wikidata has no P18 portrait."""
+    if not title:
+        return None
+    try:
+        pages = requests.get(
+            "https://en.wikipedia.org/w/api.php", timeout=TIMEOUT, headers=_UA,
+            params={"action": "query", "titles": title, "prop": "pageimages",
+                    "piprop": "thumbnail", "pithumbsize": 256, "format": "json"},
+        ).json().get("query", {}).get("pages", {})
+        return next(iter(pages.values())).get("thumbnail", {}).get("source")
+    except Exception:
+        return None
 
 
 def _clean_name(name):
@@ -48,7 +66,7 @@ def enrich_person(name):
     if not hit:
         return None
     ent = _api({"action": "wbgetentities", "ids": hit["id"],
-                "props": "claims"}).get("entities", {}).get(hit["id"], {})
+                "props": "claims|sitelinks"}).get("entities", {}).get(hit["id"], {})
     claims = ent.get("claims", {})
 
     def vals(pid):
@@ -60,6 +78,11 @@ def enrich_person(name):
         return out
 
     photos = [v for v in vals("P18") if isinstance(v, str)]
+    photo_url = (("https://commons.wikimedia.org/wiki/Special:FilePath/"
+                  + quote(photos[0]) + "?width=256") if photos else None)
+    if not photo_url:   # fall back to the person's Wikipedia lead image
+        title = ent.get("sitelinks", {}).get("enwiki", {}).get("title")
+        photo_url = _enwiki_image(title)
     edu_ids = [v.get("id") for v in vals("P69") if isinstance(v, dict) and v.get("id")]
     edu = []
     if edu_ids:
@@ -71,8 +94,7 @@ def enrich_person(name):
             if lbl:
                 edu.append(lbl)
     return {
-        "photo_url": ("https://commons.wikimedia.org/wiki/Special:FilePath/"
-                      + quote(photos[0]) + "?width=256") if photos else None,
+        "photo_url": photo_url,
         "edu": edu,
         "bio": (hit.get("description") or "").strip() or None,
     }

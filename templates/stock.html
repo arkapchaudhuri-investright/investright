@@ -791,9 +791,11 @@
   {% for tier in exec_tiers %}
   <ul class="exec-tier">
     {% for e in tier %}
+    {% set _gsearch = 'https://www.google.com/search?q=' ~ ((e['name'] ~ ' ' ~ s['name'])|urlencode) %}
     <li class="exec">
-      <button type="button" class="exec-chip" aria-expanded="false"
-              aria-label="{{ e['name'] }} — {{ e['title'] or 'details' }}">
+      {# Photo/avatar links out to a Google search for the person + company. #}
+      <a class="exec-photo-link" href="{{ _gsearch }}" target="_blank" rel="noopener noreferrer"
+         title="Search {{ e['name'] }} on Google" aria-label="Search {{ e['name'] }} on Google">
         {% if e['photo'] %}
         <span class="exec-photo-ring"><img class="exec-photo" loading="lazy"
              src="{{ url_for('static', filename='execs/' + e['photo']) }}"
@@ -801,6 +803,9 @@
         {% else %}
         <span class="exec-mono" aria-hidden="true">{{ e['initials'] }}</span>
         {% endif %}
+      </a>
+      <button type="button" class="exec-chip" aria-expanded="false"
+              aria-label="{{ e['name'] }} — {{ e['title'] or 'details' }}">
         <span class="exec-name">{{ e['name'] }}</span>
         <span class="exec-title">{{ e['title'] or '' }}</span>
       </button>
@@ -814,6 +819,7 @@
           {% if e['pay'] %}<div><dt>Total yearly comp</dt><dd>{{ e['pay']|bigmoney(ccy) }}</dd></div>{% endif %}
           {% if e['edu'] %}<div><dt>Education</dt><dd>{{ e['edu'] }}</dd></div>{% endif %}
         </dl>
+        <a class="exec-card-google" href="{{ _gsearch }}" target="_blank" rel="noopener noreferrer">Search on Google →</a>
       </div>
     </li>
     {% endfor %}
