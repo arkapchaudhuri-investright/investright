@@ -791,11 +791,14 @@
   {% for tier in exec_tiers %}
   <ul class="exec-tier">
     {% for e in tier %}
-    {% set _gsearch = 'https://www.google.com/search?q=' ~ ((e['name'] ~ ' ' ~ s['name'])|urlencode) %}
+    {# Strip yfinance honorifics ("Mr. ", "Dr. ") so the LinkedIn keyword search
+       isn't polluted; link the avatar to a LinkedIn people search for the
+       person + company (lands on their profile for signed-in LinkedIn users). #}
+    {% set _person = e['name']|replace('Mr. ','')|replace('Ms. ','')|replace('Mrs. ','')|replace('Dr. ','')|replace('Prof. ','') %}
+    {% set _linkedin = 'https://www.linkedin.com/search/results/people/?keywords=' ~ ((_person ~ ' ' ~ s['name'])|urlencode) %}
     <li class="exec">
-      {# Photo/avatar links out to a Google search for the person + company. #}
-      <a class="exec-photo-link" href="{{ _gsearch }}" target="_blank" rel="noopener noreferrer"
-         title="Search {{ e['name'] }} on Google" aria-label="Search {{ e['name'] }} on Google">
+      <a class="exec-photo-link" href="{{ _linkedin }}" target="_blank" rel="noopener noreferrer"
+         title="Find {{ _person }} on LinkedIn" aria-label="Find {{ _person }} on LinkedIn">
         {% if e['photo'] %}
         <span class="exec-photo-ring"><img class="exec-photo" loading="lazy"
              src="{{ url_for('static', filename='execs/' + e['photo']) }}"
@@ -819,7 +822,7 @@
           {% if e['pay'] %}<div><dt>Total yearly comp</dt><dd>{{ e['pay']|bigmoney(ccy) }}</dd></div>{% endif %}
           {% if e['edu'] %}<div><dt>Education</dt><dd>{{ e['edu'] }}</dd></div>{% endif %}
         </dl>
-        <a class="exec-card-google" href="{{ _gsearch }}" target="_blank" rel="noopener noreferrer">Search on Google →</a>
+        <a class="exec-card-linkedin" href="{{ _linkedin }}" target="_blank" rel="noopener noreferrer">View on LinkedIn →</a>
       </div>
     </li>
     {% endfor %}
