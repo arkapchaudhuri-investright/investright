@@ -531,7 +531,7 @@
             {% if c['amount'] is not none %}
             <span class="im-amt">{{ c['amount']|bigmoney(ccy) }}</span>
             {% if c['change'] is not none %}
-            <span class="im-chg {{ 'up' if (c['change'] >= 0) != (row['kind'] in ('cost','expense')) else 'down' }}">({{ '%+.0f'|format(c['change']) }}%)</span>
+            <span class="im-chg {{ 'up' if c['change'] > 0 else 'down' if c['change'] < 0 else 'flat' }}">({{ '%+.0f'|format(c['change']) }}%)</span>
             {% endif %}
             {% else %}<span class="im-na">—</span>{% endif %}
           </td>
