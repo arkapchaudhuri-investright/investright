@@ -1045,7 +1045,8 @@ GRAPH_EXPLAINERS = {
         "title": "Competitors",
         "body": "A few peers in the same business, each with its own mini "
                 "snowflake, so you can see how this company stacks up rather than "
-                "judging it in isolation.",
+                "judging it in isolation. Anyone signed in can add a missing "
+                "competitor — it shows for everyone, marked as user-added.",
         "url": "https://www.investopedia.com/terms/c/comparable-company-analysis-cca.asp",
     },
     "ownership": {

@@ -44,9 +44,10 @@ def ensure_stock(conn, ticker):
     meta = fetch.lookup(ticker)
     if not meta:
         return False
-    conn.execute("INSERT INTO stocks (ticker,name,exchange,sector,currency,added_at) "
-                 "VALUES (?,?,?,?,?,?)",
+    conn.execute("INSERT INTO stocks (ticker,name,exchange,sector,industry,currency,added_at) "
+                 "VALUES (?,?,?,?,?,?,?)",
                  (meta["ticker"], meta["name"], meta["exchange"], meta["sector"],
+                  meta.get("industry") or "",
                   meta["currency"], datetime.now().isoformat(timespec="seconds")))
     try:
         logos.ensure(meta["ticker"], meta.get("website"), meta.get("name"))
@@ -74,6 +75,9 @@ def save_deep(conn, ticker):
         logos.ensure(ticker, ratios.get("website"), row["name"] if row else None)
     except Exception:
         pass
+    if ratios.get("industry"):  # backfill stocks.industry for pre-column rows
+        conn.execute("UPDATE stocks SET industry=? WHERE ticker=? AND industry=''",
+                     (ratios["industry"], ticker))
 
     if "." not in ticker:
         try:

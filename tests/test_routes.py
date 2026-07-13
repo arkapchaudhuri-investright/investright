@@ -32,3 +32,23 @@ def test_post_with_bad_csrf_token_rejected(client):
     client.get("/")
     resp = client.post("/add", data={"ticker": "AAPL", "csrf": "wrong-token"})
     assert resp.status_code == 400
+
+
+def test_peer_add_requires_login(client):
+    # Community peers are signed-in only: a guest POST (valid csrf) bounces to
+    # the login page instead of writing.
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    resp = client.post("/stock/AAPL/peers/add",
+                       data={"peer": "DELL", "csrf": "tok"})
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
+
+
+def test_peer_remove_requires_login(client):
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    resp = client.post("/stock/AAPL/peers/remove",
+                       data={"peer": "DELL", "csrf": "tok"})
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]

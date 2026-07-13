@@ -59,6 +59,9 @@
       {{ '★ On watchlist' if on_watch else '☆ Add to watchlist' }}
     </button>
   </form>
+  {% if s['industry'] %}
+  <span class="head-industry" title="Industry, per Yahoo Finance">{{ s['industry'] }}</span>
+  {% endif %}
 </section>
 
 {# 1b · Price trend — daily closes from the nightly refresh; ranges are plain
@@ -684,13 +687,16 @@
   {{ explain('ownership') }}
 </section>
 
-{# 9 · Competitors — hand-picked peers with mini-snowflakes, tap to jump (§4.9) #}
-<section class="card">
+{# 9 · Competitors — curated peers ∪ community-added ∪ same-industry fill,
+   mini-snowflakes, tap to jump (§4.9). Signed-in users can add any company
+   (visible to everyone, badged) and remove user-added ones. #}
+<section class="card" id="peers">
   <div class="card-head"><h2>Competitors</h2>
-    <span class="asof">hand-picked peers · tap to jump</span></div>
+    <span class="asof">{% if s['industry'] %}{{ s['industry'] }} · {% endif %}tap to jump</span></div>
   {% if peers %}
   <div class="peer-strip">
     {% for p in peers %}
+    <div class="peer-cell">
     {% if p['missing'] %}
     <div class="peer peer-missing">
       <span class="tick">{{ p['ticker'] }}</span>
@@ -719,14 +725,50 @@
         {% endif %}
       </span>
       {% endif %}
-      {% if not p['snowflake'] %}<span class="asof">scores after next refresh</span>{% endif %}
+      {% if not p['snowflake'] and not p['missing'] %}<span class="asof">scores after next refresh</span>{% endif %}
+      {% if p['src'] == 'user' %}
+      <span class="peer-badge" {% if p['added_by'] %}title="Added by {{ p['added_by'] }}"{% endif %}>user added</span>
+      {% elif p['src'] == 'industry' %}
+      <span class="peer-badge" title="Tracked company in the same industry">same industry</span>
+      {% endif %}
     </a>
     {% endif %}
+    {% if p['src'] == 'user' and current_user %}
+    <form class="peer-del-form" method="post"
+          action="{{ url_for('remove_peer', ticker=s['ticker']) }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <input type="hidden" name="peer" value="{{ p['ticker'] }}">
+      <button type="submit" class="peer-del" title="Remove {{ p['ticker'] }} (user-added)"
+              aria-label="Remove {{ p['ticker'] }} from competitors">×</button>
+    </form>
+    {% endif %}
+    </div>
     {% endfor %}
   </div>
   {% else %}
-  <p class="asof">Otto hasn't hand-picked peers for {{ s['ticker'] }} yet — the peer map is
-    curated by hand, since there's no good free "similar companies" feed.</p>
+  <p class="asof">No competitors listed for {{ s['ticker'] }} yet{% if not current_user %} —
+    <a href="{{ url_for('auth.login') }}">sign in</a> to add the first one{% endif %}.</p>
+  {% endif %}
+  {% if current_user %}
+  <form id="peer-add" class="peer-add" method="post" autocomplete="off"
+        action="{{ url_for('add_peer', ticker=s['ticker']) }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <input name="peer" type="text" spellcheck="false"
+           placeholder="Add a competitor — company name or ticker…"
+           aria-label="Add a competitor by company name or ticker">
+    <ul class="suggest" hidden></ul>
+    <button type="submit" class="ghost">＋ Add</button>
+  </form>
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var f = document.getElementById('peer-add');
+    if (f && window.IRAutocomplete)
+      IRAutocomplete.attach(f.querySelector('input[name="peer"]'), f.querySelector('.suggest'));
+  });
+  </script>
+  {% elif peers %}
+  <p class="asof peer-signin">Spot a missing competitor?
+    <a href="{{ url_for('auth.login') }}">Sign in</a> to add it — it'll show for everyone.</p>
   {% endif %}
   {{ explain('competitors') }}
 </section>

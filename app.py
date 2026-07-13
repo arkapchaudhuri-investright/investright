@@ -21,9 +21,10 @@ import strategies as strategies_content   # aliased: /strategies view owns the s
 import strategy_screen
 from auth import bp as auth_bp, client_ip, current_user, login_required
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
-                add_user_watch, get_conn, get_user_note, init_db, log_event,
-                recent_login_failures, remove_user_watch, save_price_history,
-                save_snapshot, save_user_note, user_watches)
+                add_user_peer, add_user_watch, get_conn, get_user_note, init_db,
+                log_event, recent_login_failures, remove_user_peer,
+                remove_user_watch, save_price_history, save_snapshot,
+                save_user_note, user_peers_for, user_watches)
 
 app = Flask(__name__)
 # Session signing key from .env (§10.0) — refresh→digest's loader put it in the
@@ -337,10 +338,10 @@ def _ingest_stock(symbol):
     snap = fetch.snapshot(symbol)
     now = datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
-        conn.execute("INSERT OR REPLACE INTO stocks (ticker,name,exchange,sector,currency,added_at) "
-                     "VALUES (?,?,?,?,?,?)",
-                     (meta["ticker"], meta["name"], meta["exchange"],
-                      meta["sector"], meta["currency"], now))
+        conn.execute("INSERT OR REPLACE INTO stocks (ticker,name,exchange,sector,industry,currency,added_at) "
+                     "VALUES (?,?,?,?,?,?,?)",
+                     (meta["ticker"], meta["name"], meta["exchange"], meta["sector"],
+                      meta.get("industry") or "", meta["currency"], now))
         if snap:
             save_snapshot(conn, snap)
         # peers first (stocks row + price only) so save_deep's peer-average P/E
@@ -749,22 +750,35 @@ def stock(ticker):
             "SELECT 1 FROM user_watchlist WHERE user_id=? AND ticker=?",
             (user["id"], ticker)).fetchone() is not None
 
-        # Competitors strip (§4.9) — hand-curated map, scores from saved checks.
+        # Competitors strip (§4.9): curated map ∪ community-added ∪ same-industry
+        # fill, each tagged with its source (user-added ones are deletable).
+        curated = list(metrics.PEERS.get(ticker, []))
+        cand = [(p, "curated", None) for p in curated]
+        for r in user_peers_for(conn, ticker):
+            if r["peer"] not in curated and r["peer"] != ticker:
+                cand.append((r["peer"], "user", r["added_by"]))
+        listed = {p for p, _, _ in cand} | {ticker}
+        if s["industry"]:   # companies we already track in the same industry
+            ph = ",".join("?" * len(listed))
+            for r in conn.execute(
+                    f"SELECT ticker FROM stocks WHERE industry=? AND ticker NOT IN ({ph}) "
+                    "ORDER BY ticker LIMIT 4", (s["industry"], *listed)):
+                cand.append((r["ticker"], "industry", None))
         peers = []
-        for p in metrics.PEERS.get(ticker, []):
+        for p, src, added_by in cand:
             prow = conn.execute(
                 "SELECT s.ticker, s.name, s.currency, n.price, n.change_pct "
                 "FROM stocks s LEFT JOIN snapshots n ON n.ticker = s.ticker "
                 "WHERE s.ticker=?", (p,)).fetchone()
             if not prow:
-                peers.append({"ticker": p, "missing": True})
+                peers.append({"ticker": p, "missing": True, "src": src, "added_by": added_by})
                 continue
             pchecks = [{"axis": r["axis"],
                         "passed": None if r["passed"] is None else bool(r["passed"])}
                        for r in conn.execute(
                            "SELECT axis, passed FROM health_checks WHERE ticker=?", (p,))]
             pscores = metrics.axis_scores(pchecks) if pchecks else None
-            peers.append({**dict(prow), "missing": False,
+            peers.append({**dict(prow), "missing": False, "src": src, "added_by": added_by,
                           "snowflake": metrics.snowflake(pscores, cx=30, cy=30, R=25)
                           if pscores else None})
 
@@ -1138,6 +1152,51 @@ def toggle_watch(ticker):
             except Exception:
                 pass
     return redirect(url_for("stock", ticker=ticker))
+
+
+@app.post("/stock/<ticker>/peers/add")
+@login_required
+def add_peer(ticker):
+    """Community peers: any signed-in user can add a competitor. Visible to
+    everyone (badged "user added"); unknown symbols are ingested first, so the
+    chip lands with real data — never a "wait for the next refresh"."""
+    ticker = ticker.upper()
+    with get_conn() as conn:
+        if not conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
+            abort(404)
+        known = {r["ticker"] for r in conn.execute("SELECT ticker FROM stocks")}
+    symbol = (request.form.get("peer") or "").strip().upper()
+    anchor = redirect(url_for("stock", ticker=ticker) + "#peers")
+    if not symbol or symbol == ticker:
+        flash("Add a different company's name or ticker as a competitor.", "error")
+        return anchor
+    if symbol not in known:
+        meta = _ingest_stock(symbol)         # validates against Yahoo + saves data
+        if not meta:
+            flash(f"Couldn't find “{symbol}” on Yahoo — check the ticker.", "error")
+            return anchor
+        symbol = meta["ticker"]
+    if symbol == ticker or symbol in metrics.PEERS.get(ticker, []):
+        flash(f"{symbol} is already listed for {ticker}.", "info")
+        return anchor
+    with get_conn() as conn:
+        add_user_peer(conn, ticker, symbol, current_user()["id"])
+    _log("peer_add", ticker)
+    flash(f"Added {symbol} as a competitor of {ticker}.", "ok")
+    return anchor
+
+
+@app.post("/stock/<ticker>/peers/remove")
+@login_required
+def remove_peer(ticker):
+    """Remove a community-added peer (curated ones aren't in user_peers, so
+    they can't be removed from the web — by design)."""
+    ticker = ticker.upper()
+    peer = (request.form.get("peer") or "").strip().upper()
+    with get_conn() as conn:
+        remove_user_peer(conn, ticker, peer)
+    _log("peer_remove", ticker)
+    return redirect(url_for("stock", ticker=ticker) + "#peers")
 
 
 @app.template_filter("flowlabel")
