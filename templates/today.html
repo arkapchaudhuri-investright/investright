@@ -1,16 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Today · InvestRight{% endblock %}
 {% block content %}
+{% from "_flags.html" import flag %}
 
 {# Header — Otto in mood + serif takeaway, same shape as the deep-dive header (§5) #}
 <section class="card stock-head today-head">
   {# Market toggle — same US/India shape as /strategies, plus Both (the whole
      tracked universe). Pinned top-right of the island. Plain links → ir_market cookie. #}
   <nav class="seg today-mkt-seg island-seg" aria-label="Which market to screen">
-    {% for key, label in (('US', '🇺🇸 US'), ('IN', '🇮🇳 India'), ('BOTH', 'Both')) %}
+    {% for key, label in (('US', 'US'), ('IN', 'India'), ('BOTH', 'Both')) %}
     <a href="{{ url_for('today', market=key) }}"
        class="{{ 'active' if market == key }}"
-       {% if market == key %}aria-current="true"{% endif %}>{{ label }}</a>
+       {% if market == key %}aria-current="true"{% endif %}>{% if key != 'BOTH' %}{{ flag(key) }}{% endif %}{{ label }}</a>
     {% endfor %}
   </nav>
   <div class="head-otto">{% include "_otto.html" %}</div>

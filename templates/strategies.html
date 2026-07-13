@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Models & Strategies · InvestRight{% endblock %}
 {% block content %}
+{% from "_flags.html" import flag %}
 
 {# Page head — same calm shape as /today, with the US/India toggle as plain
    links (works with JS off; server defaults from the ir_market cookie). #}
@@ -11,10 +12,10 @@
     <nav class="seg strat-seg" aria-label="Which market's playbook to read">
       <a href="{{ url_for('strategies_page', market='US') }}"
          class="{{ 'active' if market == 'US' }}"
-         {% if market == 'US' %}aria-current="true"{% endif %}>🇺🇸 United States</a>
+         {% if market == 'US' %}aria-current="true"{% endif %}>{{ flag('US') }}United States</a>
       <a href="{{ url_for('strategies_page', market='IN') }}"
          class="{{ 'active' if market == 'IN' }}"
-         {% if market == 'IN' %}aria-current="true"{% endif %}>🇮🇳 India</a>
+         {% if market == 'IN' %}aria-current="true"{% endif %}>{{ flag('IN') }}India</a>
     </nav>
     <form action="{{ url_for('refresh_strategies', market=market) }}" method="post" class="refresh-form">
       <input type="hidden" name="csrf" value="{{ csrf_token }}">
@@ -34,7 +35,7 @@
   <div class="strat-intro-otto">{% with mood = 'happy', size = 46 %}{% include "_otto.html" %}{% endwith %}</div>
   <div class="strat-intro-body">
     <b class="serif">New here? Here’s the lay of the land.</b>
-    <p>Switch between <b>🇺🇸 US</b> and <b>🇮🇳 India</b> up top — each market’s
+    <p>Switch between <b>{{ flag('US') }}US</b> and <b>{{ flag('IN') }}India</b> up top — each market’s
       playbook is different. Every <b>ticker</b> is a link to Otto’s full deep dive,
       and <b>Otto’s current matches</b> under each strategy refresh monthly from live
       numbers. Stuck? <b>Ask Otto</b>, bottom-right.</p>

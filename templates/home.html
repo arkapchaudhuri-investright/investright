@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% from "_flags.html" import flag %}
 
 <section class="hero hero-home">
   {% with mood = 'happy' %}{% include "_otto.html" %}{% endwith %}
@@ -39,8 +40,8 @@
              placeholder="Your name" aria-label="Your name">
       <p class="nd-sub nd-q">Where do you want to invest?</p>
       <div class="seg nd-seg" role="radiogroup" aria-label="Market">
-        <label><input type="radio" name="market" value="US"><span>🇺🇸 US</span></label>
-        <label><input type="radio" name="market" value="IN"><span>🇮🇳 India</span></label>
+        <label><input type="radio" name="market" value="US"><span>{{ flag('US') }}US</span></label>
+        <label><input type="radio" name="market" value="IN"><span>{{ flag('IN') }}India</span></label>
         <label><input type="radio" name="market" value="BOTH" checked><span>Both</span></label>
       </div>
       <button type="submit" class="name-go">Let’s go →</button>
