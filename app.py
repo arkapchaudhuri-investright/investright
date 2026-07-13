@@ -918,10 +918,17 @@ def stock(ticker):
             pass
     income = metrics.income_flow_view(cur_flow, prior_flow)
     income_sankey = metrics.income_sankey(income)
+    # Data view is a multi-period matrix (one column per period of the current
+    # cadence), so it doesn't need the single-period dropdown. Built only when
+    # the reader is on Data, to keep the common Chart path lean.
+    flow_matrix = None
     # Chart | Data are exclusive views (SWS-style) — ?flowview=data shows the
     # table, default shows the Sankey. No sankey geometry ⇒ table regardless.
     flow_view = "data" if (request.args.get("flowview") == "data"
                            or not income_sankey) else "chart"
+    if flow_view == "data" and cur_flow:
+        same_cadence = [r for r in flow_rows if r["ptype"] == cur_flow["ptype"]]
+        flow_matrix = metrics.income_flow_matrix(same_cadence)
     fund_source = funds[-1]["source"] if funds else None
     axis_detail = metrics.axis_detail(checks)
     checks_by_axis = {key: [c for c in checks if c["axis"] == key]
@@ -970,6 +977,7 @@ def stock(ticker):
         takeaway=metrics.takeaway(s["name"], dcf, scores),
         charts=charts, fund_source=fund_source, market_growth_pct=round(metrics.MARKET_GROWTH * 100),
         income=income, income_sankey=income_sankey, flow_view=flow_view,
+        flow_matrix=flow_matrix,
         flow_annual=annual_periods, flow_quarters=quarter_periods,
         flow_current=cur_flow["period"] if cur_flow else None,
         exec_tiers=metrics.exec_tiers(execs),

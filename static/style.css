@@ -965,6 +965,38 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   .inc-bar-cell { display: none; }   /* keep label · amount · % on narrow screens */
 }
 
+/* Multi-period Data table — one column per period (newest first), each cell an
+   amount + Y/Y change. Scrolls horizontally on narrow screens; the line-item
+   column stays put so you never lose the row label. */
+.income-matrix-wrap { overflow-x: auto; margin: 4px -4px 0; -webkit-overflow-scrolling: touch; }
+.income-matrix {
+  border-collapse: collapse; font-variant-numeric: tabular-nums;
+  min-width: 100%; white-space: nowrap;
+}
+.income-matrix th, .income-matrix td {
+  padding: 9px 14px; border-top: 1px solid var(--hairline); text-align: right;
+}
+.income-matrix thead th {
+  border-top: 0; border-bottom: 1px solid var(--hairline);
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+}
+.income-matrix tbody tr:first-child th, .income-matrix tbody tr:first-child td { border-top: 0; }
+.im-label, .im-corner {
+  text-align: left; position: sticky; left: 0; background: var(--card);
+  font-weight: 500; font-size: 14px; padding-left: 4px;
+}
+.im-cell { font-size: 13.5px; }
+.im-amt { display: inline; }
+.im-chg { font-size: 12px; margin-left: 5px; }
+.im-chg.up { color: var(--up); }
+.im-chg.down { color: var(--down); }
+.im-na { color: var(--muted); opacity: .55; }
+/* Row roles echo the single-period table + the Sankey palette. */
+.income-matrix .inc-revenue .im-label,
+.income-matrix .inc-subtotal .im-label { font-weight: 600; }
+.income-matrix .inc-earnings .im-label { font-weight: 600; color: var(--accent); }
+.income-matrix .inc-earnings .im-amt { color: var(--accent); font-weight: 600; }
+
 /* Future card (Tier C) — projected bars are styled inline in the SVG */
 .div-hist-h { margin-top: 16px; }
 .div-hist { width: 100%; max-width: 340px; height: auto; display: block; }
