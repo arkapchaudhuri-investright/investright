@@ -4,12 +4,13 @@ Documentation=https://github.com/arkapchaudhuri-investright/investright
 # Regenerates static/symbols.json (the autocomplete search universe) from the
 # free listing sources — the Nasdaq Trader directory + NSE's equity list. Needs
 # network. Writes atomically, so a source outage leaves the previous file intact.
+#
+# A silently stale search list is worse than a loud failure. OnFailure is a
+# [Unit] directive — under [Service] systemd ignores it.
+OnFailure=investright-alert@%n.service
 
 [Service]
 Type=oneshot
 User=ubuntu
 WorkingDirectory=/opt/investright
 ExecStart=/opt/investright/.venv/bin/python build_symbols.py
-
-# A silently stale search list is worse than a loud failure.
-OnFailure=investright-alert@%n.service

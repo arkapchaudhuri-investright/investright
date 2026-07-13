@@ -3,6 +3,9 @@ Description=InvestRight nightly DB backup
 Documentation=https://github.com/arkapchaudhuri-investright/investright
 # Don't race the refresh job; it rewrites most of the DB.
 After=investright-refresh.service
+# The one thing worse than no backup is a broken one you never hear about.
+# OnFailure is a [Unit] directive — under [Service] systemd silently ignores it.
+OnFailure=investright-alert@%n.service
 
 [Service]
 Type=oneshot
@@ -19,6 +22,3 @@ WorkingDirectory=/opt/investright
 # exits non-zero rather than quietly skipping the offsite copy, which would turn
 # this unit red every night for a backup that is, in fact, being taken.
 ExecStart=/opt/investright/.venv/bin/python manage.py backup --apply --keep 14
-
-# The one thing worse than no backup is a broken one you never hear about.
-OnFailure=investright-alert@%n.service
