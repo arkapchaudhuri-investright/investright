@@ -364,24 +364,54 @@ def _short_name(name):
     return short
 
 
-def takeaway(name, dcf, scores):
+def _score_word(s):
+    return "strong" if s >= 0.6 else "mixed" if s >= 0.4 else "weak"
+
+
+def takeaway(name, dcf, scores, senti=None):
+    """A one-glance outlook for the deep-dive header: where the price sits versus
+    the company's cash-flow value, then the two most telling forward signals we
+    have (growth, balance-sheet strength, the analyst target). Rule-based from
+    live figures — no AI, honest, and it renders for any stock immediately.
+    Not advice; the page's disclaimers still apply."""
     short = _short_name(name)
-    if dcf and dcf.get("upside_pct") is not None:
-        up = dcf["upside_pct"]
-        if up > 15:
-            lead = f"{short} looks about {round(up)}% cheap"
-        elif up < -15:
-            lead = f"{short} looks about {round(-up)}% expensive"
-        else:
-            lead = f"{short} looks roughly fairly priced"
+    up = dcf.get("upside_pct") if dcf else None
+    if up is not None and up > 15:
+        lead = f"{short} looks about {round(up)}% undervalued against its cash-flow value"
+    elif up is not None and up < -15:
+        lead = f"{short} looks about {round(-up)}% overvalued against its cash-flow value"
+    elif up is not None:
+        lead = f"{short} looks roughly fairly valued against its cash flows"
     else:
-        lead = f"Here's how {short} stacks up"
-    health, val = scores.get("health"), scores.get("value")
-    if health is not None and health < 0.4:
-        return lead + ", but the balance sheet needs a closer look."
-    if val is not None and val >= 0.6 and dcf and dcf.get("upside_pct", 0) > 0:
-        return lead + " — and the value checks agree."
-    return lead + "."
+        lead = f"There isn't enough cash-flow history to value {short} yet"
+
+    bits = []
+    fut = scores.get("future")
+    if fut is not None:
+        bits.append(f"its growth outlook scores {_score_word(fut)}")
+    hea = scores.get("health")
+    if hea is not None and hea < 0.4:
+        bits.append("the balance sheet looks stretched")
+    elif hea is not None and hea >= 0.6:
+        bits.append("the balance sheet is solid")
+    if senti and senti.get("analyst_n") and senti.get("target_pct") is not None:
+        tp = round(senti["target_pct"])
+        if tp >= 3:
+            bits.append(f"analysts' mean target is about {tp}% higher")
+        elif tp <= -3:
+            bits.append(f"analysts' mean target sits about {abs(tp)}% lower")
+        else:
+            bits.append("analysts' mean target is roughly where it trades now")
+    # If we learned nothing beyond valuation, fall back to the overall health read.
+    if not bits:
+        applic = [v for v in scores.values() if v is not None]
+        if applic:
+            bits.append(f"the health checks look {_score_word(sum(applic) / len(applic))} overall")
+
+    if not bits:
+        return lead + "."
+    s2 = "; ".join(bits[:2])
+    return f"{lead}. {s2[0].upper()}{s2[1:]}."
 
 
 # --- past-performance bar charts (Tier B, §8.5) ----------------------------

@@ -974,7 +974,7 @@ def stock(ticker):
         axis_detail=axis_detail, top6=top6, applicable_n=len(applicable),
         scores=scores, snowflake=snowflake, overall=overall,
         mood=metrics.mood_for(overall),
-        takeaway=metrics.takeaway(s["name"], dcf, scores),
+        takeaway=metrics.takeaway(s["name"], dcf, scores, senti),
         charts=charts, fund_source=fund_source, market_growth_pct=round(metrics.MARKET_GROWTH * 100),
         income=income, income_sankey=income_sankey, flow_view=flow_view,
         flow_matrix=flow_matrix,
