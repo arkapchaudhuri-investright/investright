@@ -811,6 +811,16 @@ def stock(ticker):
             "action IN ('view','analyze','ask') AND ts >= datetime('now','-30 days')",
             (ticker,)).fetchone()["c"]
 
+    # First view of a brand-new / peer-added stock: rather than telling the
+    # visitor to come back after the nightly refresh, pull what's missing live
+    # and render it now. In-memory only — GET routes never write the DB; the
+    # ingest / cron paths persist these on their next pass.
+    if not snap:
+        snap = fetch.snapshot(ticker)
+    if not hist:
+        hist = [{"d": d, "close": c}
+                for d, c in fetch.price_history_resilient(ticker, "max")]
+
     # SQLite stores passed as 1/0/NULL → back to bool/None for the template.
     for c in checks:
         c["passed"] = None if c["passed"] is None else bool(c["passed"])
