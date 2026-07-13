@@ -255,6 +255,41 @@ def purge_small_logos(apply=False):
         print(f"\ndry run — {len(victims)} file(s); re-run with --apply to delete")
 
 
+def backfill_industry(apply=False):
+    """Fill stocks.industry for rows missing it. The nightly refresh only touches
+    watchlist tickers, so a stock someone searched but never watchlisted keeps a
+    blank industry (and its deep-dive header shows none). One light Yahoo lookup
+    per missing stock; only writes when Yahoo actually returns an industry."""
+    import time
+
+    import fetch
+    with get_conn() as conn:
+        rows = [r["ticker"] for r in conn.execute(
+            "SELECT ticker FROM stocks WHERE industry IS NULL OR industry='' "
+            "ORDER BY ticker")]
+        if not rows:
+            print("every stock already has an industry — nothing to backfill")
+            return
+        print(f"{len(rows)} stock(s) missing industry"
+              + ("" if apply else " (dry run)"))
+        filled = 0
+        for tk in rows:
+            meta = fetch.lookup(tk)
+            ind = (meta or {}).get("industry") or ""
+            if not ind:
+                print(f"  {tk}: Yahoo has no industry")
+                continue
+            print(f"  {tk}: {ind}" + ("" if apply else "  (would set)"))
+            if apply:
+                conn.execute("UPDATE stocks SET industry=? WHERE ticker=? AND "
+                             "(industry IS NULL OR industry='')", (ind, tk))
+                filled += 1
+            time.sleep(0.3)                       # be polite to Yahoo
+        conn.commit()
+        print(f"\nset industry on {filled} stock(s)" if apply
+              else "\ndry run — re-run with --apply to write")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -272,6 +307,12 @@ def main():
     p.add_argument("--password", help="skip the hidden prompt (leaks into shell history)")
     p.add_argument("--apply", action="store_true",
                    help="actually write (default is a dry run)")
+
+    bi = sub.add_parser("backfill-industry",
+                        help="fill stocks.industry for rows Yahoo can supply it for "
+                             "(the nightly refresh only covers watchlist tickers)")
+    bi.add_argument("--apply", action="store_true",
+                    help="actually write (default is a dry run)")
 
     lg = sub.add_parser("purge-small-logos",
                         help="delete cached company logos below the sharpness "
@@ -293,6 +334,8 @@ def main():
         migrate_watchlist(args.email, args.apply)
     elif args.cmd == "set-password":
         set_user_password(args.email, args.password, args.apply)
+    elif args.cmd == "backfill-industry":
+        backfill_industry(args.apply)
     elif args.cmd == "purge-small-logos":
         purge_small_logos(args.apply)
     elif args.cmd == "backup":
