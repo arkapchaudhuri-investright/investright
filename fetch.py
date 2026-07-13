@@ -73,6 +73,7 @@ def lookup(symbol):
             "name": name,
             "exchange": info.get("fullExchangeName") or info.get("exchange") or "",
             "sector": info.get("sector") or "",
+            "industry": info.get("industry") or "",
             "currency": info.get("currency") or "USD",
             "website": info.get("website") or "",   # for the company logo (Phase 9)
         }
@@ -373,6 +374,7 @@ def deep(symbol):
             "roe": info.get("returnOnEquity"),
             "debt_to_equity": info.get("debtToEquity"),
             "industry_pe": None,   # no free source
+            "industry": info.get("industry") or "",   # island label + peer fill
             "website": info.get("website") or "",   # for the company logo (Phase 9)
         }
     except Exception:

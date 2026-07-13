@@ -254,6 +254,18 @@ CREATE TABLE IF NOT EXISTS executives (
     PRIMARY KEY (ticker, rank)
 );
 
+-- Community-added competitors. Any signed-in user can add a peer for any
+-- stock (visible to everyone, badged "user added") or remove a user-added
+-- one; the hand-curated metrics.PEERS entries are never deletable from the
+-- web. Writes happen in POST routes only (web never writes on GET).
+CREATE TABLE IF NOT EXISTS user_peers (
+    ticker   TEXT NOT NULL REFERENCES stocks(ticker) ON DELETE CASCADE,
+    peer     TEXT NOT NULL,
+    added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    added_at TEXT NOT NULL,
+    PRIMARY KEY (ticker, peer)
+);
+
 -- Income-statement breakdowns for the "Revenue & Expenses" widget (Sankey +
 -- table on the deep-dive). One row per (ticker, period): every annual year
 -- Yahoo serves (~5) plus the recent quarters (~5) — "last 5 years or max
@@ -339,6 +351,26 @@ def save_income_flow(conn, ticker, rows):
             f"INSERT OR REPLACE INTO income_flow ({','.join(INCOME_FLOW_COLS)}) "
             f"VALUES ({','.join('?' * len(INCOME_FLOW_COLS))})",
             [vals.get(c) for c in INCOME_FLOW_COLS])
+
+
+def user_peers_for(conn, ticker):
+    """Community-added peers for a ticker, oldest first, with the adder's
+    display name (falls back to their email's mailbox part)."""
+    return conn.execute(
+        "SELECT up.peer, up.added_at, "
+        "       COALESCE(NULLIF(u.name, ''), substr(u.email, 1, instr(u.email, '@') - 1)) AS added_by "
+        "FROM user_peers up LEFT JOIN users u ON u.id = up.added_by "
+        "WHERE up.ticker=? ORDER BY up.added_at", (ticker,)).fetchall()
+
+
+def add_user_peer(conn, ticker, peer, user_id):
+    conn.execute(
+        "INSERT OR IGNORE INTO user_peers (ticker, peer, added_by, added_at) "
+        "VALUES (?,?,?,?)", (ticker, peer, user_id, _now()))
+
+
+def remove_user_peer(conn, ticker, peer):
+    conn.execute("DELETE FROM user_peers WHERE ticker=? AND peer=?", (ticker, peer))
 
 
 def save_fundamentals(conn, ticker, rows, source="yfinance"):
@@ -658,6 +690,12 @@ def _migrate(conn):
     if "user_id" not in ecols:
         conn.execute("ALTER TABLE events ADD COLUMN user_id INTEGER "
                      "REFERENCES users(id) ON DELETE SET NULL")
+
+    # stocks.industry (island label + same-industry competitor fill). New
+    # ingests set it; the nightly refresh backfills existing rows from Yahoo.
+    scols = {r["name"] for r in conn.execute("PRAGMA table_info(stocks)")}
+    if "industry" not in scols:
+        conn.execute("ALTER TABLE stocks ADD COLUMN industry TEXT NOT NULL DEFAULT ''")
 
     # income_flow went from one-latest-row-per-ticker to per-period rows
     # (2026-07). The table is a pure refetch-from-Yahoo cache that never
