@@ -697,6 +697,26 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 /* The deep-dive outlook summary reads as a quiet note, not a headline — normal
    weight, italic (overrides the .serif medium weight it also carries). */
 .stock-head .head-take { font-weight: 400; font-style: italic; }
+/* Jump nav — sticky chip row for the deep-dive's ~15 sections. */
+.jumpnav {
+  position: sticky; top: 0; z-index: 80;
+  display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; padding: 10px 2px; margin: 0 0 6px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+}
+.jumpnav::-webkit-scrollbar { display: none; }
+.jumpnav a {
+  flex: none; font-size: 12.5px; color: var(--muted); text-decoration: none;
+  border: 1px solid var(--hairline); border-radius: 999px; padding: 5px 12px;
+}
+.jumpnav a:hover { color: var(--accent); border-color: var(--accent); }
+/* anchored sections stop below the sticky bar */
+#trend, #snowflake, #value, #income, #checks, #past, #future, #dividend,
+#peers, #leadership, #insiders, #news, #notes, #sentiment {
+  scroll-margin-top: 56px;
+}
+
 .head-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
 .head-price .px { font-size: 22px; font-variant-numeric: tabular-nums; }
 .head-star { flex: none; }

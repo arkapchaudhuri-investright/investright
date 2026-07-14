@@ -64,6 +64,27 @@
   {% endif %}
 </section>
 
+{# Jump nav — sticky chips; only render chips whose section rendered. The
+   scoring/statement sections live inside the `has_data` branch below, so they
+   are gated on it too. #}
+<nav class="jumpnav" aria-label="Jump to section">
+  <a href="#trend">Trend</a>
+  {% if has_data %}
+  <a href="#snowflake">Score</a>
+  {% if dcf %}<a href="#value">Fair value</a>{% endif %}
+  {% if income %}<a href="#income">Revenue</a>{% endif %}
+  <a href="#checks">Checks</a>
+  {% if charts %}<a href="#past">Past</a>{% endif %}
+  {% if projection %}<a href="#future">Future</a>{% endif %}
+  <a href="#dividend">Dividend</a>
+  {% endif %}
+  <a href="#peers">Competitors</a>
+  {% if exec_tiers %}<a href="#leadership">Leadership</a>{% endif %}
+  {% if is_us %}<a href="#insiders">Insiders</a>{% endif %}
+  {% if news %}<a href="#news">News</a>{% endif %}
+  {% if current_user %}<a href="#notes">Notes</a>{% endif %}
+</nav>
+
 {# 1b · Price trend — daily closes from the nightly refresh; ranges are plain
    links (server-rendered, works with JS off). 1D is progressive enhancement:
    a live intraday fetch drawn client-side. #}
@@ -190,7 +211,7 @@
 
 {# 1c · What investors think — analyst consensus (Yahoo, nightly), insider
    activity (SEC), and this site's own reader signals. Sentiment, not advice. #}
-<section class="card">
+<section class="card" id="sentiment">
   {# The dropdown sits inside the sentence — "What [whoever] think" — and each
      option swaps the panel below to real data. No-JS: all panels stacked. #}
   <div class="card-head">
@@ -293,7 +314,7 @@
 {% else %}
 
 {# 2 · Snowflake — 5-axis radar, geometry computed in Python (§4.2 / §8.3) #}
-<section class="card">
+<section class="card" id="snowflake">
   <div class="card-head"><h2>The snowflake</h2>
     <span class="asof">checks passed on each axis</span></div>
   <div class="snowflake-wrap">
@@ -332,7 +353,7 @@
 </section>
 
 {# 3 · Fair-value bar — price vs our DCF estimate, assumptions visible + editable (§4.3 / §8.4) #}
-<section class="card">
+<section class="card" id="value">
   <div class="card-head"><h2>Fair value</h2>
     <span class="asof">our estimate · not analyst forecast</span></div>
   {% if dcf and price %}
@@ -379,7 +400,7 @@
 </section>
 
 {# 4 · Health checks — grouped by axis, collapsed to top 6 with show-all (§4.4) #}
-<section class="card">
+<section class="card" id="checks">
   <div class="card-head"><h2>Health checks</h2>
     <span class="asof">{{ applicable_n }} checks run on free data</span></div>
   <ul class="checks">
@@ -400,7 +421,7 @@
 
 {# 5 · Past performance — revenue/earnings/FCF bars, EDGAR 10yr for US, yfinance for India (§4.5 / §8.5 Tier B) #}
 {% if charts %}
-<section class="card">
+<section class="card" id="past">
   <div class="card-head"><h2>Past performance</h2>
     <span class="asof">
       {% if fund_source == 'edgar' %}10-yr history from SEC EDGAR filings
@@ -565,7 +586,7 @@
 
 {# 6 · Future — the historical trend extended, NOT an analyst forecast (§4.6) #}
 {% if projection %}
-<section class="card">
+<section class="card" id="future">
   <div class="card-head"><h2>Future</h2>
     <span class="asof">trend, not analyst forecast</span></div>
   <div class="perf-grid">
@@ -609,7 +630,7 @@
 {% endif %}
 
 {# 7 · Dividend — yield, payout gauge, streak (§4.7) #}
-<section class="card">
+<section class="card" id="dividend">
   <div class="card-head"><h2>Dividend</h2>
     <span class="asof">from cash actually paid, not promises</span></div>
   {% if not dividend['pays'] %}
@@ -659,7 +680,7 @@
 {% endif %}
 
 {# 8 · Ownership & insiders — US-only, SEC Form 4 (§4.8) #}
-<section class="card">
+<section class="card" id="insiders">
   <div class="card-head"><h2>Ownership &amp; insiders</h2>
     {% if is_us %}<span class="asof">from SEC Form 4 filings</span>{% endif %}</div>
   {% if not is_us %}
@@ -834,7 +855,7 @@
 {% endif %}
 
 {# 10 · News — latest headlines from yfinance (§4.10) #}
-<section class="card">
+<section class="card" id="news">
   <div class="card-head"><h2>In the news</h2></div>
   {% if news %}
   <ul class="news">
@@ -851,7 +872,7 @@
 </section>
 
 {# 11 · My notes — decision journal, the edge SWS doesn't have (§4.11) #}
-<section class="card">
+<section class="card" id="notes">
   <div class="card-head"><h2>My notes</h2>
     {% if note and note['updated_at'] %}
     <span class="asof">saved {{ note['updated_at'][:10] }}</span>{% endif %}</div>
