@@ -75,7 +75,15 @@
     <div class="hero-chips">
       {% for t in trending %}
       <a class="hero-chip" href="{{ url_for('stock', ticker=t['ticker']) }}"
-         title="{{ t['name'] }}">{{ t['ticker'] }}</a>
+         title="{{ t['name'] }}">
+        <span class="hero-chip-tick">{{ t['ticker'] }}
+          {% if t['change_pct'] is not none %}
+          <span class="hero-chip-chg {{ 'up' if t['change_pct'] > 0 else 'down' if t['change_pct'] < 0 else 'flat' }}">
+            {{ '%+.1f%%'|format(t['change_pct']) }}</span>
+          {% endif %}
+        </span>
+        <span class="hero-chip-name">{{ t['name']|truncate(22, True, '…') }}</span>
+      </a>
       {% endfor %}
     </div>
   </div>
