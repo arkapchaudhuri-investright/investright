@@ -211,6 +211,10 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
   background: var(--accent-deep); color: #fff; border-radius: 999px;
   font-size: 11px; padding: 1px 7px; margin-left: 6px;
 }
+/* The "Team" gear row only exists on phones, where the topbar hides its nav
+   link (see the ≤560px block below) to stay at two rows. Scoped under
+   .settings-panel so it outranks the .set-row { display:flex } it also carries. */
+.settings-panel .set-mobile-nav { display: none; }
 
 /* Strategies page — one-time intro callout (digital onboarding). */
 .strat-intro {
@@ -1298,14 +1302,19 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
   /* Mobile topbar = two tidy rows at the very top:
      row 1  brand (left) · ⚙ gear (right)   — settings is now a topbar child
      row 2  the nav links, centred and full-width.
-     (Brand keeps its global margin-right:auto, which pushes the gear right.) */
-  .topbar { flex-wrap: wrap; row-gap: 10px; padding: 14px 16px; }
-  .brand { order: 1; }
+     (Brand keeps its global margin-right:auto, which pushes the gear right.)
+     Paddings + gaps are ~25% tighter than desktop, and the Team link moves
+     into the gear (.set-mobile-nav), so the second row never wraps. */
+  .topbar { flex-wrap: wrap; row-gap: 7px; padding: 10px 16px; }
+  .brand { order: 1; font-size: 20px; }
   .settings { order: 2; }
   .topnav {
     order: 3; flex-basis: 100%; flex-wrap: wrap;
-    justify-content: center; gap: 8px 14px;   /* fits all links on one row */
+    justify-content: center; gap: 6px 12px;   /* fits all links on one row */
   }
+  .settings-panel .set-mobile-nav { display: flex; }
+  .topnav a.nav-team { display: none; }   /* reachable via the gear on mobile */
+  .wl-toggle { padding: 6px 12px; }
   /* Analyze + Add-to-watchlist share one row, aligned to the search bar.
      Tighter type + nowrap keeps "Add to watchlist" on a single line. */
   .search-actions { flex-wrap: nowrap; gap: 12px; }

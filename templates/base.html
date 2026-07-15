@@ -83,7 +83,7 @@
     <a class="navlink{{ ' nav-on' if request.path == url_for('strategies_page') }}"
        {% if request.path == url_for('strategies_page') %}aria-current="page"{% endif %}
        href="{{ url_for('strategies_page') }}" data-tour="strategies">Strategies</a>
-    <a class="navlink{{ ' nav-on' if request.path == url_for('team') }}"
+    <a class="navlink nav-team{{ ' nav-on' if request.path == url_for('team') }}"
        {% if request.path == url_for('team') %}aria-current="page"{% endif %}
        href="{{ url_for('team') }}" data-tour="team">Team</a>
     <a class="wl-toggle" href="{{ url_for('watchlist_page') }}" data-tour="watchlist"
@@ -116,6 +116,12 @@
             <a href="{{ url_for('auth.register') }}">Create</a>
           </span>
           {% endif %}
+        </div>
+        {# The Team nav link is hidden on phones to keep the topbar at two rows;
+           it lives here in the gear on mobile so the page stays reachable. #}
+        <div class="set-row set-mobile-nav">
+          <span class="set-label">More</span>
+          <a class="linkbtn" href="{{ url_for('team') }}">Team</a>
         </div>
         {% if current_user %}
         {# Change password lives in the gear now — quick reach from any page. #}
