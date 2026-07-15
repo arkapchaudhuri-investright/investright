@@ -257,7 +257,9 @@ def home():
     ctx = _fx_ctx()
     with get_conn() as conn:
         trending = [dict(r) for r in conn.execute(
-            "SELECT e.ticker, s.name FROM events e JOIN stocks s ON s.ticker = e.ticker "
+            "SELECT e.ticker, s.name, n.change_pct FROM events e "
+            "JOIN stocks s ON s.ticker = e.ticker "
+            "LEFT JOIN snapshots n ON n.ticker = e.ticker "
             "WHERE e.ticker IS NOT NULL AND e.ticker != '' "
             "AND e.action IN ('view','analyze','add') "
             "AND e.ts >= datetime('now','-30 days') "
