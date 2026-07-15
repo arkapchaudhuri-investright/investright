@@ -287,7 +287,13 @@
   }
   function start() {
     try { if (localStorage.getItem('ir_toured')) return; } catch (e) {}
-    plan = steps.filter(function (s) { return document.querySelector(s.sel); });
+    // Only anchor steps whose target is actually on screen: on phones the Team
+    // link is display:none (it lives in the gear instead), and a hidden element
+    // still matches querySelector but has no box — getClientRects() drops it, so
+    // the "Meet the team" step is skipped on mobile rather than misanchoring.
+    plan = steps.filter(function (s) {
+      var el = document.querySelector(s.sel);
+      return el && el.getClientRects().length; });
     if (!plan.length) return;
     idx = 0;
     overlay.hidden = false;
