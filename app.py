@@ -252,18 +252,22 @@ def _fx_ctx():
 @app.route("/")
 def home():
     # Clean, Google-calm home: greeting, search, two actions — plus a quiet
-    # "popular right now" row of the most-looked-at tickers (real activity, not
-    # a hardcoded list), each a one-tap shortcut into its deep dive.
+    # "popular right now" row of the day's biggest movers across the US + India
+    # (top gainers and top losers by day change), each a one-tap shortcut into
+    # its deep dive. Reads snapshots the nightly cron already keeps current.
     ctx = _fx_ctx()
     with get_conn() as conn:
-        trending = [dict(r) for r in conn.execute(
-            "SELECT e.ticker, s.name, n.change_pct FROM events e "
-            "JOIN stocks s ON s.ticker = e.ticker "
-            "LEFT JOIN snapshots n ON n.ticker = e.ticker "
-            "WHERE e.ticker IS NOT NULL AND e.ticker != '' "
-            "AND e.action IN ('view','analyze','add') "
-            "AND e.ts >= datetime('now','-30 days') "
-            "GROUP BY e.ticker ORDER BY COUNT(*) DESC LIMIT 6")]
+        gainers = [dict(r) for r in conn.execute(
+            "SELECT s.ticker, s.name, n.change_pct FROM snapshots n "
+            "JOIN stocks s ON s.ticker = n.ticker "
+            "WHERE n.change_pct IS NOT NULL AND n.change_pct > 0 "
+            "ORDER BY n.change_pct DESC LIMIT 3")]
+        losers = [dict(r) for r in conn.execute(
+            "SELECT s.ticker, s.name, n.change_pct FROM snapshots n "
+            "JOIN stocks s ON s.ticker = n.ticker "
+            "WHERE n.change_pct IS NOT NULL AND n.change_pct < 0 "
+            "ORDER BY n.change_pct ASC LIMIT 3")]
+        trending = gainers + losers
     resp = make_response(render_template(
         "home.html", greeting=greeting(), trending=trending, **ctx))
     if request.args.get("ccy"):
