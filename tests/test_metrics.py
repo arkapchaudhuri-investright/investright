@@ -184,3 +184,15 @@ def test_income_flow_view_none_when_too_thin():
     assert metrics.income_flow_view(
         {"revenue": 100.0, "net_income": 10.0, "cost_of_rev": None,
          "gross_profit": None}) is None
+
+
+def test_trend_chart_benchmark_overlay():
+    pts = [("2026-01-01", 100), ("2026-02-01", 110), ("2026-03-01", 120)]
+    bench = [("2026-01-01", 1000), ("2026-02-01", 1030), ("2026-03-01", 1100)]
+    t = metrics.trend_chart(pts, bench=bench)
+    assert t["change_pct"] == 20.0 and t["bench_change_pct"] == 10.0
+    assert t["bench_points"]
+    # no bench -> unchanged shape, no overlay
+    t0 = metrics.trend_chart(pts)
+    assert t0["bench_points"] is None and t0["bench_change_pct"] is None
+    assert (t0["lo"], t0["hi"]) == (100, 120)

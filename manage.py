@@ -265,8 +265,8 @@ def backfill_industry(apply=False):
     import fetch
     with get_conn() as conn:
         rows = [r["ticker"] for r in conn.execute(
-            "SELECT ticker FROM stocks WHERE industry IS NULL OR industry='' "
-            "ORDER BY ticker")]
+            "SELECT ticker FROM stocks WHERE (industry IS NULL OR industry='') "
+            "AND exchange != 'INDEX' ORDER BY ticker")]
         if not rows:
             print("every stock already has an industry — nothing to backfill")
             return
@@ -318,7 +318,7 @@ def enrich_execs(reset=False):
             conn.commit()
             print(f"reset {n} photo-less row(s) to re-query")
         tickers = [r["ticker"] for r in conn.execute(
-            "SELECT ticker FROM stocks ORDER BY ticker")]
+            "SELECT ticker FROM stocks WHERE exchange != 'INDEX' ORDER BY ticker")]
         for t in tickers:
             try:
                 refresh.enrich_executives(conn, t)

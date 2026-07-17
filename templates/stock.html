@@ -103,12 +103,17 @@
   </div>
   {% if trend %}
   <p class="trend-verdict"><b id="trend-chg" class="{{ trend.dir }}">{{ '%+.1f'|format(trend.change_pct) }}%</b>
-    <span class="asof" id="trend-cap">over {{ rng_label }}</span></p>
+    <span class="asof" id="trend-cap">over {{ rng_label }}</span>
+    <span class="asof trend-bench-cap" id="trend-bench-cap"{% if trend.bench_change_pct is none %} hidden{% endif %}>· {{ bench_name }} {{ '%+.1f'|format(trend.bench_change_pct) if trend.bench_change_pct is not none else '' }}%</span></p>
   <div class="trend-wrap" id="trend-wrap">
     <svg id="trend-svg" class="trend-chart" viewBox="0 0 {{ trend.width }} {{ trend.height }}"
          preserveAspectRatio="none" role="img"
          aria-label="{{ s['name'] }} price line, {{ trend.first[0] }} to {{ trend.last[0] }}">
       <polygon id="trend-area" points="{{ trend.area }}" class="trend-fill-{{ trend.dir }}"/>
+      {# Benchmark overlay (S&P 500 / NIFTY 50) — dashed, behind the price line. #}
+      <polyline id="trend-bench" points="{{ trend.bench_points or '' }}" fill="none"
+                stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="4,3" opacity=".7"
+                vector-effect="non-scaling-stroke"{% if not trend.bench_points %} hidden{% endif %}/>
       <polyline id="trend-line" points="{{ trend.points }}" fill="none"
                 stroke="var(--{{ trend.dir }})" stroke-width="1.8"
                 vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
@@ -140,7 +145,10 @@
         legL = document.getElementById('trend-l'), legR = document.getElementById('trend-r'),
         cross = document.getElementById('trend-cross'), dot = document.getElementById('trend-dot'),
         tip = document.getElementById('trend-tip'),
+        bench = document.getElementById('trend-bench'),
+        benchCap = document.getElementById('trend-bench-cap'),
         tabs = document.querySelectorAll('.trend-seg [data-range]');
+    var benchName = {{ bench_name|tojson }};
     var series = [];
     try { series = JSON.parse(document.getElementById('trend-data').textContent).series || []; } catch (e) {}
 
@@ -156,6 +164,18 @@
       legL.textContent = j.first[0] + ' · ' + money(j.first[1]);
       legR.textContent = j.last[0] + ' · ' + money(j.last[1]);
       series = j.series || [];
+      // Benchmark overlay: draw when this range has one (1D live has none).
+      if (bench) {
+        if (j.bench_points) { bench.setAttribute('points', j.bench_points); bench.removeAttribute('hidden'); }
+        else { bench.setAttribute('hidden', ''); }
+      }
+      if (benchCap) {
+        if (j.bench_change_pct != null) {
+          benchCap.textContent = '· ' + benchName + ' ' +
+            (j.bench_change_pct >= 0 ? '+' : '') + j.bench_change_pct.toFixed(1) + '%';
+          benchCap.hidden = false;
+        } else { benchCap.hidden = true; }
+      }
       var axis = document.getElementById('trend-axis');
       if (axis) axis.innerHTML = (j.ticks || []).map(function (t) {
         return '<span style="left:' + (100 * t.x / (j.width || W)).toFixed(2) + '%">' + t.label + '</span>';
