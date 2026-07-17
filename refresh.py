@@ -88,6 +88,12 @@ def save_deep(conn, ticker):
         conn.execute("UPDATE stocks SET industry=? WHERE ticker=? AND industry=''",
                      (ratios["industry"], ticker))
 
+    try:  # next earnings date (spec 13) — always overwrite: past → next or NULL
+        ne = fetch.next_earnings(ticker)
+        conn.execute("UPDATE stocks SET next_earnings=? WHERE ticker=?", (ne, ticker))
+    except Exception:
+        pass
+
     if "." not in ticker:
         try:
             edgar_funds = edgar.fundamentals(ticker)

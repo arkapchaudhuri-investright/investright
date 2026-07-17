@@ -723,6 +723,21 @@ def today():
                 "SELECT digest_date FROM digest WHERE digest_date > ? "
                 "ORDER BY digest_date ASC LIMIT 1", (drow["digest_date"],)).fetchone()
 
+        # Earnings ahead (spec 13): tracked stocks reporting in the next 14 days.
+        today_iso = date.today().isoformat()
+        horizon_iso = (date.today() + timedelta(days=14)).isoformat()
+        earnings_ahead = []
+        for r in conn.execute(
+                "SELECT ticker, name, next_earnings FROM stocks "
+                "WHERE exchange != 'INDEX' AND next_earnings IS NOT NULL "
+                "AND next_earnings >= ? AND next_earnings <= ? "
+                "ORDER BY next_earnings, ticker", (today_iso, horizon_iso)):
+            ed = date.fromisoformat(r["next_earnings"])
+            earnings_ahead.append({
+                "ticker": r["ticker"], "name": r["name"],
+                "days": (ed - date.today()).days,
+                "date_label": ed.strftime("%b %-d")})
+
     dig = dict(drow) if drow else None
     older = older["digest_date"] if older else None
     newer = newer["digest_date"] if newer else None
@@ -749,6 +764,7 @@ def today():
     market_read = metrics.today_market_read(picks, market)
     resp = make_response(render_template(
         "today.html", picks=picks, digest=dig, as_of=as_of, mood=mood,
+        earnings_ahead=earnings_ahead,
         market_read=market_read, note_older=older, note_newer=newer,
         takeaway=metrics.today_takeaway(picks), market=market,
         date_label=date.today().strftime("%A, %-d %B"),
@@ -1023,9 +1039,20 @@ def stock(ticker):
         "watchers": watchers, "views30": views30,
     }
 
+    # Next-earnings chip (spec 13): only a future date within 60 days.
+    earnings_days = None
+    if s["next_earnings"]:
+        try:
+            delta = (date.fromisoformat(s["next_earnings"]) - date.today()).days
+            if 0 <= delta <= 60:
+                earnings_days = delta
+        except ValueError:
+            pass
+
     _log("view", ticker)
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
+        earnings_days=earnings_days,
         logo=logos.find(ticker),
         ccy=ccy, native_ccy=s["currency"], dcf=dcf, price=price, overridden=overridden,
         checks_by_axis=checks_by_axis, axis_names=dict(metrics.AXES),

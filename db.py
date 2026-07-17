@@ -697,6 +697,11 @@ def _migrate(conn):
     if "industry" not in scols:
         conn.execute("ALTER TABLE stocks ADD COLUMN industry TEXT NOT NULL DEFAULT ''")
 
+    # stocks.next_earnings (spec 13): next earnings date 'YYYY-MM-DD' or NULL.
+    # Cron overwrites it every refresh so a past date rolls forward or clears.
+    if "next_earnings" not in scols:
+        conn.execute("ALTER TABLE stocks ADD COLUMN next_earnings TEXT")
+
     # income_flow went from one-latest-row-per-ticker to per-period rows
     # (2026-07). The table is a pure refetch-from-Yahoo cache that never
     # shipped to prod in the old shape, so the honest migration is drop +

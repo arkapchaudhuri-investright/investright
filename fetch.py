@@ -4,7 +4,7 @@ Shared by the web app now and the nightly cron in Phase 2.
 """
 import math
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import requests
 import yfinance as yf
@@ -285,6 +285,52 @@ def income_breakdowns(symbol):
             rows.append({**flow, "period": period, "ptype": ptype,
                          "end_date": end})
     return rows
+
+
+def _earliest_future_date(dates, today=None):
+    """Pure helper: given an iterable of date-ish values, return the earliest one
+    that is today or later as 'YYYY-MM-DD', else None. Never raises."""
+    today = today or date.today()
+    best = None
+    for d in dates or []:
+        try:
+            if isinstance(d, datetime):
+                d = d.date()
+            elif isinstance(d, str):
+                d = date.fromisoformat(d[:10])
+            elif not isinstance(d, date):
+                d = getattr(d, "date", lambda: None)()
+            if d is None or d < today:
+                continue
+        except Exception:
+            continue
+        if best is None or d < best:
+            best = d
+    return best.isoformat() if best else None
+
+
+def next_earnings(symbol):
+    """Next earnings date as 'YYYY-MM-DD' (earliest future), or None. Never raises.
+
+    yfinance's `.calendar` is a dict {'Earnings Date': [date, ...]} on newer
+    versions or a DataFrame on older ones; both are flaky and often absent."""
+    try:
+        cal = yf.Ticker(symbol).calendar
+    except Exception:
+        return None
+    dates = []
+    try:
+        if isinstance(cal, dict):
+            dates = cal.get("Earnings Date") or []
+        elif cal is not None and "Earnings Date" in getattr(cal, "index", []):
+            # older DataFrame shape: row 'Earnings Date', one value per column
+            row = cal.loc["Earnings Date"]
+            dates = list(getattr(row, "values", row))
+    except Exception:
+        return None
+    if not isinstance(dates, (list, tuple)):
+        dates = [dates]
+    return _earliest_future_date(dates)
 
 
 def _pick(df, aliases, col):

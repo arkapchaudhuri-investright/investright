@@ -33,6 +33,11 @@
       <h1>{{ s['name'] }}</h1>
       <span class="tick">{{ s['ticker'] }}</span>
       <span class="xchg">{{ s['exchange']|exch }}</span>
+      {% if earnings_days is not none %}
+      <span class="earn-chip" title="Next earnings report — {{ s['next_earnings'] }}">
+        Earnings {{ 'today' if earnings_days == 0 else 'in %d days'|format(earnings_days) }}
+      </span>
+      {% endif %}
     </div>
     <p class="head-take serif">{{ takeaway }}</p>
     <div class="head-price">

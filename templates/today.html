@@ -86,6 +86,25 @@
   {% endif %}
 </section>
 
+{# Earnings ahead (spec 13) — tracked stocks reporting in the next 14 days.
+   Nothing rendered when the list is empty, so no bare card. #}
+{% if earnings_ahead %}
+<section class="card">
+  <div class="card-head"><h2>Earnings ahead</h2>
+    <span class="asof">next two weeks</span></div>
+  <ul class="earn-list">
+    {% for e in earnings_ahead %}
+    <li>
+      <a href="{{ url_for('stock', ticker=e.ticker) }}">{{ e.ticker }}</a>
+      <span class="earn-co">{{ e.name }}</span>
+      <span class="earn-when">{{ 'today' if e.days == 0 else 'in %d days'|format(e.days) }}
+        ({{ e.date_label }})</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 {# Tonight's screen — ranked from rules the cron already saved; no request-time math (§8.0) #}
 <section class="card">
   <div class="card-head"><h2>Tonight's screen</h2>
