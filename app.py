@@ -1119,6 +1119,29 @@ def trend_json(ticker):
                    bench_change_pct=chart["bench_change_pct"])
 
 
+@app.route("/notes.csv")
+@login_required
+def notes_csv():
+    """Download all of the signed-in user's notes as CSV. A GET that only reads
+    (§8.1 allows read GETs) — no DB writes here."""
+    import csv
+    import io
+    user = current_user()
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["ticker", "company", "updated_at", "note"])
+    with get_conn() as conn:
+        for r in conn.execute(
+                "SELECT n.ticker, s.name, n.updated_at, n.body FROM user_notes n "
+                "JOIN stocks s ON s.ticker=n.ticker WHERE n.user_id=? AND n.body != '' "
+                "ORDER BY n.updated_at DESC", (user["id"],)):
+            w.writerow([r["ticker"], r["name"], r["updated_at"], r["body"]])
+    resp = make_response(out.getvalue())
+    resp.headers["Content-Type"] = "text/csv; charset=utf-8"
+    resp.headers["Content-Disposition"] = "attachment; filename=investright-notes.csv"
+    return resp
+
+
 @app.post("/stock/<ticker>/note")
 @login_required
 def save_stock_note(ticker):

@@ -52,3 +52,9 @@ def test_peer_remove_requires_login(client):
                        data={"peer": "DELL", "csrf": "tok"})
     assert resp.status_code in (302, 303)
     assert "/login" in resp.headers["Location"]
+
+
+def test_notes_csv_requires_login(client):
+    resp = client.get("/notes.csv")
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
