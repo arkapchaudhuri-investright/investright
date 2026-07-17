@@ -152,12 +152,39 @@
   <p class="empty serif">Otto's dozing — your watchlist is empty.<br>
     <span class="empty-sub">Add your first ticker above to wake him up.</span></p>
   {% else %}
-  {# Logged out: watchlist is per-account now (§10.4). Search / Analyze / Today
-     all still work without an account — only saving a list needs one. #}
-  <p class="empty serif">Sign in to build your watchlist.<br>
-    <span class="empty-sub"><a href="{{ url_for('auth.login') }}">Sign in</a> or
-      <a href="{{ url_for('auth.register') }}">create a free account</a> to save
-      stocks — searching and Today work without one.</span></p>
+  {# Logged out: show what you'd get (three real demo scores) then the CTA.
+     Search / Analyze / Today all work without an account — only saving needs one. #}
+  <p class="sub">Track any US or India stock — price, day change, and Otto's
+    health score at a glance. Here's what three look like:</p>
+  {% if demo %}
+  <div class="peer-strip guest-demo">
+    {% for d in demo %}
+    <a class="peer" href="{{ url_for('stock', ticker=d['ticker']) }}">
+      {% if d['snowflake'] %}
+      <svg class="peer-snow" viewBox="0 0 60 60" role="img"
+           aria-label="Score radar for {{ d['ticker'] }}">
+        <polygon points="{{ d['snowflake']['rings'][3] }}" fill="none" stroke="var(--hairline)" stroke-width="1"/>
+        <polygon points="{{ d['snowflake']['rings'][1] }}" fill="none" stroke="var(--hairline)" stroke-width="1" opacity=".6"/>
+        <polygon points="{{ d['snowflake']['polygon'] }}" fill="rgba(29,158,117,.25)" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+      {% endif %}
+      <span class="tick">{{ d['ticker'] }}</span>
+      <span class="peer-name">{{ d['name'] }}</span>
+      {% if d['price'] %}
+      <span class="peer-px">{{ d['price']|money(d['currency']) }}
+        {% if d['change_pct'] is not none %}
+        <span class="{{ 'up' if d['change_pct'] > 0 else 'down' if d['change_pct'] < 0 else 'flat' }}">
+          {{ '%+.1f%%'|format(d['change_pct']) }}</span>{% endif %}
+      </span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="guest-cta">
+    <a class="btn-analyze" href="{{ url_for('auth.register') }}">Create a free account</a>
+    <a class="btn-watch" href="{{ url_for('auth.login') }}">Sign in</a>
+  </div>
   {% endif %}
 </section>
 
