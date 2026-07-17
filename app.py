@@ -205,7 +205,8 @@ def convert_row(r, ccy, rate):
     if not rate or native == ccy or native not in ("USD", "INR"):
         return r
     factor = rate if native == "USD" else 1 / rate
-    for k in ("price", "prev_close", "market_cap", "wk52_low", "wk52_high"):
+    for k in ("price", "prev_close", "market_cap", "wk52_low", "wk52_high",
+              "buy_price"):   # buy_price is native money too (spec 11 holdings)
         if r.get(k):
             r[k] = r[k] * factor
     r["currency"] = ccy
@@ -292,7 +293,8 @@ def watchlist_page():
     if user:
         with get_conn() as conn:
             rows = conn.execute("""
-                SELECT s.*, n.fetched_at, n.price, n.prev_close, n.change_pct,
+                SELECT s.*, w.qty, w.buy_price,
+                       n.fetched_at, n.price, n.prev_close, n.change_pct,
                        n.market_cap, n.pe, n.div_yield, n.wk52_low, n.wk52_high
                 FROM user_watchlist w
                 JOIN stocks s ON s.ticker = w.ticker
@@ -307,7 +309,24 @@ def watchlist_page():
     if market != "BOTH":
         rows = [r for r in rows if _in_market(r["ticker"])]
 
-    rows = [convert_row(dict(r), ctx["ccy"], ctx["fx"]) for r in rows]
+    conv = []
+    for r in rows:
+        r = dict(r)
+        # Stash the native holdings before convert_row rewrites them to display
+        # ccy — the edit form always shows/saves the NATIVE buy price.
+        r["buy_price_native"] = r.get("buy_price")
+        r["currency_native"] = r["currency"]
+        r = convert_row(r, ctx["ccy"], ctx["fx"])
+        # Per-row P&L (spec 11): price + buy_price are now both in display ccy,
+        # so this is a straight subtraction. Rows without holdings (qty NULL) or
+        # without a live price carry no pnl.
+        r["pnl"] = r["pnl_pct"] = r["mkt_value"] = None
+        if r.get("qty") and r.get("buy_price") and r.get("price") is not None:
+            r["mkt_value"] = r["price"] * r["qty"]
+            r["pnl"] = (r["price"] - r["buy_price"]) * r["qty"]
+            r["pnl_pct"] = (r["price"] / r["buy_price"] - 1) * 100 if r["buy_price"] else None
+        conv.append(r)
+    rows = conv
     # A 30-session sparkline per row (last-good closes from price_history — the
     # same table the deep-dive trend uses). Read-only, so no cron rule broken.
     if rows:
@@ -471,6 +490,39 @@ def remove():
     with get_conn() as conn:
         remove_user_watch(conn, user["id"], ticker)
     return redirect(url_for("watchlist_page"))
+
+
+@app.post("/watchlist/<ticker>/holdings")
+@login_required
+def save_holdings(ticker):
+    """Set or clear holdings (qty + native buy price) on the caller's watch row
+    (spec 11). Both fields empty clears holdings back to a plain watch row."""
+    user = current_user()
+    ticker = ticker.upper()
+    _log("holdings", ticker)
+    dest = redirect(url_for("watchlist_page"))
+    raw_qty = (request.form.get("qty") or "").strip()
+    raw_buy = (request.form.get("buy_price") or "").strip()
+    if not raw_qty and not raw_buy:      # clear holdings → plain watch row
+        qty = buy_price = None
+    else:
+        try:
+            qty, buy_price = float(raw_qty), float(raw_buy)
+        except (TypeError, ValueError):
+            flash("Enter a quantity and buy price (numbers) — or clear both.", "error")
+            return dest
+        if qty <= 0 or buy_price <= 0:
+            flash("Quantity and buy price must both be above zero.", "error")
+            return dest
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE user_watchlist SET qty=?, buy_price=? WHERE user_id=? AND ticker=?",
+            (qty, buy_price, user["id"], ticker))
+        if cur.rowcount == 0:
+            flash("Star this stock first, then add your holdings.", "error")
+            return dest
+    flash("Holdings cleared." if qty is None else f"Saved your {ticker} holdings.", "ok")
+    return dest
 
 
 @app.post("/refresh")

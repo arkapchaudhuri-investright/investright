@@ -714,6 +714,13 @@ def _migrate(conn):
     if "next_earnings" not in scols:
         conn.execute("ALTER TABLE stocks ADD COLUMN next_earnings TEXT")
 
+    # user_watchlist holdings (spec 11): optional qty + native-currency buy price.
+    # NULL qty = a plain watch row with no holdings — every reader handles that.
+    wcols = {r["name"] for r in conn.execute("PRAGMA table_info(user_watchlist)")}
+    if "qty" not in wcols:
+        conn.execute("ALTER TABLE user_watchlist ADD COLUMN qty REAL")
+        conn.execute("ALTER TABLE user_watchlist ADD COLUMN buy_price REAL")
+
     # income_flow went from one-latest-row-per-ticker to per-period rows
     # (2026-07). The table is a pure refetch-from-Yahoo cache that never
     # shipped to prod in the old shape, so the honest migration is drop +
