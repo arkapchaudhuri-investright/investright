@@ -675,6 +675,23 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 }
 .hold-form input { width: 84px; padding: 4px 6px; }
 .wl-holdings { margin-top: 10px; }
+
+/* portfolio totals + allocation donut (spec 11 Phase B) */
+.port-grid {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 20px;
+}
+.port-stats { flex: 1 1 320px; }
+.port-alloc {
+  display: flex; align-items: center; gap: 14px; flex: 0 0 auto; margin-left: auto;
+}
+.alloc-donut { flex: 0 0 auto; }
+.alloc-legend { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.alloc-legend li { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.alloc-chip { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+@media (max-width: 560px) {
+  .port-alloc { margin: 0 auto; flex-direction: column; }
+}
 .earn-co { color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .earn-when { color: var(--accent); font-size: 13px; white-space: nowrap; }
 
