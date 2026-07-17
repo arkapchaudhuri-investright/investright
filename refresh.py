@@ -186,6 +186,35 @@ def enrich_executives(conn, ticker, limit=8):
         time.sleep(1.5)
 
 
+def check_alerts(conn):
+    """Fire one-shot price alerts (spec 08): for every armed alert whose fresh
+    snapshot price crossed the threshold, email the owner and stamp triggered.
+
+    Marks triggered ONLY when the email actually sent — mailer.send() returns
+    False when SMTP is unset, so alerts stay armed and fire the night email
+    goes live rather than being silently consumed."""
+    import mailer
+    armed = conn.execute(
+        "SELECT a.*, u.email, s.name, s.currency, n.price FROM user_alerts a "
+        "JOIN users u ON u.id=a.user_id JOIN stocks s ON s.ticker=a.ticker "
+        "JOIN snapshots n ON n.ticker=a.ticker WHERE a.triggered_at IS NULL").fetchall()
+    for a in armed:
+        if a["price"] is None:
+            continue
+        hit = (a["price"] >= a["threshold"] if a["direction"] == "above"
+               else a["price"] <= a["threshold"])
+        if not hit:
+            continue
+        ok = mailer.send(a["email"], f"InvestRight alert: {a['ticker']}",
+            f"{a['name']} ({a['ticker']}) closed at {a['price']:.2f} "
+            f"{a['currency']} — your alert was {a['direction']} "
+            f"{a['threshold']:.2f}.\n\nhttps://investright.us/stock/{a['ticker']}\n"
+            "\nNot investment advice — Otto just crunches numbers.")
+        if ok:
+            conn.execute("UPDATE user_alerts SET triggered_at=datetime('now') "
+                         "WHERE id=?", (a["id"],))
+
+
 def run_screener(conn):
     """Re-rank every saved ticker for /today from rows already in SQLite — pure
     DB→DB, no fetching (Phase 4, §4). Cheap enough that ↻ and /add run it too,
@@ -289,6 +318,12 @@ def main():
         for snap in snaps:
             save_snapshot(conn, snap)
     failed = sorted(set(symbols) - {s["ticker"] for s in snaps})
+
+    try:  # price alerts (spec 08) — email on any armed alert the fresh price hit
+        with get_conn() as conn:
+            check_alerts(conn)
+    except Exception as e:
+        print(f"  alert check failed: {e}")
 
     # Daily closes for the trend chart: full backfill the first time a ticker
     # shows up, a one-month top-up after (weekends/holidays make gaps; the

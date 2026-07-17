@@ -64,6 +64,46 @@
       {{ '★ On watchlist' if on_watch else '☆ Add to watchlist' }}
     </button>
   </form>
+  {% if current_user %}
+  <details class="alert-set" id="alerts">
+    <summary>🔔 Alert</summary>
+    <div class="alert-body">
+      <form action="{{ url_for('add_alert', ticker=s['ticker']) }}" method="post" class="alert-form">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <label class="asof">Email me when the price goes</label>
+        <div class="alert-row">
+          <select name="direction" aria-label="Direction">
+            <option value="above">above</option>
+            <option value="below">below</option>
+          </select>
+          <input type="number" name="threshold" step="any" min="0"
+                 placeholder="{{ '%g'|format(native_price) if native_price is not none else 'price' }}"
+                 aria-label="Threshold in {{ native_ccy }}" required>
+          <span class="asof">{{ native_ccy }}</span>
+          <button type="submit" class="ghost">Set</button>
+        </div>
+      </form>
+      {% if not mailer_enabled %}
+      <p class="asof">Email isn't configured yet — alerts will start sending once it is.</p>
+      {% endif %}
+      {% if alerts %}
+      <ul class="alert-list">
+        {% for a in alerts %}
+        <li>
+          <span>{{ a['direction'] }} {{ '%g'|format(a['threshold']) }} {{ native_ccy }}</span>
+          {% if a['triggered_at'] %}<span class="asof">· triggered</span>{% else %}<span class="asof">· armed</span>{% endif %}
+          <form action="{{ url_for('delete_alert', alert_id=a['id']) }}" method="post" class="alert-del">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <input type="hidden" name="next" value="{{ url_for('stock', ticker=s['ticker']) }}#alerts">
+            <button type="submit" class="ghost" aria-label="Delete alert">✕</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
   {% if s['industry'] %}
   <span class="head-industry" title="Industry, per Yahoo Finance">{{ s['industry'] }}</span>
   {% endif %}

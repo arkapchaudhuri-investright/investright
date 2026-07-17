@@ -86,6 +86,34 @@
     {% endif %}
   </div>
 
+  <div class="acct-notes" id="alerts">
+    <div class="card-head"><h3>Price alerts</h3></div>
+    {% if not mailer_enabled %}
+    <p class="asof">Email isn't configured yet — alerts will start sending once it is.</p>
+    {% endif %}
+    {% if alerts %}
+    <ul class="notes-hub">
+      {% for a in alerts %}
+      <li>
+        <a class="tick" href="{{ url_for('stock', ticker=a['ticker']) }}#alerts">{{ a['ticker'] }}</a>
+        <span class="notes-hub-body">{{ a['name'] }} — {{ a['direction'] }}
+          {{ '%g'|format(a['threshold']) }}
+          {% if a['triggered_at'] %}<span class="asof">· triggered {{ a['triggered_at'][:10] }}</span>
+          {% else %}<span class="asof">· armed</span>{% endif %}</span>
+        <form action="{{ url_for('delete_alert', alert_id=a['id']) }}" method="post" class="alert-del">
+          <input type="hidden" name="csrf" value="{{ csrf_token }}">
+          <input type="hidden" name="next" value="{{ url_for('auth.account') }}#alerts">
+          <button type="submit" class="ghost" aria-label="Delete alert">✕</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="asof">No alerts yet — set one from any stock page (the 🔔 Alert button
+      in the header) to get an email when it crosses your price.</p>
+    {% endif %}
+  </div>
+
   <p class="auth-alt"><a href="{{ url_for('home') }}">← Back to your watchlist</a></p>
 </section>
 {% endblock %}

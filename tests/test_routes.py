@@ -64,3 +64,94 @@ def test_compare_needs_two(client):
     # Empty test DB: any ticker set resolves to <2 real cols -> redirect home.
     assert client.get("/compare?t=AAPL").status_code in (302, 303)
     assert client.get("/compare?t=").status_code in (302, 303)
+
+
+# --- Price alerts (spec 08) -------------------------------------------------
+# The suite has no authed-login fixture, so the route tests only cover the
+# guest-guard path; check_alerts (the nightly logic) is unit-tested below
+# against a fake conn, which is where the real behaviour lives.
+
+def test_add_alert_requires_login(client):
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    resp = client.post("/stock/AAPL/alerts",
+                       data={"direction": "above", "threshold": "200", "csrf": "tok"})
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
+
+
+def test_delete_alert_requires_login(client):
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    resp = client.post("/alerts/1/delete", data={"csrf": "tok"})
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
+
+
+class _FakeConn:
+    """Minimal conn: one canned SELECT result, records UPDATE calls."""
+    def __init__(self, rows):
+        self._rows = rows
+        self.updates = []
+
+    def execute(self, sql, params=()):
+        if sql.strip().upper().startswith("SELECT"):
+            self._last = self._rows
+        else:
+            self.updates.append((sql, params))
+            self._last = []
+        return self
+
+    def fetchall(self):
+        return self._last
+
+
+def _alert_row(**kw):
+    row = {"id": 1, "ticker": "AAPL", "direction": "above", "threshold": 200.0,
+           "email": "a@example.com", "name": "Apple", "currency": "USD",
+           "price": 210.0}
+    row.update(kw)
+    return row
+
+
+def test_check_alerts_fires_and_marks_when_email_sent(monkeypatch):
+    import refresh, mailer
+    sent = []
+    monkeypatch.setattr(mailer, "send", lambda *a, **k: sent.append(a) or True)
+    conn = _FakeConn([_alert_row(direction="above", threshold=200, price=210)])
+    refresh.check_alerts(conn)
+    assert len(sent) == 1
+    assert conn.updates and "triggered_at" in conn.updates[0][0]
+
+
+def test_check_alerts_below_direction(monkeypatch):
+    import refresh, mailer
+    monkeypatch.setattr(mailer, "send", lambda *a, **k: True)
+    conn = _FakeConn([_alert_row(direction="below", threshold=250, price=210)])
+    refresh.check_alerts(conn)
+    assert conn.updates  # 210 <= 250 -> hit
+
+
+def test_check_alerts_no_hit_stays_armed(monkeypatch):
+    import refresh, mailer
+    monkeypatch.setattr(mailer, "send", lambda *a, **k: True)
+    conn = _FakeConn([_alert_row(direction="above", threshold=250, price=210)])
+    refresh.check_alerts(conn)
+    assert not conn.updates  # 210 < 250 -> no fire
+
+
+def test_check_alerts_stays_armed_when_email_unset(monkeypatch):
+    import refresh, mailer
+    monkeypatch.setattr(mailer, "send", lambda *a, **k: False)  # SMTP unset
+    conn = _FakeConn([_alert_row(direction="above", threshold=200, price=210)])
+    refresh.check_alerts(conn)
+    assert not conn.updates  # hit, but not marked because email didn't send
+
+
+def test_check_alerts_skips_null_price(monkeypatch):
+    import refresh, mailer
+    sent = []
+    monkeypatch.setattr(mailer, "send", lambda *a, **k: sent.append(1) or True)
+    conn = _FakeConn([_alert_row(price=None)])
+    refresh.check_alerts(conn)
+    assert not sent and not conn.updates
