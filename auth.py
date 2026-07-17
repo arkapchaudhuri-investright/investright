@@ -385,6 +385,22 @@ def signout_others():
     return redirect(url_for("auth.account"))
 
 
+@bp.post("/account/weekly")
+@login_required
+def weekly_toggle():
+    """Flip the opt-in for Otto's Sunday watchlist note (spec 12). The checkbox
+    is only present in the POST when checked, so its absence means opt out."""
+    from db import get_conn
+    user = current_user()
+    on = 1 if request.form.get("weekly_email") else 0
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET weekly_email=? WHERE id=?", (on, user["id"]))
+    g.__dict__.pop("user", None)
+    flash("You'll get Otto's weekly note on Sundays." if on
+          else "Weekly note turned off.", "ok")
+    return redirect(url_for("auth.account") + "#weekly")
+
+
 @bp.post("/account/delete")
 @login_required
 def delete_account():

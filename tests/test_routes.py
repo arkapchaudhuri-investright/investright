@@ -88,6 +88,29 @@ def test_delete_alert_requires_login(client):
     assert "/login" in resp.headers["Location"]
 
 
+# --- Weekly email (spec 12) -------------------------------------------------
+def test_weekly_toggle_requires_login(client):
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    resp = client.post("/account/weekly", data={"weekly_email": "1", "csrf": "tok"})
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
+
+
+def test_build_note_none_when_watchlist_empty():
+    import weekly
+
+    class _Conn:
+        def execute(self, *a, **k):
+            self._rows = []
+            return self
+
+        def fetchall(self):
+            return self._rows
+
+    assert weekly.build_note(_Conn(), {"id": 1}) is None
+
+
 # --- Portfolio holdings (spec 11) -------------------------------------------
 def test_save_holdings_requires_login(client):
     with client.session_transaction() as sess:

@@ -695,6 +695,10 @@ def _migrate(conn):
     for r in conn.execute("SELECT id FROM users WHERE session_token IS NULL").fetchall():
         rotate_session_token(conn, r["id"])
 
+    # users.weekly_email (spec 12): opt-in flag for the Sunday watchlist note.
+    if "weekly_email" not in ucols:
+        conn.execute("ALTER TABLE users ADD COLUMN weekly_email INTEGER NOT NULL DEFAULT 0")
+
     # events.user_id (§10.2). SQLite allows ADD COLUMN with a REFERENCES clause
     # only when it defaults to NULL — which is exactly what we want for the
     # pre-accounts rows.
