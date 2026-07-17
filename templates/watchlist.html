@@ -77,6 +77,39 @@
   {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
 {% endwith %}
 
+{# Portfolio totals + allocation donut (spec 11 Phase B) — only when the user
+   holds something. Four stat blocks (div-stats pattern) + a pure-SVG donut. #}
+{% if totals %}
+<section class="card port-totals">
+  <div class="card-head"><h2>Holdings</h2>
+    <span class="asof">across your positions</span></div>
+  <div class="port-grid">
+    <div class="div-stats port-stats">
+      <div><b>{{ totals['value']|money(ccy) }}</b><span class="asof">market value</span></div>
+      <div><b>{{ totals['invested']|money(ccy) }}</b><span class="asof">invested</span></div>
+      <div><b class="{{ 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' }}">{{ totals['pnl']|money(ccy) }}</b>
+        <span class="asof">total P&amp;L</span></div>
+      <div><b class="{{ 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' }}">{{ '%+.1f%%'|format(totals['pnl_pct']) if totals['pnl_pct'] is not none else '—' }}</b>
+        <span class="asof">return</span></div>
+    </div>
+    {% if donut %}
+    <div class="port-alloc">
+      <svg class="alloc-donut" viewBox="0 0 140 140" width="140" height="140"
+           role="img" aria-label="Allocation by market value">
+        {% for sl in donut %}<path d="{{ sl['d'] }}" fill="{{ sl['fill'] }}"><title>{{ sl['label'] }} · {{ sl['pct'] }}%</title></path>{% endfor %}
+      </svg>
+      <ul class="alloc-legend">
+        {% for sl in donut %}
+        <li><span class="alloc-chip" style="background: {{ sl['fill'] }}"></span>
+          {{ sl['label'] }} <span class="asof">{{ sl['pct'] }}%</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
 <section id="watchlist" class="card">
   {% if rows %}
   <div class="card-head">

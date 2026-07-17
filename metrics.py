@@ -316,6 +316,66 @@ def snowflake(scores, cx=100, cy=100, R=78):
             "cx": cx, "cy": cy, "R": R}
 
 
+# Rotating tints of the brand green for allocation slices (spec 11).
+_DONUT_FILLS = ("rgba(29,158,117,.9)", "rgba(29,158,117,.7)", "rgba(29,158,117,.5)",
+                "rgba(29,158,117,.35)", "rgba(29,158,117,.22)")
+
+
+def _donut_xy(cx, cy, r, deg):
+    a = math.radians(deg - 90)          # 0deg = top, then clockwise
+    return cx + r * math.cos(a), cy + r * math.sin(a)
+
+
+def allocation_donut(slices, size=140, thickness=18):
+    """Portfolio allocation ring (spec 11): pure-SVG annular-sector arcs, no libs.
+
+    `slices` = [(label, value)] (value > 0). Returns a list of
+    {'d', 'label', 'pct', 'fill', 'value'}, the top 7 by value plus an 'Other'
+    slice for the rest, each a closed SVG path around the ring's centre."""
+    slices = [(lab, float(v)) for lab, v in slices if v and v > 0]
+    total = sum(v for _, v in slices)
+    if total <= 0:
+        return []
+    slices.sort(key=lambda x: x[1], reverse=True)
+    if len(slices) > 8:                 # top 7 + a single "Other"
+        head, tail = slices[:7], slices[7:]
+        slices = head + [("Other", sum(v for _, v in tail))]
+
+    cx = cy = size / 2
+    ro = size / 2 - 1
+    ri = ro - thickness
+    out, ang = [], 0.0
+    for i, (label, value) in enumerate(slices):
+        frac = value / total
+        span = frac * 360
+        a0, a1 = ang, ang + span
+        ang = a1
+        fill = _DONUT_FILLS[i % len(_DONUT_FILLS)]
+        entry = {"label": label, "pct": round(frac * 100, 1),
+                 "fill": fill, "value": value}
+        if len(slices) == 1:            # single holding: a full ring, two arcs
+            ox0, oy0 = _donut_xy(cx, cy, ro, 0)
+            oxm, oym = _donut_xy(cx, cy, ro, 180)
+            ix0, iy0 = _donut_xy(cx, cy, ri, 0)
+            ixm, iym = _donut_xy(cx, cy, ri, 180)
+            entry["d"] = (f"M{ox0:.2f},{oy0:.2f} A{ro:.2f},{ro:.2f} 0 1 1 {oxm:.2f},{oym:.2f} "
+                          f"A{ro:.2f},{ro:.2f} 0 1 1 {ox0:.2f},{oy0:.2f} Z "
+                          f"M{ix0:.2f},{iy0:.2f} A{ri:.2f},{ri:.2f} 0 1 0 {ixm:.2f},{iym:.2f} "
+                          f"A{ri:.2f},{ri:.2f} 0 1 0 {ix0:.2f},{iy0:.2f} Z")
+        else:
+            large = 1 if span > 180 else 0
+            ox0, oy0 = _donut_xy(cx, cy, ro, a0)
+            ox1, oy1 = _donut_xy(cx, cy, ro, a1)
+            ix1, iy1 = _donut_xy(cx, cy, ri, a1)
+            ix0, iy0 = _donut_xy(cx, cy, ri, a0)
+            entry["d"] = (f"M{ox0:.2f},{oy0:.2f} "
+                          f"A{ro:.2f},{ro:.2f} 0 {large} 1 {ox1:.2f},{oy1:.2f} "
+                          f"L{ix1:.2f},{iy1:.2f} "
+                          f"A{ri:.2f},{ri:.2f} 0 {large} 0 {ix0:.2f},{iy0:.2f} Z")
+        out.append(entry)
+    return out
+
+
 # --- DCF (§8.4) ------------------------------------------------------------
 def compute_dcf(funds, price, shares, growth=None, discount=None, terminal=None):
     """2-stage DCF on FCF (fallback: net income). Returns None if too thin.

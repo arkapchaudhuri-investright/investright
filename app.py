@@ -340,6 +340,19 @@ def watchlist_page():
     if as_of:
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
 
+    # Portfolio totals + allocation donut (spec 11 Phase B): sum the visible
+    # rows that carry holdings, all already in display ccy. None when the user
+    # holds nothing (or the current market filter hides them all) → no strip.
+    totals = donut = None
+    held = [r for r in rows if r.get("mkt_value") is not None]
+    if held:
+        invested = sum(r["buy_price"] * r["qty"] for r in held)
+        value = sum(r["mkt_value"] for r in held)
+        pnl = value - invested
+        totals = {"invested": invested, "value": value, "pnl": pnl,
+                  "pnl_pct": (pnl / invested * 100) if invested else None}
+        donut = metrics.allocation_donut([(r["ticker"], r["mkt_value"]) for r in held])
+
     # Guests see three real demo scores (not a bare sign-in wall) — read-only,
     # skips any demo ticker we don't actually have locally (never fake data).
     demo = []
@@ -362,7 +375,7 @@ def watchlist_page():
 
     resp = make_response(render_template(
         "watchlist.html", rows=rows, as_of=as_of, market=market, total=total,
-        demo=demo, **ctx))
+        totals=totals, donut=donut, demo=demo, **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
     if request.args.get("market"):

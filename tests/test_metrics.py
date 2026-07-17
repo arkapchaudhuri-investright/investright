@@ -196,3 +196,31 @@ def test_trend_chart_benchmark_overlay():
     t0 = metrics.trend_chart(pts)
     assert t0["bench_points"] is None and t0["bench_change_pct"] is None
     assert (t0["lo"], t0["hi"]) == (100, 120)
+
+
+def test_allocation_donut_pcts_and_full_circle():
+    slices = metrics.allocation_donut([("AAPL", 600.0), ("MSFT", 400.0)])
+    assert len(slices) == 2
+    assert [s["pct"] for s in slices] == [60.0, 40.0]   # sorted desc, sums to 100
+    assert all(s["d"].startswith("M") and s["d"].endswith("Z") for s in slices)
+    assert all(s["fill"].startswith("rgba(29,158,117") for s in slices)
+
+
+def test_allocation_donut_single_slice_is_full_ring():
+    slices = metrics.allocation_donut([("AAPL", 500.0)])
+    assert len(slices) == 1 and slices[0]["pct"] == 100.0
+    # full ring = two sub-paths (outer + inner hole)
+    assert slices[0]["d"].count("M") == 2
+
+
+def test_allocation_donut_caps_at_seven_plus_other():
+    data = [(f"T{i}", float(10 - i)) for i in range(9)]   # 9 positive slices
+    slices = metrics.allocation_donut(data)
+    assert len(slices) == 8
+    assert slices[-1]["label"] == "Other"
+    assert abs(sum(s["pct"] for s in slices) - 100.0) < 0.5
+
+
+def test_allocation_donut_empty_and_nonpositive():
+    assert metrics.allocation_donut([]) == []
+    assert metrics.allocation_donut([("X", 0.0), ("Y", -5.0)]) == []
