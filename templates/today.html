@@ -42,7 +42,18 @@
 {# Otto's read — the nightly AI digest; a summary of our own rules, labeled so (§1, §4) #}
 <section class="card">
   <div class="card-head"><h2>Otto's read</h2>
-    <span class="asof">{{ 'US market' if market == 'US' else 'Indian market' if market == 'IN' else 'all tracked markets' }}</span></div>
+    <span class="asof">{{ 'US market' if market == 'US' else 'Indian market' if market == 'IN' else 'all tracked markets' }}</span>
+    {% if note_older or note_newer %}
+    <nav class="digest-pager" aria-label="Browse past nightly notes">
+      {% if note_older %}<a href="{{ url_for('today', note=note_older, market=market) }}" title="Older note">‹ {{ note_older }}</a>{% endif %}
+      {% if note_newer %}<a href="{{ url_for('today', note=note_newer, market=market) }}" title="Newer note">{{ note_newer }} ›</a>{% endif %}
+    </nav>
+    {% endif %}
+  </div>
+  {% if note_newer %}
+  <p class="asof">You're reading a past nightly note.
+    <a href="{{ url_for('today', market=market) }}">Back to the latest ›</a></p>
+  {% endif %}
   {# Per-market lead — recomputed from the filtered picks, so it changes with
      the toggle above. The dated AI note (whole screen) follows. #}
   {% if market_read %}

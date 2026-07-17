@@ -682,10 +682,28 @@ def today():
             scores = metrics.axis_scores(checks) if checks else None
             p["snowflake"] = (metrics.snowflake(scores, cx=30, cy=30, R=25)
                               if scores else None)
-        drow = conn.execute(
-            "SELECT * FROM digest ORDER BY digest_date DESC LIMIT 1").fetchone()
+        # ?note=YYYY-MM-DD browses a specific past night; garbage/unknown falls
+        # back to the latest. read-only — no writes on this GET.
+        want = request.args.get("note")
+        drow = None
+        if want:
+            drow = conn.execute("SELECT * FROM digest WHERE digest_date=?",
+                                (want,)).fetchone()
+        if drow is None:
+            drow = conn.execute(
+                "SELECT * FROM digest ORDER BY digest_date DESC LIMIT 1").fetchone()
+        older = newer = None
+        if drow:
+            older = conn.execute(
+                "SELECT digest_date FROM digest WHERE digest_date < ? "
+                "ORDER BY digest_date DESC LIMIT 1", (drow["digest_date"],)).fetchone()
+            newer = conn.execute(
+                "SELECT digest_date FROM digest WHERE digest_date > ? "
+                "ORDER BY digest_date ASC LIMIT 1", (drow["digest_date"],)).fetchone()
 
     dig = dict(drow) if drow else None
+    older = older["digest_date"] if older else None
+    newer = newer["digest_date"] if newer else None
     if dig:
         d = date.fromisoformat(dig["digest_date"])
         dig["date_label"] = d.strftime("%-d %b")
@@ -709,7 +727,7 @@ def today():
     market_read = metrics.today_market_read(picks, market)
     resp = make_response(render_template(
         "today.html", picks=picks, digest=dig, as_of=as_of, mood=mood,
-        market_read=market_read,
+        market_read=market_read, note_older=older, note_newer=newer,
         takeaway=metrics.today_takeaway(picks), market=market,
         date_label=date.today().strftime("%A, %-d %B"),
         weights=metrics.SCREEN_WEIGHTS, upside_cap=metrics.UPSIDE_CAP,

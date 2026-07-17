@@ -163,6 +163,11 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 }
 .seg a.active { background: var(--accent-deep); color: #fff; }
 .seg a:not(.active):hover { color: var(--text); }
+/* /today past-note pager (spec 04). */
+.digest-pager { display: inline-flex; gap: 12px; align-items: baseline; font-size: 12.5px; }
+.digest-pager a { color: var(--accent); text-decoration: none; font-variant-numeric: tabular-nums; }
+.digest-pager a:hover { text-decoration: underline; }
+
 /* Inline SVG market flags (regional-indicator emoji don't render on Windows). */
 .flagicon {
   width: 19px; height: auto; border-radius: 2px; vertical-align: -3px;
