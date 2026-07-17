@@ -1119,6 +1119,51 @@ def trend_json(ticker):
                    bench_change_pct=chart["bench_change_pct"])
 
 
+@app.route("/compare")
+def compare():
+    """Side-by-side comparison of 2-4 tracked tickers (snowflake + key metrics).
+    Read-only, guest-friendly. ?t=AAPL,MSFT,NVDA"""
+    ctx = _fx_ctx()
+    syms, seen = [], set()
+    for s in (request.args.get("t") or "").split(","):
+        tk = s.strip().upper()
+        if tk and tk not in seen:
+            seen.add(tk)
+            syms.append(tk)
+    syms = syms[:4]
+    cols = []
+    with get_conn() as conn:
+        for tk in syms:
+            s = conn.execute("SELECT * FROM stocks WHERE ticker=?", (tk,)).fetchone()
+            if not s or s["exchange"] == "INDEX":
+                continue
+            snap = conn.execute("SELECT * FROM snapshots WHERE ticker=?", (tk,)).fetchone()
+            checks = [dict(r) for r in conn.execute(
+                "SELECT axis, passed FROM health_checks WHERE ticker=?", (tk,))]
+            dcf = conn.execute("SELECT upside_pct FROM dcf WHERE ticker=?", (tk,)).fetchone()
+            sc = metrics.axis_scores(checks)
+            row = dict(s)                              # has currency/name/exchange
+            if snap:
+                sd = dict(snap)
+                row.update({k: sd.get(k) for k in (
+                    "price", "prev_close", "change_pct", "market_cap",
+                    "pe", "pb", "ps", "div_yield", "wk52_low", "wk52_high")})
+            row = convert_row(row, ctx["ccy"], ctx["fx"])   # scales money, sets currency
+            cols.append({
+                **row, "logo": logos.find(tk),
+                "scores": sc, "overall": metrics.overall_score(sc),
+                "snowflake": (metrics.snowflake(sc)
+                              if any(v is not None for v in sc.values()) else None),
+                "upside": dcf["upside_pct"] if dcf else None,
+                "initials": metrics.initials(s["name"]),
+            })
+    if len(cols) < 2:
+        flash("Pick at least two tracked stocks to compare.", "error")
+        return redirect(url_for("home"))
+    _log("compare")
+    return render_template("compare.html", cols=cols, **ctx)
+
+
 @app.route("/notes.csv")
 @login_required
 def notes_csv():

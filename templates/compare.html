@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Compare · InvestRight{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-head"><h2>Compare</h2>
+    <span class="asof">{{ cols|length }} stocks · latest saved figures</span></div>
+
+  <div class="income-matrix-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th class="im-corner cmp-metric"></th>
+          {% for c in cols %}
+          <th class="cmp-head">
+            <a href="{{ url_for('stock', ticker=c['ticker']) }}" class="cmp-headlink">
+              {% if c['logo'] %}
+              <img class="cmp-logo" src="{{ url_for('static', filename='logos/' + c['logo']) }}" alt="" width="34" height="34">
+              {% else %}<span class="cmp-logo cmp-mono">{{ c['initials'] }}</span>{% endif %}
+              <span class="cmp-tick">{{ c['ticker'] }}</span>
+              <span class="cmp-name">{{ c['name']|truncate(22, True, '…') }}</span>
+            </a>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th class="im-label cmp-metric" scope="row">Price</th>
+          {% for c in cols %}
+          <td>{% if c['price'] %}{{ c['price']|money(c['currency']) }}
+            {% if c['change_pct'] is not none %}<span class="{{ 'up' if c['change_pct'] > 0 else 'down' if c['change_pct'] < 0 else 'flat' }}">{{ '%+.1f%%'|format(c['change_pct']) }}</span>{% endif %}
+            {% else %}—{% endif %}</td>
+          {% endfor %}
+        </tr>
+        <tr>
+          <th class="im-label cmp-metric" scope="row">Market cap</th>
+          {% for c in cols %}<td>{{ c['market_cap']|bigmoney(c['currency']) if c['market_cap'] else '—' }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th class="im-label cmp-metric" scope="row">P/E</th>
+          {% for c in cols %}<td>{{ '%.1f'|format(c['pe']) if c['pe'] else '—' }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th class="im-label cmp-metric" scope="row">P/B</th>
+          {% for c in cols %}<td>{{ '%.1f'|format(c['pb']) if c['pb'] else '—' }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th class="im-label cmp-metric" scope="row">Dividend yield</th>
+          {% for c in cols %}<td>{{ '%.2f%%'|format(c['div_yield']) if c['div_yield'] else '—' }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th class="im-label cmp-metric" scope="row">DCF gap</th>
+          {% for c in cols %}<td>{% if c['upside'] is not none %}<span class="{{ 'up' if c['upside'] > 0 else 'down' }}">{{ '%+.0f%%'|format(c['upside']) }}</span>{% else %}—{% endif %}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th class="im-label cmp-metric" scope="row">Health score</th>
+          {% for c in cols %}<td>{{ (c['overall'] * 100)|round|int ~ '%' if c['overall'] is not none else '—' }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <th class="im-label cmp-metric" scope="row">Snowflake</th>
+          {% for c in cols %}
+          <td>{% if c['snowflake'] %}
+            <svg class="peer-snow" viewBox="0 0 60 60" role="img" aria-label="Score radar for {{ c['ticker'] }}">
+              <polygon points="{{ c['snowflake']['rings'][3] }}" fill="none" stroke="var(--hairline)" stroke-width="1"/>
+              <polygon points="{{ c['snowflake']['rings'][1] }}" fill="none" stroke="var(--hairline)" stroke-width="1" opacity=".6"/>
+              <polygon points="{{ c['snowflake']['polygon'] }}" fill="rgba(29,158,117,.25)" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>{% else %}—{% endif %}</td>
+          {% endfor %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="asof perf-note">Figures from each stock's latest saved snapshot; the
+    health score is the share of Otto's checks passed. Not investment advice.</p>
+</section>
+
+{% endblock %}

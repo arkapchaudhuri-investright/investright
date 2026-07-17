@@ -740,6 +740,10 @@
    (visible to everyone, badged) and remove user-added ones. #}
 <section class="card" id="peers">
   <div class="card-head"><h2>Competitors</h2>
+    {% set _cmp_peers = peers|rejectattr('missing')|map(attribute='ticker')|list %}
+    {% if _cmp_peers %}
+    <a class="ghost compare-link" href="{{ url_for('compare', t=([s['ticker']] + _cmp_peers[:3])|join(',')) }}">Compare</a>
+    {% endif %}
     <span class="asof">{% if s['industry'] %}{{ s['industry'] }} · {% endif %}tap to jump</span></div>
   {% if peers %}
   <div class="peer-strip">

@@ -58,3 +58,9 @@ def test_notes_csv_requires_login(client):
     resp = client.get("/notes.csv")
     assert resp.status_code in (302, 303)
     assert "/login" in resp.headers["Location"]
+
+
+def test_compare_needs_two(client):
+    # Empty test DB: any ticker set resolves to <2 real cols -> redirect home.
+    assert client.get("/compare?t=AAPL").status_code in (302, 303)
+    assert client.get("/compare?t=").status_code in (302, 303)
