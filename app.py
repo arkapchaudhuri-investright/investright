@@ -319,8 +319,30 @@ def watchlist_page():
     as_of = max((r["fetched_at"] for r in rows if r["fetched_at"]), default=None)
     if as_of:
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
+
+    # Guests see three real demo scores (not a bare sign-in wall) — read-only,
+    # skips any demo ticker we don't actually have locally (never fake data).
+    demo = []
+    if not user:
+        with get_conn() as conn:
+            for tk in ("AAPL", "RELIANCE.NS", "MSFT"):
+                s = conn.execute(
+                    "SELECT s.*, n.price, n.change_pct FROM stocks s "
+                    "LEFT JOIN snapshots n ON n.ticker = s.ticker "
+                    "WHERE s.ticker = ?", (tk,)).fetchone()
+                if not s:
+                    continue
+                d = convert_row(dict(s), ctx["ccy"], ctx["fx"])
+                checks = [dict(r) for r in conn.execute(
+                    "SELECT axis, passed FROM health_checks WHERE ticker=?", (tk,))]
+                sc = metrics.axis_scores(checks)
+                d["snowflake"] = (metrics.snowflake(sc)
+                                  if any(v is not None for v in sc.values()) else None)
+                demo.append(d)
+
     resp = make_response(render_template(
-        "watchlist.html", rows=rows, as_of=as_of, market=market, total=total, **ctx))
+        "watchlist.html", rows=rows, as_of=as_of, market=market, total=total,
+        demo=demo, **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
     if request.args.get("market"):
