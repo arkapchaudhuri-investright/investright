@@ -88,6 +88,16 @@ def test_delete_alert_requires_login(client):
     assert "/login" in resp.headers["Location"]
 
 
+# --- Portfolio holdings (spec 11) -------------------------------------------
+def test_save_holdings_requires_login(client):
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    resp = client.post("/watchlist/AAPL/holdings",
+                       data={"qty": "10", "buy_price": "150", "csrf": "tok"})
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
+
+
 class _FakeConn:
     """Minimal conn: one canned SELECT result, records UPDATE calls."""
     def __init__(self, rows):
