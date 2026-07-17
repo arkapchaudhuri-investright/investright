@@ -1,0 +1,15 @@
+[Unit]
+Description=InvestRight weekly watchlist email (Sunday note)
+Documentation=https://github.com/arkapchaudhuri-investright/investright
+# Builds and sends each opted-in user a plain-text weekly note about their
+# watchlist (spec 12). mailer.send() is a no-op while SMTP_* is unset, so this
+# is safe to run before email is configured — it just sends nothing.
+#
+# OnFailure is a [Unit] directive — under [Service] systemd silently ignores it.
+OnFailure=investright-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/investright
+ExecStart=/opt/investright/.venv/bin/python weekly.py

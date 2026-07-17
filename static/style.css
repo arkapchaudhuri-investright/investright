@@ -405,6 +405,9 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 /* A note that explains the form it sits inside, rather than closing off the
    section above it — so it drops .auth-note's separator rule. */
 .acct-inline-note { margin-top: 6px; padding-top: 0; border-top: 0; }
+/* Weekly-note opt-in checkbox (spec 12) */
+.acct-check { display: flex; gap: 8px; align-items: flex-start; text-align: left; font-size: 14px; }
+.acct-check input { margin-top: 3px; flex: 0 0 auto; }
 
 /* danger zone — folded away so the destructive form is never one stray click */
 .danger-h2 { color: var(--down); }

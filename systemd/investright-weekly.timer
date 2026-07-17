@@ -1,0 +1,13 @@
+[Unit]
+Description=Send the InvestRight weekly watchlist note on Sunday mornings
+
+[Timer]
+# Sunday 08:00 local — well clear of the nightly 22:00 refresh and 22:30 backup.
+OnCalendar=Sun *-*-* 08:00:00
+# A reboot or sleeping host must not skip the week.
+Persistent=true
+# Small stagger so it isn't exactly on the minute boundary.
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

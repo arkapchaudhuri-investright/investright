@@ -35,6 +35,21 @@
     infrastructure on a $0 budget), so pick something you'll keep.{% endif %}
   </p>
 
+  <h2 class="acct-h2" id="weekly">Weekly note</h2>
+  <form class="auth-form" method="post" action="{{ url_for('auth.weekly_toggle') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label class="acct-check">
+      <input type="checkbox" name="weekly_email" value="1" {{ 'checked' if user['weekly_email'] }}>
+      <span>Email me Otto's weekly note — a calm Sunday-morning summary of how
+        your watchlist moved.</span>
+    </label>
+    {% if not mailer_enabled %}
+    <p class="asof">Email isn't configured on the server yet — you can opt in now;
+      notes start once it is.</p>
+    {% endif %}
+    <button type="submit" class="btn-analyze auth-go">Save preference</button>
+  </form>
+
   <h2 class="acct-h2">Signed in elsewhere?</h2>
   <form class="auth-form" method="post" action="{{ url_for('auth.signout_others') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
