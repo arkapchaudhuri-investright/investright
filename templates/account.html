@@ -67,6 +67,25 @@
     </form>
   </details>
 
+  <div class="acct-notes" id="notes">
+    <div class="card-head"><h3>Your notes</h3>
+      {% if notes %}<a class="ghost" href="{{ url_for('notes_csv') }}">Download CSV</a>{% endif %}</div>
+    {% if notes %}
+    <ul class="notes-hub">
+      {% for n in notes %}
+      <li>
+        <a class="tick" href="{{ url_for('stock', ticker=n['ticker']) }}#notes">{{ n['ticker'] }}</a>
+        <span class="notes-hub-body">{{ n['body']|truncate(140, True, '…') }}</span>
+        <span class="asof">{{ n['updated_at'][:10] }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="asof">No notes yet — every stock page has a journal box at the bottom;
+      whatever you write shows up here.</p>
+    {% endif %}
+  </div>
+
   <p class="auth-alt"><a href="{{ url_for('home') }}">← Back to your watchlist</a></p>
 </section>
 {% endblock %}

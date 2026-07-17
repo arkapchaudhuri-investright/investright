@@ -314,9 +314,17 @@ def logout():
 @bp.get("/account")
 @login_required
 def account():
-    """Account settings: change password (and, further down the page, the
-    irreversible bits)."""
-    return render_template("account.html", user=current_user())
+    """Account settings: change password, your notes, and (further down) the
+    irreversible bits."""
+    from db import get_conn
+    user = current_user()
+    with get_conn() as conn:
+        notes = conn.execute(
+            "SELECT n.ticker, n.body, n.updated_at, s.name FROM user_notes n "
+            "JOIN stocks s ON s.ticker = n.ticker "
+            "WHERE n.user_id=? AND n.body != '' ORDER BY n.updated_at DESC",
+            (user["id"],)).fetchall()
+    return render_template("account.html", user=user, notes=notes)
 
 
 @bp.post("/account/password")

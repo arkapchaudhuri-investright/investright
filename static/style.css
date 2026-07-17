@@ -163,6 +163,17 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 }
 .seg a.active { background: var(--accent-deep); color: #fff; }
 .seg a:not(.active):hover { color: var(--text); }
+/* Notes hub on /account (spec 10). */
+.acct-notes { margin-top: 26px; text-align: left; }
+.acct-notes .card-head h3 { font-family: var(--serif); font-weight: 500; margin: 0; }
+.notes-hub { list-style: none; margin: 8px 0 0; padding: 0; }
+.notes-hub li { display: flex; gap: 12px; align-items: baseline; padding: 9px 0;
+  border-top: 1px solid var(--hairline); }
+.notes-hub li:first-child { border-top: 0; }
+.notes-hub .tick { flex: none; text-decoration: none; }
+.notes-hub-body { flex: 1; min-width: 0; font-size: 14px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+
 /* Guest watchlist demo showcase (spec 06). */
 .guest-demo { margin-top: 14px; }
 .guest-cta { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
