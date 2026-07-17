@@ -781,7 +781,7 @@ def stock(ticker):
     user = current_user()
     with get_conn() as conn:
         s = conn.execute("SELECT * FROM stocks WHERE ticker=?", (ticker,)).fetchone()
-        if not s:
+        if not s or s["exchange"] == "INDEX":       # indices are benchmark data, not deep-dives
             abort(404)
         snap = conn.execute("SELECT * FROM snapshots WHERE ticker=?", (ticker,)).fetchone()
         funds = [dict(r) for r in conn.execute(
@@ -807,7 +807,8 @@ def stock(ticker):
         if s["industry"]:   # companies we already track in the same industry
             ph = ",".join("?" * len(listed))
             for r in conn.execute(
-                    f"SELECT ticker FROM stocks WHERE industry=? AND ticker NOT IN ({ph}) "
+                    f"SELECT ticker FROM stocks WHERE industry=? AND exchange != 'INDEX' "
+                    f"AND ticker NOT IN ({ph}) "
                     "ORDER BY ticker LIMIT 4", (s["industry"], *listed)):
                 cand.append((r["ticker"], "industry", None))
         peers = []
@@ -993,7 +994,18 @@ def stock(ticker):
     if rng not in spans:
         rng = "1y"
     sel = hist if spans[rng] is None else hist[-spans[rng]:]   # hist already (date, close-in-display-ccy) tuples
-    trend = metrics.trend_chart(list(sel))
+    # Benchmark overlay (spec 07): S&P 500 for US, NIFTY 50 for India. Raw index
+    # closes over the same window — trend_chart normalises them to %, so no
+    # currency conversion needed. Missing history ⇒ no overlay, page unchanged.
+    bench_sym = "^NSEI" if ticker.endswith((".NS", ".BO")) else "^GSPC"
+    bench_name = "NIFTY 50" if bench_sym == "^NSEI" else "S&P 500"
+    bench_rows = []
+    if sel:
+        with get_conn() as conn:
+            bench_rows = [(r["d"], r["close"]) for r in conn.execute(
+                "SELECT d, close FROM price_history WHERE ticker=? AND d >= ? ORDER BY d",
+                (bench_sym, str(sel[0][0])[:10]))]
+    trend = metrics.trend_chart(list(sel), bench=bench_rows or None)
     rng_label = {"1m": "the last month", "6m": "six months", "1y": "one year",
                  "5y": "five years", "max": "all saved history"}[rng]
 
@@ -1033,7 +1045,7 @@ def stock(ticker):
         ins_buys=sum(1 for i in insiders if i["action"] == "buy"),
         ins_sells=sum(1 for i in insiders if i["action"] == "sell"),
         is_us="." not in ticker,
-        trend=trend, rng=rng, rng_label=rng_label, senti=senti,
+        trend=trend, rng=rng, rng_label=rng_label, bench_name=bench_name, senti=senti,
         news=news, note=dict(note) if note else None, on_watch=on_watch, as_of=as_of)
 
 
@@ -1087,14 +1099,24 @@ def trend_json(ticker):
             (ticker,)).fetchall()
     sel = hist if spans[rng] is None else hist[-spans[rng]:]
     factor, _ = _fx_factor(s["currency"], ccy, get_usdinr()[0])
-    chart = metrics.trend_chart([(r["d"], r["close"] * factor) for r in sel])
+    bench_sym = "^NSEI" if ticker.endswith((".NS", ".BO")) else "^GSPC"
+    bench_rows = []
+    if sel:
+        with get_conn() as conn:
+            bench_rows = [(r["d"], r["close"]) for r in conn.execute(
+                "SELECT d, close FROM price_history WHERE ticker=? AND d >= ? ORDER BY d",
+                (bench_sym, str(sel[0]["d"])[:10]))]
+    chart = metrics.trend_chart([(r["d"], r["close"] * factor) for r in sel],
+                                bench=bench_rows or None)
     if not chart:
         return jsonify(error="No saved history for this range yet.")
     return jsonify(points=chart["points"], area=chart["area"],
                    width=chart["width"], height=chart["height"],
                    dir=chart["dir"], change_pct=chart["change_pct"],
                    first=chart["first"], last=chart["last"],
-                   series=chart["series"], ticks=chart["ticks"], ccy=ccy)
+                   series=chart["series"], ticks=chart["ticks"], ccy=ccy,
+                   bench_points=chart["bench_points"],
+                   bench_change_pct=chart["bench_change_pct"])
 
 
 @app.post("/stock/<ticker>/note")

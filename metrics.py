@@ -432,7 +432,7 @@ def sparkline(closes, width=88, height=26, pad=2):
     return {"points": pts, "dir": d, "width": width, "height": height}
 
 
-def trend_chart(points, width=560, height=150, pad=5):
+def trend_chart(points, width=560, height=150, pad=5, bench=None):
     """Geometry for the deep-dive price trend line (inline SVG, like every
     chart here). `points` = [(label, close)] oldest-first, any cadence —
     daily closes for 1M…Max, 5-minute bars for the live 1D tab.
@@ -442,11 +442,39 @@ def trend_chart(points, width=560, height=150, pad=5):
         return None
     closes = [c for _, c in points]
     lo, hi = min(closes), max(closes)
-    span = (hi - lo) or (hi or 1) * 0.01          # flat series still draws
     n = len(points)
+
+    # Benchmark overlay (spec 07): rebase the index to the stock's first close so
+    # both lines start at the same left edge, then express the index as an
+    # "equivalent price" on the SAME axis. We widen lo/hi to fit it — so the
+    # stock line's mapping only shifts when a benchmark is actually supplied
+    # (bench-less 1D / older-than-index windows render exactly as before).
+    beq = None                                    # equivalent-price series, aligned to points
+    bench_change_pct = None
+    bench = [(d, c) for d, c in (bench or []) if c is not None]
+    if len(bench) >= 2:
+        asof, j, last = [], 0, None
+        bkeys = [(str(d)[:10], c) for d, c in bench]  # bench is oldest-first
+        for d, _ in points:
+            dk = str(d)[:10]
+            while j < len(bkeys) and bkeys[j][0] <= dk:
+                last = bkeys[j][1]; j += 1
+            asof.append(last)
+        base_i = next((i for i, v in enumerate(asof) if v is not None), None)
+        if base_i is not None and closes[0]:
+            b0 = asof[base_i]
+            beq = [None if v is None else closes[0] * (v / b0) for v in asof]
+            fit = [x for x in beq if x is not None]
+            lo, hi = min(lo, min(fit)), max(hi, max(fit))
+            last_b = next(v for v in reversed(asof) if v is not None)
+            bench_change_pct = round(100 * (last_b / b0 - 1), 2)
+
+    span = (hi - lo) or (hi or 1) * 0.01          # flat series still draws
     xs = lambda i: pad + (width - 2 * pad) * i / (n - 1)
     ys = lambda c: pad + (height - 2 * pad) * (1 - (c - lo) / span)
     pts = " ".join(f"{xs(i):.1f},{ys(c):.1f}" for i, (_, c) in enumerate(points))
+    bench_points = None if beq is None else " ".join(
+        f"{xs(i):.1f},{ys(v):.1f}" for i, v in enumerate(beq) if v is not None)
     change = 100.0 * (closes[-1] - closes[0]) / closes[0] if closes[0] else 0.0
     # Per-point coords + label + price, so the client can draw a crosshair that
     # reads out the date and price under the cursor (no chart lib).
@@ -490,6 +518,7 @@ def trend_chart(points, width=560, height=150, pad=5):
         "first": points[0], "last": points[-1],
         "change_pct": round(change, 2),
         "dir": "up" if change >= 0 else "down",
+        "bench_points": bench_points, "bench_change_pct": bench_change_pct,
     }
 
 

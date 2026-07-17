@@ -186,7 +186,8 @@ def run_screener(conn):
     so the ranking never lags the deep data it's built from."""
     watch = {r["ticker"] for r in conn.execute("SELECT ticker FROM watchlist")}
     cands = []
-    for s in conn.execute("SELECT ticker FROM stocks ORDER BY ticker"):
+    for s in conn.execute("SELECT ticker FROM stocks WHERE exchange != 'INDEX' "
+                          "ORDER BY ticker"):
         t = s["ticker"]
         checks = [{"axis": r["axis"], "check_id": r["check_id"],
                    "passed": None if r["passed"] is None else bool(r["passed"])}
@@ -237,8 +238,39 @@ def run_digest(conn, rows, top_n=5):
         return f"skipped ({e})"
 
 
+# Benchmark indices (spec 07). Stored as pseudo-stocks (exchange='INDEX') so
+# price_history can FK to them; excluded from every user-facing stock listing.
+INDICES = [("^GSPC", "S&P 500", "USD"), ("^NSEI", "NIFTY 50", "INR")]
+
+
+def ensure_indices(conn):
+    now = datetime.now().isoformat(timespec="seconds")
+    for sym, name, cur in INDICES:
+        conn.execute(
+            "INSERT OR IGNORE INTO stocks (ticker,name,exchange,sector,industry,"
+            "currency,added_at) VALUES (?,?,'INDEX','','',?,?)", (sym, name, cur, now))
+
+
+def refresh_indices():
+    """Keep the benchmark indices' price_history current (first run backfills)."""
+    with get_conn() as conn:
+        ensure_indices(conn)
+    for sym, _, _ in INDICES:
+        try:
+            with get_conn() as conn:
+                seen = conn.execute("SELECT 1 FROM price_history WHERE ticker=? LIMIT 1",
+                                    (sym,)).fetchone()
+            rows = fetch.price_history_resilient(sym, "1mo" if seen else "max")
+            if rows:
+                with get_conn() as conn:
+                    save_price_history(conn, sym, rows)
+        except Exception as e:
+            print(f"  index history failed for {sym}: {e}")
+
+
 def main():
     init_db()
+    refresh_indices()
     with get_conn() as conn:
         symbols = [r["ticker"] for r in conn.execute("SELECT ticker FROM watchlist")]
 
