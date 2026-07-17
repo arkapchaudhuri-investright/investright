@@ -163,6 +163,20 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 }
 .seg a.active { background: var(--accent-deep); color: #fff; }
 .seg a:not(.active):hover { color: var(--text); }
+/* Compare view (spec 09) — reuses the income-matrix scroll/sticky pattern. */
+.compare-table { border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 100%; white-space: nowrap; }
+.compare-table th, .compare-table td { padding: 10px 16px; border-top: 1px solid var(--hairline); text-align: right; }
+.compare-table thead th { border-top: 0; border-bottom: 1px solid var(--hairline); }
+.compare-table tbody tr:first-child th, .compare-table tbody tr:first-child td { border-top: 0; }
+.cmp-metric { text-align: left; position: sticky; left: 0; background: var(--card); font-weight: 500; font-size: 13.5px; padding-left: 4px; }
+.cmp-head { min-width: 150px; }
+.cmp-headlink { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; text-decoration: none; color: var(--text); }
+.cmp-logo { width: 34px; height: 34px; border-radius: 8px; object-fit: contain; background: #fff; border: 1px solid var(--hairline); padding: 3px; box-sizing: border-box; }
+.cmp-mono { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; font-family: var(--serif); font-weight: 600; font-size: 15px; padding: 0; }
+.cmp-tick { font-weight: 600; font-size: 13.5px; }
+.cmp-name { font-size: 11px; color: var(--muted); }
+.compare-link { margin-left: auto; }
+
 /* Notes hub on /account (spec 10). */
 .acct-notes { margin-top: 26px; text-align: left; }
 .acct-notes .card-head h3 { font-family: var(--serif); font-weight: 500; margin: 0; }
