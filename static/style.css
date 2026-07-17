@@ -634,6 +634,27 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 }
 .earn-list li:last-child { border-bottom: 0; }
 .earn-list a { font-weight: 600; }
+
+/* price-alert popover (deep-dive header) */
+.alert-set { position: relative; font-size: 13px; }
+.alert-set > summary {
+  cursor: pointer; list-style: none; display: inline-block;
+  border: 1px solid var(--hairline); border-radius: 6px; padding: 3px 9px;
+  color: var(--muted);
+}
+.alert-set > summary::-webkit-details-marker { display: none; }
+.alert-set[open] > summary { color: var(--accent); border-color: var(--accent); }
+.alert-body {
+  margin-top: 8px; padding: 10px; border: 1px solid var(--hairline);
+  border-radius: 8px; background: var(--card); max-width: 320px;
+}
+.alert-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.alert-row select, .alert-row input { padding: 4px 6px; }
+.alert-row input[type=number] { width: 90px; }
+.alert-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.alert-list li { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+.alert-del { display: inline; margin-left: auto; }
+.alert-del button { padding: 0 4px; }
 .earn-co { color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .earn-when { color: var(--accent); font-size: 13px; white-space: nowrap; }
 

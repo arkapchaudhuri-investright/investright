@@ -316,6 +316,7 @@ def logout():
 def account():
     """Account settings: change password, your notes, and (further down) the
     irreversible bits."""
+    import mailer
     from db import get_conn
     user = current_user()
     with get_conn() as conn:
@@ -324,7 +325,12 @@ def account():
             "JOIN stocks s ON s.ticker = n.ticker "
             "WHERE n.user_id=? AND n.body != '' ORDER BY n.updated_at DESC",
             (user["id"],)).fetchall()
-    return render_template("account.html", user=user, notes=notes)
+        alerts = conn.execute(
+            "SELECT a.*, s.name FROM user_alerts a JOIN stocks s ON s.ticker = a.ticker "
+            "WHERE a.user_id=? ORDER BY a.triggered_at IS NOT NULL, a.ticker, a.id",
+            (user["id"],)).fetchall()
+    return render_template("account.html", user=user, notes=notes,
+                           alerts=alerts, mailer_enabled=mailer.enabled())
 
 
 @bp.post("/account/password")

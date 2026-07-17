@@ -15,6 +15,7 @@ from flask import (Flask, abort, flash, g, jsonify, make_response, redirect,
 import digest
 import fetch
 import logos
+import mailer
 import metrics
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
 import strategies as strategies_content   # aliased: /strategies view owns the short name
@@ -811,6 +812,9 @@ def stock(ticker):
         on_watch = bool(user) and conn.execute(
             "SELECT 1 FROM user_watchlist WHERE user_id=? AND ticker=?",
             (user["id"], ticker)).fetchone() is not None
+        alerts = [dict(r) for r in conn.execute(
+            "SELECT * FROM user_alerts WHERE user_id=? AND ticker=? "
+            "ORDER BY triggered_at IS NOT NULL, id", (user["id"], ticker))] if user else []
 
         # Competitors strip (§4.9): curated map ∪ community-added ∪ same-industry
         # fill, each tagged with its source (user-added ones are deletable).
@@ -880,6 +884,9 @@ def stock(ticker):
     # ingest / cron paths persist these on their next pass.
     if not snap:
         snap = fetch.snapshot(ticker)
+    # Native price (before the display-ccy conversion below) — alerts are set in
+    # the stock's native currency, so the widget's placeholder must be native.
+    native_price = snap["price"] if snap else None
     if not hist:
         hist = [{"d": d, "close": c}
                 for d, c in fetch.price_history_resilient(ticker, "max")]
@@ -1073,7 +1080,9 @@ def stock(ticker):
         ins_sells=sum(1 for i in insiders if i["action"] == "sell"),
         is_us="." not in ticker,
         trend=trend, rng=rng, rng_label=rng_label, bench_name=bench_name, senti=senti,
-        news=news, note=dict(note) if note else None, on_watch=on_watch, as_of=as_of)
+        news=news, note=dict(note) if note else None, on_watch=on_watch,
+        alerts=alerts, mailer_enabled=mailer.enabled(), native_price=native_price,
+        as_of=as_of)
 
 
 @app.route("/stock/<ticker>/spark.json")
@@ -1341,6 +1350,64 @@ def toggle_watch(ticker):
             except Exception:
                 pass
     return redirect(url_for("stock", ticker=ticker))
+
+
+_ALERT_CAP = 10   # max armed alerts per user (spec 08)
+
+
+@app.post("/stock/<ticker>/alerts")
+@login_required
+def add_alert(ticker):
+    """Arm a one-shot price alert on this stock (native currency). The nightly
+    refresh checks the fresh snapshot and emails once, then marks it triggered."""
+    user = current_user()
+    ticker = ticker.upper()
+    dest = redirect(url_for("stock", ticker=ticker) + "#alerts")
+    direction = request.form.get("direction", "")
+    if direction not in ("above", "below"):
+        flash("Pick a direction for the alert.", "error")
+        return dest
+    try:
+        threshold = float(request.form.get("threshold", ""))
+    except (TypeError, ValueError):
+        threshold = None
+    if threshold is None or threshold <= 0:
+        flash("Enter a price above zero for the alert.", "error")
+        return dest
+    with get_conn() as conn:
+        if not conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (ticker,)).fetchone():
+            abort(404)
+        armed = conn.execute(
+            "SELECT COUNT(*) c FROM user_alerts WHERE user_id=? AND triggered_at IS NULL",
+            (user["id"],)).fetchone()["c"]
+        if armed >= _ALERT_CAP:
+            flash(f"You already have {_ALERT_CAP} armed alerts — delete one first.", "error")
+            return dest
+        conn.execute(
+            "INSERT INTO user_alerts (user_id, ticker, direction, threshold, created_at) "
+            "VALUES (?,?,?,?,?)",
+            (user["id"], ticker, direction, threshold,
+             datetime.now().isoformat(timespec="seconds")))
+    flash(f"Alert set — Otto emails you when {ticker} goes {direction} "
+          f"{threshold:g}.", "ok")
+    return dest
+
+
+@app.post("/alerts/<int:alert_id>/delete")
+@login_required
+def delete_alert(alert_id):
+    """Remove one of the current user's alerts (own rows only)."""
+    user = current_user()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM user_alerts WHERE id=? AND user_id=?",
+                     (alert_id, user["id"]))
+    flash("Alert removed.", "ok")
+    # Return to wherever the ✕ was clicked (deep-dive or /account), but only
+    # honour a relative same-site path — never an attacker-supplied absolute URL.
+    nxt = request.form.get("next", "")
+    if nxt.startswith("/") and not nxt.startswith("//"):
+        return redirect(nxt)
+    return redirect(url_for("auth.account") + "#alerts")
 
 
 @app.post("/stock/<ticker>/peers/add")

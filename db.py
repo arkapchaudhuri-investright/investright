@@ -163,6 +163,18 @@ CREATE TABLE IF NOT EXISTS user_notes (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (user_id, ticker)
 );
+-- One-shot price alerts (spec 08). A user arms "above/below <threshold>" in the
+-- stock's native currency; the nightly refresh checks the fresh snapshot,
+-- emails via mailer.send(), and stamps triggered_at (one-shot; user re-arms).
+CREATE TABLE IF NOT EXISTS user_alerts (
+    id        INTEGER PRIMARY KEY,
+    user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticker    TEXT NOT NULL REFERENCES stocks(ticker) ON DELETE CASCADE,
+    direction TEXT NOT NULL CHECK (direction IN ('above','below')),
+    threshold REAL NOT NULL,
+    created_at   TEXT NOT NULL,
+    triggered_at TEXT                -- NULL = armed
+);
 -- Failed sign-in attempts (Tier C throttling). One row per failure; success
 -- clears the rows for that email+IP. Pruned to the window on every check, so it
 -- stays tiny. Shared via SQLite rather than kept in memory, because gunicorn
