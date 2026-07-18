@@ -209,6 +209,56 @@ def migrate_watchlist(email, apply_):
         print(f"Wrote {len(watch)} watchlist row(s) and {len(notes)} note(s). Done.")
 
 
+def migrate_holdings(commit):
+    """Move spec-11 holdings (user_watchlist.qty/buy_price) into the spec-14
+    `holdings` table, then NULL the old columns. Dry-run by default. Idempotent:
+    skips (user,ticker) pairs already in `holdings`. Not in db._migrate — a
+    one-shot data copy has no business running per-worker on every deploy."""
+    with get_conn() as conn:
+        # Only rows that actually carry a holding (both fields > 0), and only
+        # where the destination doesn't already have that (user,ticker).
+        rows = conn.execute(
+            "SELECT w.user_id, w.ticker, w.qty, w.buy_price, w.added_at "
+            "FROM user_watchlist w "
+            "WHERE w.qty IS NOT NULL AND w.qty > 0 "
+            "  AND w.buy_price IS NOT NULL AND w.buy_price > 0 "
+            "  AND NOT EXISTS (SELECT 1 FROM holdings h "
+            "                  WHERE h.user_id=w.user_id AND h.ticker=w.ticker) "
+            "ORDER BY w.user_id, w.ticker").fetchall()
+
+        if not rows:
+            print("Nothing to migrate — no spec-11 holdings left to move "
+                  "(already done, or none were ever set).")
+            return
+
+        print(f"user_watchlist holdings -> holdings: {len(rows)} row(s)")
+        for r in rows:
+            print(f"  + user {r['user_id']}  {r['ticker']:<14} "
+                  f"qty {r['qty']:g} @ {r['buy_price']:g}")
+
+        if not commit:
+            print("\nDRY RUN — nothing written. Re-run with --commit to migrate.")
+            return
+
+        backup = _backup()
+        print(f"\nBacked up DB -> {backup}")
+        now = datetime.now().isoformat(timespec="seconds")
+        conn.executemany(
+            "INSERT OR IGNORE INTO holdings "
+            "(user_id,ticker,qty,avg_price,added_at,updated_at) VALUES (?,?,?,?,?,?)",
+            [(r["user_id"], r["ticker"], r["qty"], r["buy_price"],
+              r["added_at"] or now, now) for r in rows])
+        # NULL the old spec-11 columns so the (removed) watchlist UI can't resurrect
+        # them and a re-run has nothing to copy. The columns stay (SQLite can't
+        # drop cheaply) but go unused.
+        conn.executemany(
+            "UPDATE user_watchlist SET qty=NULL, buy_price=NULL "
+            "WHERE user_id=? AND ticker=?",
+            [(r["user_id"], r["ticker"]) for r in rows])
+        print(f"Migrated {len(rows)} holding(s) into `holdings` and cleared the "
+              "old user_watchlist columns. Done.")
+
+
 def set_user_password(email, password, apply_):
     email = email.strip().lower()
     with get_conn() as conn:
@@ -342,6 +392,12 @@ def main():
     m.add_argument("--apply", action="store_true",
                    help="actually write (default is a dry run)")
 
+    mh = sub.add_parser("migrate-holdings",
+                        help="move spec-11 watchlist holdings into the spec-14 "
+                             "holdings table (then NULL the old columns)")
+    mh.add_argument("--commit", action="store_true",
+                    help="actually write (default is a dry run)")
+
     p = sub.add_parser("set-password",
                        help="reset an account's password (no self-serve reset exists, §10.6)")
     p.add_argument("--email", required=True, help="email of the account to reset")
@@ -379,6 +435,8 @@ def main():
     args = ap.parse_args()
     if args.cmd == "migrate-watchlist":
         migrate_watchlist(args.email, args.apply)
+    elif args.cmd == "migrate-holdings":
+        migrate_holdings(args.commit)
     elif args.cmd == "set-password":
         set_user_password(args.email, args.password, args.apply)
     elif args.cmd == "enrich-execs":

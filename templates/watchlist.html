@@ -13,35 +13,6 @@
 {% else %}<span class="asof">—</span>{% endif %}
 {% endmacro %}
 
-{# Holdings P&L cell — money + tinted % (spec 11). '—' when no holdings. #}
-{% macro pnl_cell(r) %}
-{% if r['pnl'] is not none %}
-<span class="{{ 'up' if r['pnl'] > 0 else 'down' if r['pnl'] < 0 else 'flat' }}">
-  {{ r['pnl']|money(r['currency']) }}
-  {% if r['pnl_pct'] is not none %}<small>{{ '%+.1f%%'|format(r['pnl_pct']) }}</small>{% endif %}
-</span>
-{% else %}<span class="asof">—</span>{% endif %}
-{% endmacro %}
-
-{# Inline holdings editor — native <details>, no JS. Shows/saves NATIVE buy
-   price (the value stored), labelled in the stock's native currency. #}
-{% macro holdings_edit(r) %}
-<details class="hold-edit">
-  <summary>{{ '✎ edit holdings' if r['qty'] else '＋ add holdings' }}</summary>
-  <form action="{{ url_for('save_holdings', ticker=r['ticker']) }}" method="post" class="hold-form">
-    <input type="hidden" name="csrf" value="{{ csrf_token }}">
-    <label>Qty
-      <input type="number" name="qty" step="any" min="0" inputmode="decimal"
-             value="{{ '%g'|format(r['qty']) if r['qty'] else '' }}"></label>
-    <label>Avg buy ({{ r['currency_native'] }})
-      <input type="number" name="buy_price" step="any" min="0" inputmode="decimal"
-             value="{{ '%g'|format(r['buy_price_native']) if r['buy_price_native'] else '' }}"></label>
-    <button type="submit" class="ghost">Save</button>
-    {% if r['qty'] %}<span class="asof">clear both to remove</span>{% endif %}
-  </form>
-</details>
-{% endmacro %}
-
 {# The watchlist's own page (home stays search-only). Same table/cards the
    home page used to carry, under a proper header with the day's one-liner. #}
 <section class="team-head">
@@ -77,39 +48,6 @@
   {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
 {% endwith %}
 
-{# Portfolio totals + allocation donut (spec 11 Phase B) — only when the user
-   holds something. Four stat blocks (div-stats pattern) + a pure-SVG donut. #}
-{% if totals %}
-<section class="card port-totals">
-  <div class="card-head"><h2>Holdings</h2>
-    <span class="asof">across your positions</span></div>
-  <div class="port-grid">
-    <div class="div-stats port-stats">
-      <div><b>{{ totals['value']|money(ccy) }}</b><span class="asof">market value</span></div>
-      <div><b>{{ totals['invested']|money(ccy) }}</b><span class="asof">invested</span></div>
-      <div><b class="{{ 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' }}">{{ totals['pnl']|money(ccy) }}</b>
-        <span class="asof">total P&amp;L</span></div>
-      <div><b class="{{ 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' }}">{{ '%+.1f%%'|format(totals['pnl_pct']) if totals['pnl_pct'] is not none else '—' }}</b>
-        <span class="asof">return</span></div>
-    </div>
-    {% if donut %}
-    <div class="port-alloc">
-      <svg class="alloc-donut" viewBox="0 0 140 140" width="140" height="140"
-           role="img" aria-label="Allocation by market value">
-        {% for sl in donut %}<path d="{{ sl['d'] }}" fill="{{ sl['fill'] }}"><title>{{ sl['label'] }} · {{ sl['pct'] }}%</title></path>{% endfor %}
-      </svg>
-      <ul class="alloc-legend">
-        {% for sl in donut %}
-        <li><span class="alloc-chip" style="background: {{ sl['fill'] }}"></span>
-          {{ sl['label'] }} <span class="asof">{{ sl['pct'] }}%</span></li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
-  </div>
-</section>
-{% endif %}
-
 <section id="watchlist" class="card">
   {% if rows %}
   <div class="card-head">
@@ -123,7 +61,6 @@
   <table>
     <thead><tr>
       <th>Stock</th><th class="num">Price</th><th class="num">Today</th>
-      <th class="num">Qty</th><th class="num">Avg buy</th><th class="num">P&amp;L</th>
       <th>30-day</th>
       <th class="num">Mkt cap</th><th class="num">P/E</th><th class="num">Yield</th>
       <th>52-week range</th><th></th>
@@ -140,12 +77,6 @@
         <td class="num">{{ r['price']|money(r['currency']) }}</td>
         <td class="num {{ 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' }}">
           {{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</td>
-        <td class="num">{{ '%g'|format(r['qty']) if r['qty'] else '—' }}</td>
-        <td class="num">{{ r['buy_price']|money(r['currency']) if r['buy_price'] else '—' }}</td>
-        <td class="num hold-cell">
-          {{ pnl_cell(r) }}
-          {{ holdings_edit(r) }}
-        </td>
         <td class="spark-cell">{{ spark(r['spark']) }}</td>
         <td class="num">{{ r['market_cap']|bigmoney(r['currency']) }}</td>
         <td class="num">{{ '%.1f'|format(r['pe']) if r['pe'] else '—' }}</td>
@@ -194,17 +125,6 @@
           <div><span>Mkt cap</span><b>{{ r['market_cap']|bigmoney(r['currency']) }}</b></div>
           <div><span>P/E</span><b>{{ '%.1f'|format(r['pe']) if r['pe'] else '—' }}</b></div>
           <div><span>Yield</span><b>{{ '%.2f%%'|format(r['div_yield']) if r['div_yield'] else '—' }}</b></div>
-        </div>
-        {# Holdings — P&L when set, plus the same inline editor as the table #}
-        <div class="wl-holdings">
-          {% if r['qty'] %}
-          <div class="wl-metrics">
-            <div><span>Qty</span><b>{{ '%g'|format(r['qty']) }}</b></div>
-            <div><span>Avg buy</span><b>{{ r['buy_price']|money(r['currency']) }}</b></div>
-            <div><span>P&amp;L</span><b>{{ pnl_cell(r) }}</b></div>
-          </div>
-          {% endif %}
-          {{ holdings_edit(r) }}
         </div>
         {% if r['wk52_low'] and r['wk52_high'] and r['wk52_high'] > r['wk52_low'] %}
         {% set pos = 100 * (r['price'] - r['wk52_low']) / (r['wk52_high'] - r['wk52_low']) %}
