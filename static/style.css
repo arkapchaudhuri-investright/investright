@@ -150,6 +150,34 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
   padding: 8px 2px;   /* honest tap height without changing the look */
 }
 .navlink:hover { color: var(--text); }
+/* ticker tape — the day's movers drifting under the topbar, classic exchange
+   style but muted to the brand: quiet text, tinted Δ%, hairline frame. The
+   track holds two identical runs and slides -50% for a seamless loop; hovering
+   (or focusing a link inside) pauses it. Reduced-motion swaps the animation
+   for a plain swipeable strip. */
+.tape {
+  flex: none; width: 100%; overflow: hidden;
+  border-bottom: 1px solid var(--hairline); background: var(--card);
+}
+.tape-track {
+  display: inline-flex; white-space: nowrap; padding: 7px 0;
+  animation: tape-scroll 45s linear infinite; will-change: transform;
+}
+.tape:hover .tape-track, .tape:focus-within .tape-track { animation-play-state: paused; }
+.tape-run { display: inline-flex; align-items: baseline; }
+.tape-item {
+  display: inline-flex; gap: 6px; align-items: baseline; padding: 0 4px;
+  color: var(--muted); text-decoration: none; font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.tape-item b { color: var(--text); font-weight: 600; }
+.tape-item:hover b, .tape-item:focus-visible b { color: var(--accent); }
+.tape-dot { color: var(--edge); margin: 0 10px; }
+@keyframes tape-scroll { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .tape { overflow-x: auto; scrollbar-width: none; }
+  .tape-track { animation: none; }
+}
 /* You-are-here: the current page's nav link stops pretending to be a button. */
 .navlink.nav-on { color: var(--text); }
 .fx-stale { color: var(--amber); }
