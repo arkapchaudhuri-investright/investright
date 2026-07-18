@@ -17,6 +17,7 @@ import fetch
 import logos
 import mailer
 import metrics
+import portfolio_import
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
 import strategies as strategies_content   # aliased: /strategies view owns the short name
 import strategy_screen
@@ -599,6 +600,109 @@ def portfolio_delete(ticker):
     with get_conn() as conn:
         remove_holding(conn, user["id"], ticker)
     _log("hold_remove", ticker)
+    return redirect(url_for("portfolio_page"))
+
+
+_IMPORT_MAX_BYTES = 1_000_000            # ~1 MB cap on uploads (honest reject)
+_IMPORT_MAX_ROWS = 500                   # sanity cap so one paste can't blow up
+
+
+def _resolve_import_symbol(raw_symbol):
+    """(suggested_ticker, matched?) for a parsed import row. Known-locally or an
+    exact Yahoo-search hit auto-matches; anything else is suggested but flagged
+    for the user to confirm. Reuses the app's fetch.search resolver (spec 15)."""
+    up = (raw_symbol or "").upper().strip()
+    if not up:
+        return "", False
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (up,)).fetchone():
+            return up, True
+    try:
+        cand = fetch.search(raw_symbol)
+    except Exception:
+        cand = None
+    if cand and cand.upper() == up:      # raw was already a valid ticker
+        return up, True
+    return (cand.upper() if cand else up), False
+
+
+@app.post("/portfolio/import")
+@login_required
+def portfolio_import_preview():
+    """Parse a paste / CSV / broker export, resolve each symbol, and render the
+    confirm screen (spec 15). NO DB writes here — the confirm POST does that."""
+    dest = redirect(url_for("portfolio_page"))
+    broker = (request.form.get("broker") or "generic").strip().lower()
+    paste = (request.form.get("paste") or "").strip()
+    upload = request.files.get("file")
+
+    if upload and upload.filename:
+        data = upload.read(_IMPORT_MAX_BYTES + 1)
+        if len(data) > _IMPORT_MAX_BYTES:
+            flash("That file is over 1 MB — trim it and try again.", "error")
+            return dest
+        kind = broker if broker in portfolio_import.BROKER_COLS else "generic"
+        rows = portfolio_import.parse_rows(data, kind)
+    elif paste:
+        rows = portfolio_import.parse_rows(paste, "paste")
+    else:
+        flash("Paste some holdings or choose a file to import.", "error")
+        return dest
+
+    if not rows:
+        flash("Couldn't find any holdings in that — check the format?", "error")
+        return dest
+    rows = rows[:_IMPORT_MAX_ROWS]
+
+    resolved = []
+    for r in rows:
+        ticker, matched = _resolve_import_symbol(r["raw_symbol"])
+        bad = not (r.get("qty") and r.get("qty") > 0
+                   and r.get("avg_price") and r.get("avg_price") > 0)
+        resolved.append({"raw_symbol": r["raw_symbol"], "ticker": ticker,
+                         "qty": r.get("qty"), "avg_price": r.get("avg_price"),
+                         "matched": matched, "bad": bad})
+    ok = sum(1 for r in resolved if r["matched"] and not r["bad"])
+    _log("hold_import_preview")
+    return render_template("portfolio_import_confirm.html",
+                           rows=resolved, ok=ok, **_fx_ctx())
+
+
+@app.post("/portfolio/import/confirm")
+@login_required
+def portfolio_import_confirm():
+    """Write the confirmed (and possibly hand-edited) import rows into holdings.
+    Ingests any unknown ticker first (POST path). Honest added/skipped counts."""
+    user = current_user()
+    tickers = request.form.getlist("ticker")
+    qtys = request.form.getlist("qty")
+    prices = request.form.getlist("avg_price")
+    added = skipped = 0
+    for i, raw_tk in enumerate(tickers):
+        tk = (raw_tk or "").upper().strip()
+        try:
+            qty = float((qtys[i] if i < len(qtys) else "") or "")
+            avg = float((prices[i] if i < len(prices) else "") or "")
+        except (TypeError, ValueError):
+            skipped += 1
+            continue
+        if not tk or qty <= 0 or avg <= 0:
+            skipped += 1
+            continue
+        with get_conn() as conn:
+            known = conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (tk,)).fetchone()
+        if not known and not _ingest_stock(tk):
+            skipped += 1
+            continue
+        with get_conn() as conn:
+            upsert_holding(conn, user["id"], tk, qty, avg)
+        added += 1
+    _log("hold_import")
+    if added:
+        flash(f"Added {added} holding{'s' if added != 1 else ''}"
+              + (f" ({skipped} skipped)." if skipped else "."), "ok")
+    else:
+        flash("Nothing imported — every row was missing a ticker or numbers.", "error")
     return redirect(url_for("portfolio_page"))
 
 

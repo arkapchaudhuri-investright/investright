@@ -69,6 +69,35 @@
     <p class="asof">Indian tickers need <code>.NS</code> or <code>.BO</code> (e.g. RELIANCE.NS).
       Average buy price is in the stock's native currency.</p>
   </details>
+
+  {# Bulk import (spec 15) — paste a table, or upload a CSV / broker export.
+     Everything lands on a confirm screen first; nothing is saved until then. #}
+  <details class="hold-edit port-import">
+    <summary>⇪ Import holdings</summary>
+    <form action="{{ url_for('portfolio_import_preview') }}" method="post"
+          enctype="multipart/form-data" class="port-import-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <label class="port-import-paste">Paste rows (symbol, qty, avg price — one per line)
+        <textarea name="paste" rows="4" spellcheck="false"
+                  placeholder="AAPL 10 150&#10;RELIANCE.NS 25 2450"></textarea></label>
+      <p class="asof">— or —</p>
+      <div class="port-import-file">
+        <label>Upload a CSV
+          <input type="file" name="file" accept=".csv,text/csv"></label>
+        <label>Broker
+          <select name="broker">
+            <option value="generic">Generic CSV</option>
+            <option value="zerodha">Zerodha</option>
+            <option value="groww">Groww</option>
+            <option value="robinhood">Robinhood</option>
+            <option value="fidelity">Fidelity</option>
+          </select></label>
+      </div>
+      <button type="submit" class="ghost">Preview import →</button>
+    </form>
+    <p class="asof">Broker symbols are matched to Yahoo tickers on the next
+      screen — you confirm every row before anything is saved.</p>
+  </details>
 </section>
 
 {# Totals strip + allocation donut + sector mix — only when something's priced. #}
