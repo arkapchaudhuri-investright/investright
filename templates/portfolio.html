@@ -211,26 +211,90 @@
   <details class="port-panel">
     <summary class="port-btn"><span class="port-btn-ico">⇪</span> Import CSV</summary>
     <div class="port-panel-body card">
+      {# Guided import: pick your broker → that broker's exact export steps
+         appear (CSS-only — hidden radios drive both the active pill and the
+         visible guide, so it all works with JS off) → drop the file. Paste
+         stays as a quiet alternative below. #}
       <form action="{{ url_for('portfolio_import_preview') }}" method="post"
             enctype="multipart/form-data" class="port-import-form">
         <input type="hidden" name="csrf" value="{{ csrf_token }}">
-        <label class="port-import-paste">Paste rows (symbol, qty, avg price — one per line)
-          <textarea name="paste" rows="4" spellcheck="false"
-                    placeholder="AAPL 10 150&#10;RELIANCE.NS 25 2450"></textarea></label>
-        <p class="asof">— or —</p>
-        <div class="port-import-file">
-          <label>Upload a CSV
-            <input type="file" name="file" accept=".csv,text/csv"></label>
-          <label>Broker
-            <select name="broker">
-              <option value="generic">Generic CSV</option>
-              <option value="zerodha">Zerodha</option>
-              <option value="groww">Groww</option>
-              <option value="robinhood">Robinhood</option>
-              <option value="fidelity">Fidelity</option>
-            </select></label>
+        {% for key, label in (('zerodha', 'Zerodha'), ('groww', 'Groww'),
+                              ('robinhood', 'Robinhood'), ('fidelity', 'Fidelity'),
+                              ('generic', 'Other / any CSV')) %}
+        <input class="imp-radio" type="radio" name="broker" value="{{ key }}"
+               id="bk-{{ key }}"{{ ' checked' if key == 'generic' }}>
+        {% endfor %}
+
+        <p class="imp-step"><b>1</b> Where do you invest?</p>
+        <div class="broker-pick" role="radiogroup" aria-label="Your broker">
+          {% for key, label in (('zerodha', 'Zerodha'), ('groww', 'Groww'),
+                                ('robinhood', 'Robinhood'), ('fidelity', 'Fidelity'),
+                                ('generic', 'Other / any CSV')) %}
+          <label class="bk-pill" for="bk-{{ key }}">{{ label }}</label>
+          {% endfor %}
         </div>
+
+        <p class="imp-step"><b>2</b> Download your holdings file</p>
+        <div class="bk-guides">
+          <div class="bk-guide g-zerodha">
+            <ol class="bk-steps">
+              <li>Open <b>Zerodha Console</b> and sign in.</li>
+              <li>Go to <b>Portfolio → Holdings</b>.</li>
+              <li>Hit the <b>⬇ download</b> arrow (top-right of the table) and pick CSV.</li>
+            </ol>
+            <a class="bk-open" href="https://console.zerodha.com/portfolio/holdings"
+               target="_blank" rel="noopener">Open Zerodha Console ↗</a>
+          </div>
+          <div class="bk-guide g-groww">
+            <ol class="bk-steps">
+              <li>Sign in at <b>groww.in</b>.</li>
+              <li>Tap your profile picture → <b>Reports</b>.</li>
+              <li>Under <b>Stocks</b>, download the <b>Holdings statement</b>.</li>
+            </ol>
+            <a class="bk-open" href="https://groww.in" target="_blank" rel="noopener">Open Groww ↗</a>
+          </div>
+          <div class="bk-guide g-robinhood">
+            <ol class="bk-steps">
+              <li>Sign in at <b>robinhood.com</b>.</li>
+              <li>Open <b>Account → Reports and statements</b>.</li>
+              <li><b>Generate report</b> — you'll get a CSV of your positions.</li>
+            </ol>
+            <a class="bk-open" href="https://robinhood.com/account" target="_blank" rel="noopener">Open Robinhood ↗</a>
+          </div>
+          <div class="bk-guide g-fidelity">
+            <ol class="bk-steps">
+              <li>Sign in at <b>fidelity.com</b>.</li>
+              <li>Go to <b>Accounts &amp; Trade → Portfolio → Positions</b>.</li>
+              <li>Click the <b>⬇ download</b> icon above the positions table.</li>
+            </ol>
+            <a class="bk-open" href="https://www.fidelity.com" target="_blank" rel="noopener">Open Fidelity ↗</a>
+          </div>
+          <div class="bk-guide g-generic">
+            <ol class="bk-steps">
+              <li>Export holdings from your broker or spreadsheet as a <b>CSV</b>.</li>
+              <li>Any layout works if it has <b>symbol</b>, <b>quantity</b> and
+                <b>average cost</b> columns — Otto guesses the columns.</li>
+            </ol>
+          </div>
+          <p class="asof">Broker menus move around — if a path looks different,
+            any holdings CSV with those columns works fine.</p>
+        </div>
+
+        <p class="imp-step"><b>3</b> Drop it here</p>
+        <label class="drop-zone" for="imp-file">
+          <input id="imp-file" type="file" name="file" accept=".csv,text/csv">
+          <span class="dz-ico" aria-hidden="true">⇪</span>
+          <span class="dz-text"><b>Choose your CSV</b> — or drag it into this box</span>
+          <span class="dz-file asof" hidden></span>
+        </label>
         <button type="submit" class="btn-analyze">Preview import →</button>
+
+        <details class="imp-paste">
+          <summary>Prefer to paste rows instead?</summary>
+          <label class="port-import-paste">One holding per line — symbol, qty, avg price
+            <textarea name="paste" rows="4" spellcheck="false"
+                      placeholder="AAPL 10 150&#10;RELIANCE.NS 25 2450"></textarea></label>
+        </details>
       </form>
       <p class="asof">Broker symbols are matched to Yahoo tickers on the next
         screen — you confirm every row before anything is saved.</p>
@@ -386,6 +450,37 @@
     <span class="empty-sub">Add your first holding above to wake him up.</span></p>
   {% endif %}
 </section>
+{% endif %}
+
+{% if not guest %}
+<script>
+// Drop-zone niceties (pure enhancement — the <label>+<input> work without JS):
+// show the picked filename, and light the zone up while a file is dragged over.
+(function () {
+  var zone = document.querySelector('.drop-zone');
+  if (!zone) return;
+  var input = zone.querySelector('input[type=file]');
+  var name = zone.querySelector('.dz-file');
+  function show() {
+    var f = input.files && input.files[0];
+    name.hidden = !f;
+    if (f) name.textContent = '✓ ' + f.name;
+  }
+  input.addEventListener('change', show);
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('dz-over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('dz-over'); });
+  });
+  zone.addEventListener('drop', function (e) {
+    if (e.dataTransfer && e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      show();
+    }
+  });
+})();
+</script>
 {% endif %}
 
 {% if donut %}

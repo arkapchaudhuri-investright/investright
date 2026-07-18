@@ -785,6 +785,100 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .port-add-form { align-items: end; }
 .port-add-form .btn-analyze, .port-import-form .btn-analyze { font-size: 14px; padding: 8px 20px; }
 
+/* guided import: 1 pick broker → 2 that broker's export steps → 3 drop the
+   file. The hidden radios drive the active pill AND the visible guide with
+   plain CSS (:checked ~), so the whole flow works with JS off. */
+.imp-step {
+  display: flex; align-items: center; gap: 10px;
+  margin: var(--space-4) 0 var(--space-2); font-weight: 600; font-size: 14px;
+}
+.imp-step b {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 999px; flex: none;
+  background: var(--accent-deep); color: #fff; font-size: 12.5px;
+}
+.imp-radio {              /* hidden but still focusable for keyboard users */
+  position: absolute; width: 1px; height: 1px;
+  clip-path: inset(50%); overflow: hidden;
+}
+.broker-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.bk-pill {
+  cursor: pointer; padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--edge); font-size: 13.5px; color: var(--text);
+  transition: border-color .15s, background .15s, color .15s;
+}
+.bk-pill:hover { border-color: var(--accent); background: var(--wash); }
+#bk-zerodha:checked ~ .broker-pick .bk-pill[for="bk-zerodha"],
+#bk-groww:checked ~ .broker-pick .bk-pill[for="bk-groww"],
+#bk-robinhood:checked ~ .broker-pick .bk-pill[for="bk-robinhood"],
+#bk-fidelity:checked ~ .broker-pick .bk-pill[for="bk-fidelity"],
+#bk-generic:checked ~ .broker-pick .bk-pill[for="bk-generic"] {
+  background: var(--accent-deep); border-color: var(--accent-deep); color: #fff;
+}
+#bk-zerodha:focus-visible ~ .broker-pick .bk-pill[for="bk-zerodha"],
+#bk-groww:focus-visible ~ .broker-pick .bk-pill[for="bk-groww"],
+#bk-robinhood:focus-visible ~ .broker-pick .bk-pill[for="bk-robinhood"],
+#bk-fidelity:focus-visible ~ .broker-pick .bk-pill[for="bk-fidelity"],
+#bk-generic:focus-visible ~ .broker-pick .bk-pill[for="bk-generic"] {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.bk-guide { display: none; }
+#bk-zerodha:checked ~ .bk-guides .g-zerodha,
+#bk-groww:checked ~ .bk-guides .g-groww,
+#bk-robinhood:checked ~ .bk-guides .g-robinhood,
+#bk-fidelity:checked ~ .bk-guides .g-fidelity,
+#bk-generic:checked ~ .bk-guides .g-generic { display: block; }
+.bk-guides > .bk-guide {
+  padding: 12px 14px; border: 1px solid var(--hairline);
+  border-left: 3px solid var(--accent); border-radius: 10px; background: var(--wash);
+}
+.bk-guides > .asof { margin-top: 8px; }
+.bk-steps { list-style: none; counter-reset: bk; margin: 0; padding: 0; }
+.bk-steps li {
+  counter-increment: bk; position: relative;
+  padding: 4px 0 4px 30px; font-size: 13.5px;
+}
+.bk-steps li::before {
+  content: counter(bk); position: absolute; left: 0; top: 5px;
+  width: 20px; height: 20px; border-radius: 999px; box-sizing: border-box;
+  border: 1px solid var(--accent); color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.bk-open {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
+  font-size: 13px; color: var(--accent); text-decoration: none;
+  border: 1px solid var(--edge); border-radius: 999px; padding: 5px 14px;
+  transition: border-color .15s, background .15s;
+}
+.bk-open:hover { border-color: var(--accent); background: var(--card); }
+.drop-zone {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 22px 16px; border: 1.5px dashed var(--edge); border-radius: 12px;
+  cursor: pointer; text-align: center; margin-bottom: var(--space-3);
+  transition: border-color .15s, background .15s;
+}
+.drop-zone:hover, .drop-zone.dz-over, .drop-zone:focus-within {
+  border-color: var(--accent); background: var(--wash);
+}
+.drop-zone input {
+  position: absolute; width: 1px; height: 1px;
+  clip-path: inset(50%); overflow: hidden;
+}
+.dz-ico { font-size: 20px; color: var(--accent); }
+.dz-text { font-size: 13.5px; color: var(--muted); }
+.dz-text b { color: var(--text); }
+.dz-file { font-weight: 600; color: var(--accent); }
+.imp-paste { margin-top: var(--space-3); font-size: 13px; }
+.imp-paste > summary {
+  cursor: pointer; list-style: none; color: var(--muted);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.imp-paste > summary::-webkit-details-marker { display: none; }
+.imp-paste > summary:hover { color: var(--text); }
+.imp-paste[open] > summary { color: var(--accent); }
+.port-import-paste { display: block; margin-top: 8px; }
+
 /* review signals (spec 16) — "worth a look" nudges, never buy/sell */
 .sig-chip { margin-top: 4px; font-size: 12px; }
 .sig-chip > summary {
