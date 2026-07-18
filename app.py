@@ -142,6 +142,24 @@ def inject_wl_count():
 
 
 @app.context_processor
+def inject_tape():
+    """Topbar ticker tape: the day's biggest tracked movers (top gainers +
+    losers by day change, ranked by |move|), on every page. Reads the same
+    nightly snapshots /today ranks — native-currency prices, no FX math, and a
+    cheap indexed query; an empty DB simply renders no tape."""
+    try:
+        with get_conn() as conn:
+            rows = [dict(r) for r in conn.execute(
+                "SELECT s.ticker, s.currency, n.price, n.change_pct "
+                "FROM snapshots n JOIN stocks s ON s.ticker = n.ticker "
+                "WHERE n.change_pct IS NOT NULL AND s.exchange != 'INDEX' "
+                "ORDER BY ABS(n.change_pct) DESC LIMIT 10")]
+        return {"tape_items": rows}
+    except Exception:
+        return {"tape_items": []}
+
+
+@app.context_processor
 def inject_fx():
     """Currency seg + today's $→₹ rate belong in the gear on EVERY page — they
     used to render only where the view passed show_fx (home/watchlist), so the

@@ -167,6 +167,27 @@
       </div>
     </details>
 </header>
+{# Ticker tape — the day's biggest tracked movers drifting under the topbar,
+   classic exchange style. Content is duplicated once for a seamless CSS loop
+   (the copy is aria-hidden); hover pauses it, and prefers-reduced-motion swaps
+   the animation for a plain swipeable strip. Native-currency prices. #}
+{% if tape_items %}
+<div class="tape" role="marquee" aria-label="Today's biggest movers among tracked stocks">
+  <div class="tape-track">
+    {% for pass in (1, 2) %}
+    <span class="tape-run"{% if pass == 2 %} aria-hidden="true"{% endif %}>
+      {% for t in tape_items %}
+      <a class="tape-item" href="{{ url_for('stock', ticker=t['ticker']) }}">
+        <b>{{ t['ticker'] }}</b>
+        {% if t['price'] is not none %}{{ t['price']|money(t['currency']) }}{% endif %}
+        <span class="{{ 'up' if t['change_pct'] > 0 else 'down' if t['change_pct'] < 0 else 'flat' }}">{{ '%+.1f%%'|format(t['change_pct']) }}</span>
+      </a><span class="tape-dot" aria-hidden="true">·</span>
+      {% endfor %}
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 <main>
 {% block content %}{% endblock %}
 </main>
