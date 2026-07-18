@@ -97,18 +97,8 @@ def test_weekly_toggle_requires_login(client):
     assert "/login" in resp.headers["Location"]
 
 
-def test_build_note_none_when_watchlist_empty():
-    import weekly
-
-    class _Conn:
-        def execute(self, *a, **k):
-            self._rows = []
-            return self
-
-        def fetchall(self):
-            return self._rows
-
-    assert weekly.build_note(_Conn(), {"id": 1}) is None
+# build_note's "nothing to say → None" case now needs a real schema (spec 17
+# reads holdings + fx), so it lives in tests/test_weekly.py against the temp DB.
 
 
 # --- Portfolio (spec 14) ----------------------------------------------------
