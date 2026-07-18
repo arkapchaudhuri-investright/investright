@@ -1430,20 +1430,23 @@ footer .foot-credit .heart { color: var(--accent); font-style: normal; }
   .member { justify-content: center; text-align: center; }
   .member-photo { width: 108px; height: 108px; }
   /* Mobile topbar = two tidy rows at the very top:
-     row 1  brand (left) · ⚙ gear (right)   — settings is now a topbar child
-     row 2  the nav links, centred and full-width.
-     (Brand keeps its global margin-right:auto, which pushes the gear right.)
-     Paddings + gaps are ~25% tighter than desktop, and the Team link moves
-     into the gear (.set-mobile-nav), so the second row never wraps. */
+     row 1  brand (left) · ⚙ gear (right)   — settings is a topbar child
+     row 2  the nav links, LEFT-aligned on one line (Today · Strategies ·
+            Portfolio · Team · ★Watchlist). Left-aligned reads as a deliberate
+            menu rather than links floating in the centre; the row scrolls
+            horizontally if the link set is wider than the phone, so every link
+            (Team included — it used to hide in the gear) stays reachable. */
   .topbar { flex-wrap: wrap; row-gap: 7px; padding: 10px 16px; }
   .brand { order: 1; font-size: 20px; }
   .settings { order: 2; }
   .topnav {
-    order: 3; flex-basis: 100%; flex-wrap: wrap;
-    justify-content: center; gap: 6px 12px;   /* fits all links on one row */
+    order: 3; flex-basis: 100%;
+    flex-wrap: nowrap; justify-content: flex-start; gap: 4px 16px;
+    overflow-x: auto; scrollbar-width: none;   /* Firefox: hide the scrollbar */
+    -webkit-overflow-scrolling: touch;
   }
-  .settings-panel .set-mobile-nav { display: flex; }
-  .topnav a.nav-team { display: none; }   /* reachable via the gear on mobile */
+  .topnav::-webkit-scrollbar { display: none; }   /* WebKit: hide the scrollbar */
+  .navlink, .wl-toggle { flex: 0 0 auto; white-space: nowrap; }
   .wl-toggle { padding: 6px 12px; }
   /* Analyze + Add-to-watchlist share one row, aligned to the search bar.
      Tighter type + nowrap keeps "Add to watchlist" on a single line. */
