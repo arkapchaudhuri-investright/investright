@@ -586,6 +586,20 @@ def portfolio_page():
         key=lambda r: (sum(1 for s in r["signals"] if s["kind"] == "risk"),
                        len(r["signals"])), reverse=True)
 
+    # Row dressing: company logo (cached at ingest, same as the deep-dive
+    # header), a 30-session sparkline (same read the watchlist does), and each
+    # position's share of the book for the allocation mini-bar. All read-only.
+    if rows:
+        with get_conn() as conn:
+            for r in rows:
+                r["logo"] = logos.find(r["ticker"])
+                closes = [x["close"] for x in conn.execute(
+                    "SELECT close FROM price_history WHERE ticker=? "
+                    "ORDER BY d DESC LIMIT 30", (r["ticker"],))][::-1]
+                r["spark"] = metrics.sparkline(closes)
+                r["alloc_pct"] = (r["mkt_value"] / value * 100
+                                  if value and r.get("mkt_value") is not None else None)
+
     resp = make_response(render_template(
         "portfolio.html", rows=rows, as_of=as_of, totals=totals, donut=donut,
         sectors=sectors, concentration=concentration, flagged=flagged, **ctx))

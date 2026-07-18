@@ -3,40 +3,64 @@
 {% block content %}
 {% from "_flags.html" import flag %}
 
-{# Holdings P&L cell — money + tinted % (spec 14, moved off the watchlist).
-   '—' when there's no live price to compare against. #}
+{# 30-session sparkline — same read + look as the watchlist rows, so the two
+   list pages speak the same visual language. #}
+{% macro spark(s) %}
+{% if s %}<svg class="spark spark-{{ s.dir }}" viewBox="0 0 {{ s.width }} {{ s.height }}"
+  width="{{ s.width }}" height="{{ s.height }}" preserveAspectRatio="none" aria-hidden="true">
+  <polyline points="{{ s.points }}" fill="none" stroke="currentColor"
+    stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>
+{% else %}<span class="asof">—</span>{% endif %}
+{% endmacro %}
+
+{# Company logo chip (cached at ingest) with a monogram fallback — the same
+   pattern as the deep-dive header, shrunk to row size. #}
+{% macro logo_chip(r) %}
+{% if r['logo'] %}
+<img class="row-logo" src="{{ url_for('static', filename='logos/' + r['logo']) }}" alt="" loading="lazy">
+{% else %}
+<span class="row-logo row-logo-mono serif" aria-hidden="true">{{ r['name'][:1] }}</span>
+{% endif %}
+{% endmacro %}
+
+{# Holdings P&L cell — money + a tinted % pill. 'price n/a' when unpriced. #}
 {% macro pnl_cell(r) %}
 {% if r['pnl'] is not none %}
-<span class="{{ 'up' if r['pnl'] > 0 else 'down' if r['pnl'] < 0 else 'flat' }}">
+{% set dir = 'up' if r['pnl'] > 0 else 'down' if r['pnl'] < 0 else 'flat' %}
+<span class="pnl-cell {{ dir }}">
   {{ r['pnl']|money(ccy) }}
-  {% if r['pnl_pct'] is not none %}<small>{{ '%+.1f%%'|format(r['pnl_pct']) }}</small>{% endif %}
+  {% if r['pnl_pct'] is not none %}<span class="pnl-pill {{ dir }}">{{ '%+.1f%%'|format(r['pnl_pct']) }}</span>{% endif %}
 </span>
 {% else %}<span class="asof">price n/a</span>{% endif %}
 {% endmacro %}
 
-{# Inline holdings editor — native <details>, no JS. Shows/saves the NATIVE avg
-   buy price (the value stored), labelled in the stock's native currency. Posts
-   to /portfolio/add, which replaces the single lot for this ticker. #}
-{# ⚑ review-signal chip (spec 16). Expands to the plain-English reasons. Risk
-   flags use the amber --wash treatment; the earnings heads-up stays --accent.
-   These are "worth a look" nudges — never buy/sell/hold. #}
+{# ⚑ review chip (spec 16) — compact on desktop rows (jumps to the review card),
+   expandable on mobile cards. "Worth a look" nudges, never buy/sell. #}
 {% macro sig_chip(r) %}
+{% if r['signals'] %}
+{% set risks = r['signals'] | selectattr('kind', 'equalto', 'risk') | list %}
+<a class="sig-chip-mini{{ ' sig-info' if not risks }}" href="#review"
+   title="{{ r['signals'] | map(attribute='text') | join(' · ') }}">⚑ {{ r['signals']|length }}</a>
+{% endif %}
+{% endmacro %}
+
+{% macro sig_panel(r) %}
 {% if r['signals'] %}
 {% set risks = r['signals'] | selectattr('kind', 'equalto', 'risk') | list %}
 <details class="sig-chip{{ ' sig-info' if not risks }}">
   <summary>⚑ {{ r['signals']|length }} to review</summary>
   <ul class="sig-list">
-    {% for s in r['signals'] %}
-    <li class="sig-{{ s['kind'] }}">{{ s['text'] }}</li>
-    {% endfor %}
+    {% for s in r['signals'] %}<li class="sig-{{ s['kind'] }}">{{ s['text'] }}</li>{% endfor %}
   </ul>
 </details>
 {% endif %}
 {% endmacro %}
 
+{# Inline single-lot editor — native <details>, posts to /portfolio/add which
+   replaces qty/avg for this ticker. Native currency, as stored. #}
 {% macro holdings_edit(r) %}
 <details class="hold-edit">
-  <summary>✎ edit</summary>
+  <summary title="Edit qty / avg buy">✎ edit</summary>
   <form action="{{ url_for('portfolio_add') }}" method="post" class="hold-form">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <input type="hidden" name="symbol" value="{{ r['ticker'] }}">
@@ -59,7 +83,7 @@
     with weekly review nudges. Sign in to start your portfolio.</p>
   {% elif rows %}
   <p class="sub">{{ rows|length }} holding{{ 's' if rows|length != 1 }} ·
-    your positions, market value and P&amp;L — priced from the nightly refresh.</p>
+    priced nightly by Otto — value, allocation and review nudges below.</p>
   {% else %}
   <p class="sub">Track what you own — quantity, average buy price, and live P&amp;L.
     Separate from your watchlist: you can hold a stock you don't watch.</p>
@@ -85,117 +109,123 @@
 </section>
 {% else %}
 
-{# Add a holding — a quiet <details> so the page stays calm when you're just
-   reviewing. Symbol + qty + native avg buy price; replaces if already held. #}
-<section class="card">
-  <details class="hold-edit port-add"{% if not rows %} open{% endif %}>
-    <summary>＋ Add a holding</summary>
-    <form action="{{ url_for('portfolio_add') }}" method="post" class="hold-form port-add-form">
-      <input type="hidden" name="csrf" value="{{ csrf_token }}">
-      <label>Symbol
-        <input type="text" name="symbol" spellcheck="false" autocapitalize="characters"
-               placeholder="AAPL / RELIANCE.NS" required></label>
-      <label>Qty
-        <input type="number" name="qty" step="any" min="0" inputmode="decimal" required></label>
-      <label>Avg buy (native)
-        <input type="number" name="avg_price" step="any" min="0" inputmode="decimal" required></label>
-      <button type="submit" class="ghost">Add</button>
-    </form>
-    <p class="asof">Indian tickers need <code>.NS</code> or <code>.BO</code> (e.g. RELIANCE.NS).
-      Average buy price is in the stock's native currency.</p>
-  </details>
-
-  {# Bulk import (spec 15) — paste a table, or upload a CSV / broker export.
-     Everything lands on a confirm screen first; nothing is saved until then. #}
-  <details class="hold-edit port-import">
-    <summary>⇪ Import holdings</summary>
-    <form action="{{ url_for('portfolio_import_preview') }}" method="post"
-          enctype="multipart/form-data" class="port-import-form">
-      <input type="hidden" name="csrf" value="{{ csrf_token }}">
-      <label class="port-import-paste">Paste rows (symbol, qty, avg price — one per line)
-        <textarea name="paste" rows="4" spellcheck="false"
-                  placeholder="AAPL 10 150&#10;RELIANCE.NS 25 2450"></textarea></label>
-      <p class="asof">— or —</p>
-      <div class="port-import-file">
-        <label>Upload a CSV
-          <input type="file" name="file" accept=".csv,text/csv"></label>
-        <label>Broker
-          <select name="broker">
-            <option value="generic">Generic CSV</option>
-            <option value="zerodha">Zerodha</option>
-            <option value="groww">Groww</option>
-            <option value="robinhood">Robinhood</option>
-            <option value="fidelity">Fidelity</option>
-          </select></label>
-      </div>
-      <button type="submit" class="ghost">Preview import →</button>
-    </form>
-    <p class="asof">Broker symbols are matched to Yahoo tickers on the next
-      screen — you confirm every row before anything is saved.</p>
-  </details>
-</section>
-
-{# Totals strip + allocation donut + sector mix — only when something's priced. #}
+{# ── Overview hero: the one number that matters, then the ring ─────────── #}
 {% if totals %}
-<section class="card port-totals">
-  <div class="card-head"><h2>Holdings</h2>
-    <span class="asof">across your positions</span></div>
-  <div class="port-grid">
-    <div class="div-stats port-stats">
-      <div><b>{{ totals['value']|money(ccy) }}</b><span class="asof">market value</span></div>
-      <div><b>{{ totals['invested']|money(ccy) }}</b><span class="asof">invested</span></div>
-      <div><b class="{{ 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' }}">{{ totals['pnl']|money(ccy) }}</b>
-        <span class="asof">total P&amp;L</span></div>
-      <div><b class="{{ 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' }}">{{ '%+.1f%%'|format(totals['pnl_pct']) if totals['pnl_pct'] is not none else '—' }}</b>
-        <span class="asof">return</span></div>
+<section class="card port-hero">
+  <div class="hero-grid">
+    <div class="hero-main">
+      <span class="asof">Market value</span>
+      <div class="hero-value serif">{{ totals['value']|money(ccy) }}</div>
+      {% set hdir = 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' %}
+      <div class="hero-delta">
+        <span class="pnl-pill {{ hdir }}">{{ '%+.1f%%'|format(totals['pnl_pct']) if totals['pnl_pct'] is not none else '—' }}</span>
+        <b class="{{ hdir }}">{{ totals['pnl']|money(ccy) }}</b>
+        <span class="asof">all-time P&amp;L on {{ totals['invested']|money(ccy) }} invested</span>
+      </div>
+      {% if sectors %}
+      <div class="sector-mix">
+        <span class="asof">Sector mix</span>
+        <div class="sector-bar" role="img" aria-label="Market value by sector">
+          {% for sl in sectors %}<i style="flex-basis: {{ sl['pct'] }}%; background: {{ sl['fill'] }}"
+             title="{{ sl['label'] }} · {{ sl['pct'] }}%"></i>{% endfor %}
+        </div>
+        <div class="sector-legend">
+          {% for sl in sectors %}
+          <span><i class="alloc-chip" style="background: {{ sl['fill'] }}"></i>{{ sl['label'] }} <b>{{ sl['pct'] }}%</b></span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if concentration %}<p class="asof port-conc">◍ {{ concentration }} of your book</p>{% endif %}
     </div>
     {% if donut %}
-    <div class="port-alloc">
-      <svg class="alloc-donut" viewBox="0 0 140 140" width="140" height="140"
+    <div class="port-alloc" id="alloc">
+      <svg class="alloc-donut" viewBox="0 0 140 140" width="150" height="150"
            role="img" aria-label="Allocation by market value">
-        {% for sl in donut %}<path d="{{ sl['d'] }}" fill="{{ sl['fill'] }}"><title>{{ sl['label'] }} · {{ sl['pct'] }}%</title></path>{% endfor %}
+        {% for sl in donut %}<path d="{{ sl['d'] }}" fill="{{ sl['fill'] }}" data-ticker="{{ sl['label'] }}"><title>{{ sl['label'] }} · {{ sl['pct'] }}%</title></path>{% endfor %}
+        {% set hdir = 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' %}
+        <text class="donut-num {{ hdir }}" x="70" y="66" text-anchor="middle" fill="currentColor">{{ '%+.1f%%'|format(totals['pnl_pct']) if totals['pnl_pct'] is not none else '—' }}</text>
+        <text class="donut-cap" x="70" y="82" text-anchor="middle">return</text>
       </svg>
       <ul class="alloc-legend">
         {% for sl in donut %}
-        <li><span class="alloc-chip" style="background: {{ sl['fill'] }}"></span>
+        <li data-ticker="{{ sl['label'] }}"><span class="alloc-chip" style="background: {{ sl['fill'] }}"></span>
           {{ sl['label'] }} <span class="asof">{{ sl['pct'] }}%</span></li>
         {% endfor %}
       </ul>
     </div>
     {% endif %}
   </div>
-  {% if concentration %}<p class="asof port-conc">{{ concentration }}</p>{% endif %}
-  {% if sectors %}
-  <div class="port-sectors">
-    <span class="asof">Sector mix</span>
-    <ul class="alloc-legend">
-      {% for sl in sectors %}
-      <li><span class="alloc-chip" style="background: {{ sl['fill'] }}"></span>
-        {{ sl['label'] }} <span class="asof">{{ sl['pct'] }}%</span></li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
 </section>
 {% endif %}
 
-{# "Worth a look" summary (spec 16) — flagged holdings first, or a calm line
-   when there's nothing to surface. Only shown once you actually hold something. #}
+{# ── Add / Import — proper buttons that unfold their panels ────────────── #}
+<section class="port-actions">
+  <details class="port-panel"{% if not rows %} open{% endif %}>
+    <summary class="port-btn"><span class="port-btn-ico">＋</span> Add a holding</summary>
+    <div class="port-panel-body card">
+      <form action="{{ url_for('portfolio_add') }}" method="post" class="hold-form port-add-form">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <label>Symbol
+          <input type="text" name="symbol" spellcheck="false" autocapitalize="characters"
+                 placeholder="AAPL / RELIANCE.NS" required></label>
+        <label>Qty
+          <input type="number" name="qty" step="any" min="0" inputmode="decimal" required></label>
+        <label>Avg buy (native)
+          <input type="number" name="avg_price" step="any" min="0" inputmode="decimal" required></label>
+        <button type="submit" class="btn-analyze">Add</button>
+      </form>
+      <p class="asof">Indian tickers need <code>.NS</code> or <code>.BO</code> (e.g. RELIANCE.NS).
+        Average buy price is in the stock's native currency.</p>
+    </div>
+  </details>
+  <details class="port-panel">
+    <summary class="port-btn"><span class="port-btn-ico">⇪</span> Import CSV</summary>
+    <div class="port-panel-body card">
+      <form action="{{ url_for('portfolio_import_preview') }}" method="post"
+            enctype="multipart/form-data" class="port-import-form">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <label class="port-import-paste">Paste rows (symbol, qty, avg price — one per line)
+          <textarea name="paste" rows="4" spellcheck="false"
+                    placeholder="AAPL 10 150&#10;RELIANCE.NS 25 2450"></textarea></label>
+        <p class="asof">— or —</p>
+        <div class="port-import-file">
+          <label>Upload a CSV
+            <input type="file" name="file" accept=".csv,text/csv"></label>
+          <label>Broker
+            <select name="broker">
+              <option value="generic">Generic CSV</option>
+              <option value="zerodha">Zerodha</option>
+              <option value="groww">Groww</option>
+              <option value="robinhood">Robinhood</option>
+              <option value="fidelity">Fidelity</option>
+            </select></label>
+        </div>
+        <button type="submit" class="btn-analyze">Preview import →</button>
+      </form>
+      <p class="asof">Broker symbols are matched to Yahoo tickers on the next
+        screen — you confirm every row before anything is saved.</p>
+    </div>
+  </details>
+</section>
+
+{# ── Worth a look (spec 16) — review nudges, never advice ──────────────── #}
 {% if totals %}
-<section class="card port-review">
+<section class="card port-review" id="review">
   <div class="card-head"><h2>Worth a look</h2>
     <span class="asof">review nudges, not advice</span></div>
   {% if flagged %}
   <ul class="review-list">
     {% for r in flagged %}
     <li class="review-row">
-      <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
-      <span class="name">{{ r['name'] }}</span>
-      <ul class="sig-list">
-        {% for s in r['signals'] %}
-        <li class="sig-{{ s['kind'] }}">{{ s['text'] }}</li>
-        {% endfor %}
-      </ul>
+      <span class="review-who">
+        {{ logo_chip(r) }}
+        <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
+        <span class="name">{{ r['name'] }}</span>
+      </span>
+      <span class="review-flags">
+        {% for s in r['signals'] %}<span class="sig-tag sig-{{ s['kind'] }}">{{ s['text'] }}</span>{% endfor %}
+      </span>
     </li>
     {% endfor %}
   </ul>
@@ -207,6 +237,7 @@
 </section>
 {% endif %}
 
+{# ── Positions ─────────────────────────────────────────────────────────── #}
 <section id="portfolio" class="card">
   {% if rows %}
   <div class="card-head">
@@ -217,28 +248,44 @@
       <button type="submit" class="ghost">↻ Refresh</button>
     </form>
   </div>
-  <table>
+  <table class="port-table">
     <thead><tr>
       <th>Stock</th><th class="num">Price</th><th class="num">Today</th>
+      <th class="spark-col">30-day</th>
       <th class="num">Qty</th><th class="num">Avg buy</th>
-      <th class="num">Mkt value</th><th class="num">P&amp;L</th><th></th>
+      <th class="num">Mkt value</th><th>Alloc</th><th class="num">P&amp;L</th><th></th>
     </tr></thead>
     <tbody>
       {% for r in rows %}
-      <tr id="row-{{ r['ticker'] }}">
+      <tr id="row-{{ r['ticker'] }}" data-ticker="{{ r['ticker'] }}">
         <td>
-          <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
-          <span class="xchg">{{ r['exchange']|exch }}</span>
-          <div class="name">{{ r['name'] }}</div>
-          {{ sig_chip(r) }}
-          <a class="row-cta" href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
+          <span class="port-id">
+            {{ logo_chip(r) }}
+            <span class="port-id-txt">
+              <span class="port-id-top">
+                <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
+                <span class="xchg">{{ r['exchange']|exch }}</span>
+                {{ sig_chip(r) }}
+              </span>
+              <span class="name">{{ r['name'] }}</span>
+            </span>
+          </span>
         </td>
         <td class="num">{{ r['price']|money(ccy) if r['price'] is not none else '—' }}</td>
         <td class="num {{ 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' }}">
           {{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</td>
+        <td class="spark-cell spark-col">{{ spark(r['spark']) }}</td>
         <td class="num">{{ '%g'|format(r['qty']) }}</td>
         <td class="num">{{ r['avg_price']|money(ccy) if r['avg_price'] else '—' }}</td>
         <td class="num">{{ r['mkt_value']|money(ccy) if r['mkt_value'] is not none else '—' }}</td>
+        <td>
+          {% if r['alloc_pct'] is not none %}
+          <span class="alloc-cell" title="{{ '%.1f'|format(r['alloc_pct']) }}% of your book">
+            <span class="alloc-track"><i style="width: {{ [r['alloc_pct'], 100]|min|round(1) }}%"></i></span>
+            <span class="asof">{{ r['alloc_pct']|round|int }}%</span>
+          </span>
+          {% else %}<span class="asof">—</span>{% endif %}
+        </td>
         <td class="num hold-cell">
           {{ pnl_cell(r) }}
           {{ holdings_edit(r) }}
@@ -255,16 +302,20 @@
     </tbody>
   </table>
 
-  {# Mobile cards (desktop uses the table above). #}
+  {# Mobile: collapsible cards, same language as the watchlist. #}
   <div class="wl-cards">
     {% for r in rows %}
     {% set dir = 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' %}
     <details class="wl-card">
       <summary class="wl-summary">
         <span class="wl-id">
-          <span class="wl-tk">{{ r['ticker'] }}</span>
-          <span class="wl-nm">{{ r['name'] }}</span>
+          {{ logo_chip(r) }}
+          <span class="wl-id-txt">
+            <span class="wl-tk">{{ r['ticker'] }} {{ sig_chip(r) }}</span>
+            <span class="wl-nm">{{ r['name'] }}</span>
+          </span>
         </span>
+        {% if r['spark'] %}<span class="wl-spark">{{ spark(r['spark']) }}</span>{% endif %}
         <span class="wl-px">
           <span class="wl-price">{{ r['price']|money(ccy) if r['price'] is not none else '—' }}</span>
           <span class="wl-chg {{ dir }}">{{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</span>
@@ -278,7 +329,13 @@
           <div><span>Mkt value</span><b>{{ r['mkt_value']|money(ccy) if r['mkt_value'] is not none else '—' }}</b></div>
           <div><span>P&amp;L</span><b>{{ pnl_cell(r) }}</b></div>
         </div>
-        {{ sig_chip(r) }}
+        {% if r['alloc_pct'] is not none %}
+        <div class="alloc-cell wl-alloc">
+          <span class="rl">{{ r['alloc_pct']|round|int }}% of your book</span>
+          <span class="alloc-track"><i style="width: {{ [r['alloc_pct'], 100]|min|round(1) }}%"></i></span>
+        </div>
+        {% endif %}
+        {{ sig_panel(r) }}
         {{ holdings_edit(r) }}
         <div class="wl-actions">
           <a href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
@@ -297,6 +354,42 @@
     <span class="empty-sub">Add your first holding above to wake him up.</span></p>
   {% endif %}
 </section>
+{% endif %}
+
+{% if donut %}
+<script>
+// Hover-link the allocation ring, its legend, and the position rows: pointing
+// at any of the three spotlights the matching slice. Pure enhancement — the
+// page reads fine without it (slices carry <title> tooltips regardless).
+(function () {
+  var svg = document.querySelector('.alloc-donut');
+  if (!svg) return;
+  var slices = svg.querySelectorAll('path[data-ticker]');
+  function focus(tk) {
+    svg.classList.add('focus');
+    slices.forEach(function (p) {
+      p.classList.toggle('lit', p.getAttribute('data-ticker') === tk);
+    });
+    document.querySelectorAll('.alloc-legend li').forEach(function (li) {
+      li.classList.toggle('lit', li.getAttribute('data-ticker') === tk);
+    });
+  }
+  function blur() {
+    svg.classList.remove('focus');
+    document.querySelectorAll('.alloc-donut .lit, .alloc-legend .lit')
+      .forEach(function (el) { el.classList.remove('lit'); });
+  }
+  document.querySelectorAll('.alloc-legend li[data-ticker], .port-table tr[data-ticker]')
+    .forEach(function (el) {
+      el.addEventListener('mouseenter', function () { focus(el.getAttribute('data-ticker')); });
+      el.addEventListener('mouseleave', blur);
+    });
+  slices.forEach(function (p) {
+    p.addEventListener('mouseenter', function () { focus(p.getAttribute('data-ticker')); });
+    p.addEventListener('mouseleave', blur);
+  });
+})();
+</script>
 {% endif %}
 
 {% endblock %}
