@@ -483,13 +483,21 @@ def remove():
 
 
 @app.route("/portfolio")
-@login_required
 def portfolio_page():
     """The portfolio dashboard (spec 14) — standalone from the watchlist, backed
     by the `holdings` table. Per-row P&L, a totals strip, an allocation donut and
-    a sector-mix line, all in the chosen display currency. Read-only (§3)."""
+    a sector-mix line, all in the chosen display currency. Read-only (§3).
+
+    Open to guests: they see what the page offers plus a sign-in CTA (like
+    /watchlist), so the nav link works for everyone; only the write actions
+    (add/import/delete) stay @login_required."""
     ctx = _fx_ctx()
     user = current_user()
+    if not user:
+        _log("view")
+        return render_template(
+            "portfolio.html", guest=True, rows=[], as_of=None, totals=None,
+            donut=None, sectors=None, concentration=None, flagged=[], **ctx)
     with get_conn() as conn:
         raw = conn.execute("""
             SELECT s.*, h.qty, h.avg_price, h.updated_at AS hold_updated,

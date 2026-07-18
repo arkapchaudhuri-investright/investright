@@ -54,7 +54,10 @@
 <section class="team-head">
   {% with mood = 'sleepy' if not rows else 'happy', size = 72 %}{% include "_otto.html" %}{% endwith %}
   <h1 class="serif">Your portfolio</h1>
-  {% if rows %}
+  {% if guest %}
+  <p class="sub">Track what you own — quantity, average buy price, and live P&amp;L,
+    with weekly review nudges. Sign in to start your portfolio.</p>
+  {% elif rows %}
   <p class="sub">{{ rows|length }} holding{{ 's' if rows|length != 1 }} ·
     your positions, market value and P&amp;L — priced from the nightly refresh.</p>
   {% else %}
@@ -66,6 +69,21 @@
 {% with msgs = get_flashed_messages(with_categories=true) %}
   {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
 {% endwith %}
+
+{% if guest %}
+{# Guests can see what the tab offers, but building a portfolio needs an account.
+   Same pattern as /watchlist's logged-out state — the nav link works for all. #}
+<section class="card">
+  <p class="empty serif">Sign in to access your portfolio.</p>
+  <p class="sub">Add holdings by hand or import a broker CSV, then Otto tracks
+    your P&amp;L, allocation, and weekly "worth a look" nudges — all free, no ads.
+    Your portfolio is private to your account.</p>
+  <div class="guest-cta">
+    <a class="btn-analyze" href="{{ url_for('auth.register', next=url_for('portfolio_page')) }}">Create a free account</a>
+    <a class="btn-watch" href="{{ url_for('auth.login', next=url_for('portfolio_page')) }}">Sign in</a>
+  </div>
+</section>
+{% else %}
 
 {# Add a holding — a quiet <details> so the page stays calm when you're just
    reviewing. Symbol + qty + native avg buy price; replaces if already held. #}
@@ -279,5 +297,6 @@
     <span class="empty-sub">Add your first holding above to wake him up.</span></p>
   {% endif %}
 </section>
+{% endif %}
 
 {% endblock %}
