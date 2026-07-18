@@ -104,10 +104,12 @@ def test_weekly_toggle_requires_login(client):
 # --- Portfolio (spec 14) ----------------------------------------------------
 # Standalone /portfolio tab, backed by the holdings table (spec 11's watchlist
 # holdings UI is gone). No authed fixture, so cover the guest-guard path only.
-def test_portfolio_page_requires_login(client):
+def test_portfolio_page_open_to_guests_with_cta(client):
+    # /portfolio is open to guests (like /watchlist): a 200 with a sign-in CTA,
+    # not a redirect — the nav link works for everyone. Writes still need login.
     resp = client.get("/portfolio")
-    assert resp.status_code in (302, 303)
-    assert "/login" in resp.headers["Location"]
+    assert resp.status_code == 200
+    assert "Sign in to access your portfolio" in resp.get_data(as_text=True)
 
 
 def test_portfolio_add_requires_login(client):
