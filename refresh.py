@@ -308,6 +308,12 @@ def main():
     refresh_indices()
     with get_conn() as conn:
         symbols = [r["ticker"] for r in conn.execute("SELECT ticker FROM watchlist")]
+        # Held-but-unwatched tickers (spec 14): a stock in someone's portfolio
+        # that nobody watches would otherwise never get a nightly snapshot, so
+        # its /portfolio row would show a stale/absent price. Fold them into the
+        # same pass — ensure_stock below covers the union, no new cost.
+        held = [r["ticker"] for r in conn.execute("SELECT DISTINCT ticker FROM holdings")]
+        symbols = sorted(set(symbols) | set(held))
 
     with get_conn() as conn:  # peers ride along so mini-snowflakes have scores (Tier C)
         peers = [p for p in peer_symbols(symbols) if ensure_stock(conn, p)]

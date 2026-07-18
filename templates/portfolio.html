@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}Portfolio · InvestRight{% endblock %}
+{% block content %}
+{% from "_flags.html" import flag %}
+
+{# Holdings P&L cell — money + tinted % (spec 14, moved off the watchlist).
+   '—' when there's no live price to compare against. #}
+{% macro pnl_cell(r) %}
+{% if r['pnl'] is not none %}
+<span class="{{ 'up' if r['pnl'] > 0 else 'down' if r['pnl'] < 0 else 'flat' }}">
+  {{ r['pnl']|money(ccy) }}
+  {% if r['pnl_pct'] is not none %}<small>{{ '%+.1f%%'|format(r['pnl_pct']) }}</small>{% endif %}
+</span>
+{% else %}<span class="asof">price n/a</span>{% endif %}
+{% endmacro %}
+
+{# Inline holdings editor — native <details>, no JS. Shows/saves the NATIVE avg
+   buy price (the value stored), labelled in the stock's native currency. Posts
+   to /portfolio/add, which replaces the single lot for this ticker. #}
+{% macro holdings_edit(r) %}
+<details class="hold-edit">
+  <summary>✎ edit</summary>
+  <form action="{{ url_for('portfolio_add') }}" method="post" class="hold-form">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="symbol" value="{{ r['ticker'] }}">
+    <label>Qty
+      <input type="number" name="qty" step="any" min="0" inputmode="decimal"
+             value="{{ '%g'|format(r['qty']) if r['qty'] else '' }}" required></label>
+    <label>Avg buy ({{ r['currency_native'] }})
+      <input type="number" name="avg_price" step="any" min="0" inputmode="decimal"
+             value="{{ '%g'|format(r['avg_price_native']) if r['avg_price_native'] else '' }}" required></label>
+    <button type="submit" class="ghost">Save</button>
+  </form>
+</details>
+{% endmacro %}
+
+<section class="team-head">
+  {% with mood = 'sleepy' if not rows else 'happy', size = 72 %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Your portfolio</h1>
+  {% if rows %}
+  <p class="sub">{{ rows|length }} holding{{ 's' if rows|length != 1 }} ·
+    your positions, market value and P&amp;L — priced from the nightly refresh.</p>
+  {% else %}
+  <p class="sub">Track what you own — quantity, average buy price, and live P&amp;L.
+    Separate from your watchlist: you can hold a stock you don't watch.</p>
+  {% endif %}
+</section>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+{% endwith %}
+
+{# Add a holding — a quiet <details> so the page stays calm when you're just
+   reviewing. Symbol + qty + native avg buy price; replaces if already held. #}
+<section class="card">
+  <details class="hold-edit port-add"{% if not rows %} open{% endif %}>
+    <summary>＋ Add a holding</summary>
+    <form action="{{ url_for('portfolio_add') }}" method="post" class="hold-form port-add-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <label>Symbol
+        <input type="text" name="symbol" spellcheck="false" autocapitalize="characters"
+               placeholder="AAPL / RELIANCE.NS" required></label>
+      <label>Qty
+        <input type="number" name="qty" step="any" min="0" inputmode="decimal" required></label>
+      <label>Avg buy (native)
+        <input type="number" name="avg_price" step="any" min="0" inputmode="decimal" required></label>
+      <button type="submit" class="ghost">Add</button>
+    </form>
+    <p class="asof">Indian tickers need <code>.NS</code> or <code>.BO</code> (e.g. RELIANCE.NS).
+      Average buy price is in the stock's native currency.</p>
+  </details>
+</section>
+
+{# Totals strip + allocation donut + sector mix — only when something's priced. #}
+{% if totals %}
+<section class="card port-totals">
+  <div class="card-head"><h2>Holdings</h2>
+    <span class="asof">across your positions</span></div>
+  <div class="port-grid">
+    <div class="div-stats port-stats">
+      <div><b>{{ totals['value']|money(ccy) }}</b><span class="asof">market value</span></div>
+      <div><b>{{ totals['invested']|money(ccy) }}</b><span class="asof">invested</span></div>
+      <div><b class="{{ 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' }}">{{ totals['pnl']|money(ccy) }}</b>
+        <span class="asof">total P&amp;L</span></div>
+      <div><b class="{{ 'up' if totals['pnl'] > 0 else 'down' if totals['pnl'] < 0 else 'flat' }}">{{ '%+.1f%%'|format(totals['pnl_pct']) if totals['pnl_pct'] is not none else '—' }}</b>
+        <span class="asof">return</span></div>
+    </div>
+    {% if donut %}
+    <div class="port-alloc">
+      <svg class="alloc-donut" viewBox="0 0 140 140" width="140" height="140"
+           role="img" aria-label="Allocation by market value">
+        {% for sl in donut %}<path d="{{ sl['d'] }}" fill="{{ sl['fill'] }}"><title>{{ sl['label'] }} · {{ sl['pct'] }}%</title></path>{% endfor %}
+      </svg>
+      <ul class="alloc-legend">
+        {% for sl in donut %}
+        <li><span class="alloc-chip" style="background: {{ sl['fill'] }}"></span>
+          {{ sl['label'] }} <span class="asof">{{ sl['pct'] }}%</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  {% if concentration %}<p class="asof port-conc">{{ concentration }}</p>{% endif %}
+  {% if sectors %}
+  <div class="port-sectors">
+    <span class="asof">Sector mix</span>
+    <ul class="alloc-legend">
+      {% for sl in sectors %}
+      <li><span class="alloc-chip" style="background: {{ sl['fill'] }}"></span>
+        {{ sl['label'] }} <span class="asof">{{ sl['pct'] }}%</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section id="portfolio" class="card">
+  {% if rows %}
+  <div class="card-head">
+    <h2>Positions</h2>
+    <form action="{{ url_for('refresh') }}" method="post" class="refresh-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      {% if as_of %}<span class="asof">as of {{ as_of }}</span>{% endif %}
+      <button type="submit" class="ghost">↻ Refresh</button>
+    </form>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Stock</th><th class="num">Price</th><th class="num">Today</th>
+      <th class="num">Qty</th><th class="num">Avg buy</th>
+      <th class="num">Mkt value</th><th class="num">P&amp;L</th><th></th>
+    </tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr id="row-{{ r['ticker'] }}">
+        <td>
+          <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
+          <span class="xchg">{{ r['exchange']|exch }}</span>
+          <div class="name">{{ r['name'] }}</div>
+          <a class="row-cta" href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
+        </td>
+        <td class="num">{{ r['price']|money(ccy) if r['price'] is not none else '—' }}</td>
+        <td class="num {{ 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' }}">
+          {{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</td>
+        <td class="num">{{ '%g'|format(r['qty']) }}</td>
+        <td class="num">{{ r['avg_price']|money(ccy) if r['avg_price'] else '—' }}</td>
+        <td class="num">{{ r['mkt_value']|money(ccy) if r['mkt_value'] is not none else '—' }}</td>
+        <td class="num hold-cell">
+          {{ pnl_cell(r) }}
+          {{ holdings_edit(r) }}
+        </td>
+        <td>
+          <form action="{{ url_for('portfolio_delete', ticker=r['ticker']) }}" method="post"
+                onsubmit="return confirm('Remove {{ r['ticker'] }} from your portfolio?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <button class="x" aria-label="Remove {{ r['ticker'] }}">×</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# Mobile cards (desktop uses the table above). #}
+  <div class="wl-cards">
+    {% for r in rows %}
+    {% set dir = 'up' if r['change_pct'] and r['change_pct'] > 0 else 'down' if r['change_pct'] and r['change_pct'] < 0 else 'flat' %}
+    <details class="wl-card">
+      <summary class="wl-summary">
+        <span class="wl-id">
+          <span class="wl-tk">{{ r['ticker'] }}</span>
+          <span class="wl-nm">{{ r['name'] }}</span>
+        </span>
+        <span class="wl-px">
+          <span class="wl-price">{{ r['price']|money(ccy) if r['price'] is not none else '—' }}</span>
+          <span class="wl-chg {{ dir }}">{{ '%+.2f%%'|format(r['change_pct']) if r['change_pct'] is not none else '—' }}</span>
+        </span>
+        <span class="wl-chev" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="wl-detail">
+        <div class="wl-metrics">
+          <div><span>Qty</span><b>{{ '%g'|format(r['qty']) }}</b></div>
+          <div><span>Avg buy</span><b>{{ r['avg_price']|money(ccy) if r['avg_price'] else '—' }}</b></div>
+          <div><span>Mkt value</span><b>{{ r['mkt_value']|money(ccy) if r['mkt_value'] is not none else '—' }}</b></div>
+          <div><span>P&amp;L</span><b>{{ pnl_cell(r) }}</b></div>
+        </div>
+        {{ holdings_edit(r) }}
+        <div class="wl-actions">
+          <a href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
+          <form action="{{ url_for('portfolio_delete', ticker=r['ticker']) }}" method="post"
+                onsubmit="return confirm('Remove {{ r['ticker'] }} from your portfolio?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <button class="x" aria-label="Remove {{ r['ticker'] }}">× Remove</button>
+          </form>
+        </div>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty serif">Otto's dozing — your portfolio is empty.<br>
+    <span class="empty-sub">Add your first holding above to wake him up.</span></p>
+  {% endif %}
+</section>
+
+{% endblock %}

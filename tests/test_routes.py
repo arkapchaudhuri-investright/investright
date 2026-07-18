@@ -111,14 +111,40 @@ def test_build_note_none_when_watchlist_empty():
     assert weekly.build_note(_Conn(), {"id": 1}) is None
 
 
-# --- Portfolio holdings (spec 11) -------------------------------------------
-def test_save_holdings_requires_login(client):
+# --- Portfolio (spec 14) ----------------------------------------------------
+# Standalone /portfolio tab, backed by the holdings table (spec 11's watchlist
+# holdings UI is gone). No authed fixture, so cover the guest-guard path only.
+def test_portfolio_page_requires_login(client):
+    resp = client.get("/portfolio")
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
+
+
+def test_portfolio_add_requires_login(client):
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    resp = client.post("/portfolio/add",
+                       data={"symbol": "AAPL", "qty": "10", "avg_price": "150",
+                             "csrf": "tok"})
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
+
+
+def test_portfolio_delete_requires_login(client):
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    resp = client.post("/portfolio/AAPL/delete", data={"csrf": "tok"})
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["Location"]
+
+
+def test_old_watchlist_holdings_route_gone(client):
+    # Spec 14 removed POST /watchlist/<t>/holdings — /portfolio owns holdings now.
     with client.session_transaction() as sess:
         sess["csrf"] = "tok"
     resp = client.post("/watchlist/AAPL/holdings",
                        data={"qty": "10", "buy_price": "150", "csrf": "tok"})
-    assert resp.status_code in (302, 303)
-    assert "/login" in resp.headers["Location"]
+    assert resp.status_code == 404
 
 
 class _FakeConn:

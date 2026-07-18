@@ -163,6 +163,21 @@ CREATE TABLE IF NOT EXISTS user_notes (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (user_id, ticker)
 );
+-- Per-user portfolio (spec 14). Standalone from the watchlist: one (qty, avg
+-- buy price) pair per ticker, no lots/ledger. A brand-new TABLE (not a column on
+-- user_watchlist) so first deploy can't race the two gunicorn workers the way a
+-- _migrate ALTER does (spec 12 lesson). Spec 11's user_watchlist.qty/buy_price
+-- columns are migrated in here by manage.py migrate-holdings, then go unused.
+CREATE TABLE IF NOT EXISTS holdings (
+    id         INTEGER PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticker     TEXT NOT NULL REFERENCES stocks(ticker) ON DELETE CASCADE,
+    qty        REAL NOT NULL,
+    avg_price  REAL NOT NULL,          -- native currency, like spec 11's buy_price
+    added_at   TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(user_id, ticker)
+);
 -- One-shot price alerts (spec 08). A user arms "above/below <threshold>" in the
 -- stock's native currency; the nightly refresh checks the fresh snapshot,
 -- emails via mailer.send(), and stamps triggered_at (one-shot; user re-arms).
@@ -541,6 +556,26 @@ def user_watches(conn, user_id, ticker):
     return conn.execute(
         "SELECT 1 FROM user_watchlist WHERE user_id=? AND ticker=?",
         (user_id, ticker)).fetchone() is not None
+
+
+def upsert_holding(conn, user_id, ticker, qty, avg_price):
+    """Set the caller's single-lot holding for a ticker (spec 14). Adding a
+    ticker already held REPLACES qty/avg (no lots), touching updated_at. added_at
+    is preserved on replace via COALESCE against the existing row."""
+    now = _now()
+    conn.execute(
+        "INSERT INTO holdings (user_id,ticker,qty,avg_price,added_at,updated_at) "
+        "VALUES (?,?,?,?,?,?) "
+        "ON CONFLICT(user_id,ticker) DO UPDATE SET "
+        "  qty=excluded.qty, avg_price=excluded.avg_price, updated_at=excluded.updated_at",
+        (user_id, ticker, qty, avg_price, now, now))
+
+
+def remove_holding(conn, user_id, ticker):
+    """Drop one ticker from the caller's portfolio. Shared reference data and the
+    global union stay (the ticker may still be watched, a peer, or held by others)."""
+    conn.execute("DELETE FROM holdings WHERE user_id=? AND ticker=?",
+                 (user_id, ticker))
 
 
 # Sign-in throttling (Tier C). Two limits: per-email (someone guessing one

@@ -24,8 +24,9 @@ from auth import bp as auth_bp, client_ip, current_user, login_required
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 add_user_peer, add_user_watch, get_conn, get_user_note, init_db,
                 log_event, recent_login_failures, remove_user_peer,
-                remove_user_watch, save_price_history, save_snapshot,
-                save_user_note, user_peers_for, user_watches)
+                remove_holding, remove_user_watch, save_price_history,
+                save_snapshot, save_user_note, upsert_holding, user_peers_for,
+                user_watches)
 
 app = Flask(__name__)
 # Session signing key from .env (§10.0) — refresh→digest's loader put it in the
@@ -293,7 +294,7 @@ def watchlist_page():
     if user:
         with get_conn() as conn:
             rows = conn.execute("""
-                SELECT s.*, w.qty, w.buy_price,
+                SELECT s.*,
                        n.fetched_at, n.price, n.prev_close, n.change_pct,
                        n.market_cap, n.pe, n.div_yield, n.wk52_low, n.wk52_high
                 FROM user_watchlist w
@@ -312,19 +313,7 @@ def watchlist_page():
     conv = []
     for r in rows:
         r = dict(r)
-        # Stash the native holdings before convert_row rewrites them to display
-        # ccy — the edit form always shows/saves the NATIVE buy price.
-        r["buy_price_native"] = r.get("buy_price")
-        r["currency_native"] = r["currency"]
         r = convert_row(r, ctx["ccy"], ctx["fx"])
-        # Per-row P&L (spec 11): price + buy_price are now both in display ccy,
-        # so this is a straight subtraction. Rows without holdings (qty NULL) or
-        # without a live price carry no pnl.
-        r["pnl"] = r["pnl_pct"] = r["mkt_value"] = None
-        if r.get("qty") and r.get("buy_price") and r.get("price") is not None:
-            r["mkt_value"] = r["price"] * r["qty"]
-            r["pnl"] = (r["price"] - r["buy_price"]) * r["qty"]
-            r["pnl_pct"] = (r["price"] / r["buy_price"] - 1) * 100 if r["buy_price"] else None
         conv.append(r)
     rows = conv
     # A 30-session sparkline per row (last-good closes from price_history — the
@@ -339,19 +328,6 @@ def watchlist_page():
     as_of = max((r["fetched_at"] for r in rows if r["fetched_at"]), default=None)
     if as_of:
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
-
-    # Portfolio totals + allocation donut (spec 11 Phase B): sum the visible
-    # rows that carry holdings, all already in display ccy. None when the user
-    # holds nothing (or the current market filter hides them all) → no strip.
-    totals = donut = None
-    held = [r for r in rows if r.get("mkt_value") is not None]
-    if held:
-        invested = sum(r["buy_price"] * r["qty"] for r in held)
-        value = sum(r["mkt_value"] for r in held)
-        pnl = value - invested
-        totals = {"invested": invested, "value": value, "pnl": pnl,
-                  "pnl_pct": (pnl / invested * 100) if invested else None}
-        donut = metrics.allocation_donut([(r["ticker"], r["mkt_value"]) for r in held])
 
     # Guests see three real demo scores (not a bare sign-in wall) — read-only,
     # skips any demo ticker we don't actually have locally (never fake data).
@@ -375,7 +351,7 @@ def watchlist_page():
 
     resp = make_response(render_template(
         "watchlist.html", rows=rows, as_of=as_of, market=market, total=total,
-        totals=totals, donut=donut, demo=demo, **ctx))
+        demo=demo, **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
     if request.args.get("market"):
@@ -505,37 +481,125 @@ def remove():
     return redirect(url_for("watchlist_page"))
 
 
-@app.post("/watchlist/<ticker>/holdings")
+@app.route("/portfolio")
 @login_required
-def save_holdings(ticker):
-    """Set or clear holdings (qty + native buy price) on the caller's watch row
-    (spec 11). Both fields empty clears holdings back to a plain watch row."""
+def portfolio_page():
+    """The portfolio dashboard (spec 14) — standalone from the watchlist, backed
+    by the `holdings` table. Per-row P&L, a totals strip, an allocation donut and
+    a sector-mix line, all in the chosen display currency. Read-only (§3)."""
+    ctx = _fx_ctx()
+    user = current_user()
+    with get_conn() as conn:
+        raw = conn.execute("""
+            SELECT s.*, h.qty, h.avg_price, h.updated_at AS hold_updated,
+                   n.fetched_at, n.price, n.change_pct, n.market_cap,
+                   n.pe, n.div_yield
+            FROM holdings h
+            JOIN stocks s ON s.ticker = h.ticker
+            LEFT JOIN snapshots n ON n.ticker = h.ticker
+            WHERE h.user_id = ?
+            ORDER BY h.added_at""", (user["id"],)).fetchall()
+
+    rows = []
+    for r in raw:
+        r = dict(r)
+        # avg_price is native money like spec 11's buy_price — stash the native
+        # value for the edit form, then let convert_row rewrite money to display.
+        r["avg_price_native"] = r.get("avg_price")
+        r["currency_native"] = r["currency"]
+        r["avg_price"] = r.get("avg_price")   # convert_row only scales known keys
+        r = convert_row(r, ctx["ccy"], ctx["fx"])
+        # convert_row scales price/market_cap but not avg_price — apply the same
+        # factor by hand so P&L subtracts like-for-like (both in display ccy).
+        factor, _ = _fx_factor(r["currency_native"], ctx["ccy"], ctx["fx"])
+        r["avg_price"] = r["avg_price_native"] * factor if r["avg_price_native"] else None
+        r["mkt_value"] = r["pnl"] = r["pnl_pct"] = None
+        if r.get("price") is not None and r.get("avg_price"):
+            r["mkt_value"] = r["price"] * r["qty"]
+            r["pnl"] = (r["price"] - r["avg_price"]) * r["qty"]
+            r["pnl_pct"] = (r["price"] / r["avg_price"] - 1) * 100
+        rows.append(r)
+
+    as_of = max((r["fetched_at"] for r in rows if r["fetched_at"]), default=None)
+    if as_of:
+        as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
+
+    # Totals + allocation donut + sector mix over the priced rows (display ccy).
+    totals = donut = sectors = concentration = None
+    held = [r for r in rows if r.get("mkt_value") is not None]
+    if held:
+        invested = sum(r["avg_price"] * r["qty"] for r in held)
+        value = sum(r["mkt_value"] for r in held)
+        pnl = value - invested
+        totals = {"invested": invested, "value": value, "pnl": pnl,
+                  "pnl_pct": (pnl / invested * 100) if invested else None}
+        donut = metrics.allocation_donut([(r["ticker"], r["mkt_value"]) for r in held])
+        # Sector mix: summed market value per sector (honest text when unknown).
+        by_sector = {}
+        for r in held:
+            by_sector[r.get("sector") or "—"] = by_sector.get(r.get("sector") or "—", 0) + r["mkt_value"]
+        sectors = metrics.allocation_donut(list(by_sector.items()))
+        # Concentration note — only when the top position tops 25%.
+        if donut and donut[0]["pct"] > 25:
+            concentration = f"Largest position: {donut[0]['label']} {donut[0]['pct']:.0f}%"
+
+    resp = make_response(render_template(
+        "portfolio.html", rows=rows, as_of=as_of, totals=totals, donut=donut,
+        sectors=sectors, concentration=concentration, **ctx))
+    if request.args.get("ccy"):
+        resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
+    _log("view")
+    return resp
+
+
+@app.post("/portfolio/add")
+@login_required
+def portfolio_add():
+    """Add or replace a single-lot holding (spec 14). Ingests an unknown ticker
+    first (POST path — writes allowed). Adding a held ticker replaces qty/avg."""
+    user = current_user()
+    raw = request.form.get("symbol", "").strip()
+    symbol = raw.upper()
+    dest = redirect(url_for("portfolio_page"))
+    if not symbol:
+        return dest
+    try:
+        qty = float((request.form.get("qty") or "").strip())
+        avg_price = float((request.form.get("avg_price") or "").strip())
+    except (TypeError, ValueError):
+        flash("Enter a quantity and average buy price (numbers).", "error")
+        return dest
+    if qty <= 0 or avg_price <= 0:
+        flash("Quantity and average buy price must both be above zero.", "error")
+        return dest
+    with get_conn() as conn:
+        known = conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (symbol,)).fetchone()
+    if not known:                        # ingest first, resolving free text
+        meta = _ingest_stock(symbol)
+        if not meta:
+            resolved = fetch.search(raw)
+            meta = _ingest_stock(resolved) if resolved else None
+        if not meta:
+            flash(_NOT_FOUND.format(raw), "error")
+            return dest
+        symbol = meta["ticker"]
+    with get_conn() as conn:
+        upsert_holding(conn, user["id"], symbol, qty, avg_price)
+    _log("hold_add", symbol)
+    flash(f"Saved your {symbol} holding.", "ok")
+    return dest
+
+
+@app.post("/portfolio/<ticker>/delete")
+@login_required
+def portfolio_delete(ticker):
+    """Remove one ticker from the caller's portfolio only (spec 14)."""
     user = current_user()
     ticker = ticker.upper()
-    _log("holdings", ticker)
-    dest = redirect(url_for("watchlist_page"))
-    raw_qty = (request.form.get("qty") or "").strip()
-    raw_buy = (request.form.get("buy_price") or "").strip()
-    if not raw_qty and not raw_buy:      # clear holdings → plain watch row
-        qty = buy_price = None
-    else:
-        try:
-            qty, buy_price = float(raw_qty), float(raw_buy)
-        except (TypeError, ValueError):
-            flash("Enter a quantity and buy price (numbers) — or clear both.", "error")
-            return dest
-        if qty <= 0 or buy_price <= 0:
-            flash("Quantity and buy price must both be above zero.", "error")
-            return dest
     with get_conn() as conn:
-        cur = conn.execute(
-            "UPDATE user_watchlist SET qty=?, buy_price=? WHERE user_id=? AND ticker=?",
-            (qty, buy_price, user["id"], ticker))
-        if cur.rowcount == 0:
-            flash("Star this stock first, then add your holdings.", "error")
-            return dest
-    flash("Holdings cleared." if qty is None else f"Saved your {ticker} holdings.", "ok")
-    return dest
+        remove_holding(conn, user["id"], ticker)
+    _log("hold_remove", ticker)
+    return redirect(url_for("portfolio_page"))
 
 
 @app.post("/refresh")
