@@ -284,6 +284,68 @@ def overall_score(scores):
     return sum(vals) / len(vals) if vals else None
 
 
+# --- Portfolio review signals (spec 16) ------------------------------------
+# "Worth a look" nudges on a holding — NEVER buy/sell/trim/hold (that's advice).
+# Thresholds are named here so they're easy to tune without touching the logic.
+SIG_RICH_MULT = 1.30        # price this many × fair value → looks rich
+SIG_AXIS_FAIL = 0.5         # an axis "fails" when under half its checks pass
+SIG_WEAK_AXES = 3           # this many of 5 axes failing → fundamentals softening
+SIG_CONC_PCT = 25.0         # a position over this % of the book → concentrated
+SIG_DOWN_MULT = 0.80        # price under this × avg buy → materially down
+SIG_EARNINGS_DAYS = 7       # earnings within this many days → heads-up
+
+
+def _weak_axes(checks):
+    """How many of the 5 snowflake axes have a majority of checks failing.
+    Shared by the 'weakening' and 'down + weakening' signals."""
+    return sum(1 for v in axis_scores(checks or []).values()
+               if v is not None and v < SIG_AXIS_FAIL)
+
+
+def review_signals(holding, snap, checks, dcf, alloc_pct, earnings_days):
+    """Review flags for one holding — data-backed 'worth a look' nudges, never a
+    trade verdict. Pure + fully unit-testable. Each flag is
+    {'code','kind','text'} where kind is 'risk' (amber) or 'info' (the earnings
+    heads-up, a calmer hue). A holding can carry several; each is independent.
+
+    Inputs are plain dicts/values, all optional-safe:
+      holding      {'avg_price','qty'}       snap  {'price'}
+      checks       [{'axis','passed'}]       dcf   {'fair_value'} (display ccy)
+      alloc_pct    this holding's % of book  earnings_days  int days or None
+    """
+    out = []
+    price = (snap or {}).get("price")
+    fair = (dcf or {}).get("fair_value")
+    weak = _weak_axes(checks)
+
+    if price and fair and price > SIG_RICH_MULT * fair:
+        out.append({"code": "rich", "kind": "risk",
+                    "text": f"Trading ~{round((price / fair - 1) * 100)}% above "
+                            "Otto's fair-value estimate."})
+
+    if weak >= SIG_WEAK_AXES:
+        out.append({"code": "weak", "kind": "risk",
+                    "text": f"{weak} of 5 health checks are failing."})
+
+    if alloc_pct is not None and alloc_pct > SIG_CONC_PCT:
+        out.append({"code": "concentration", "kind": "risk",
+                    "text": f"This is {round(alloc_pct)}% of your portfolio."})
+
+    avg = (holding or {}).get("avg_price")
+    if price and avg and price < SIG_DOWN_MULT * avg and weak >= SIG_WEAK_AXES:
+        out.append({"code": "down_weak", "kind": "risk",
+                    "text": f"Down {round((1 - price / avg) * 100)}% from your buy, "
+                            "and fundamentals are softening."})
+
+    if earnings_days is not None and 0 <= earnings_days <= SIG_EARNINGS_DAYS:
+        when = ("today" if earnings_days == 0
+                else "tomorrow" if earnings_days == 1
+                else f"in {earnings_days} days")
+        out.append({"code": "earnings", "kind": "info",
+                    "text": f"Reports earnings {when}."})
+    return out
+
+
 def mood_for(score):
     if score is None:
         return "neutral"
