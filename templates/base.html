@@ -122,12 +122,6 @@
           </span>
           {% endif %}
         </div>
-        {# The Team nav link is hidden on phones to keep the topbar at two rows;
-           it lives here in the gear on mobile so the page stays reachable. #}
-        <div class="set-row set-mobile-nav">
-          <span class="set-label">More</span>
-          <a class="linkbtn" href="{{ url_for('team') }}">Team</a>
-        </div>
         {% if current_user %}
         {# Change password lives in the gear now — quick reach from any page. #}
         <div class="set-row">
