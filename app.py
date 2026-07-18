@@ -511,11 +511,17 @@ def portfolio_page():
     (add/import/delete) stay @login_required."""
     ctx = _fx_ctx()
     user = current_user()
+    # Market filter (US / India / Both) — same shape + shared cookie as /today
+    # and /watchlist, so the choice follows you across the list pages.
+    market = (request.args.get("market") or request.cookies.get("ir_market") or "BOTH").upper()
+    if market not in ("US", "IN", "BOTH"):
+        market = "BOTH"
     if not user:
         _log("view")
         return render_template(
             "portfolio.html", guest=True, rows=[], as_of=None, totals=None,
-            donut=None, sectors=None, concentration=None, flagged=[], **ctx)
+            donut=None, sectors=None, concentration=None, flagged=[],
+            market=market, total=0, market_mix=None, **ctx)
     with get_conn() as conn:
         raw = conn.execute("""
             SELECT s.*, h.qty, h.avg_price, h.updated_at AS hold_updated,
@@ -551,9 +557,65 @@ def portfolio_page():
     if as_of:
         as_of = datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
 
-    # Totals + allocation donut + sector mix over the priced rows (display ccy).
-    totals = donut = sectors = concentration = None
+    # Whole-book numbers FIRST (before the market filter): the review signals'
+    # concentration % and the per-row "of your book" bars stay honest against
+    # the full portfolio no matter which market is on screen, and the hero's
+    # US-vs-India mix bar needs both sides.
+    def _is_india(tk):
+        return tk.endswith(".NS") or tk.endswith(".BO")
+
+    all_held = [r for r in rows if r.get("mkt_value") is not None]
+    book_value = sum(r["mkt_value"] for r in all_held)
+    us_val = sum(r["mkt_value"] for r in all_held if not _is_india(r["ticker"]))
+    in_val = sum(r["mkt_value"] for r in all_held if _is_india(r["ticker"]))
+    market_mix = None
+    if market == "BOTH" and us_val and in_val:
+        # Fills mirror metrics._DONUT_FILLS' brand-green ramp.
+        market_mix = [
+            {"label": "US", "flag": "US", "pct": round(us_val / book_value * 100, 1),
+             "fill": "rgba(29,158,117,.9)"},
+            {"label": "India", "flag": "IN", "pct": round(in_val / book_value * 100, 1),
+             "fill": "rgba(29,158,117,.45)"},
+        ]
+
+    # Review signals (spec 16) — "worth a look" flags derived at request time
+    # from already-saved rows (health checks, DCF, earnings date, allocation).
+    # No DB writes (§3), same as the deep-dive's snowflake/DCF.
+    for r in rows:
+        r["signals"] = []
+    if all_held:
+        with get_conn() as conn:
+            for r in all_held:
+                checks = [dict(c) for c in conn.execute(
+                    "SELECT axis, passed FROM health_checks WHERE ticker=?", (r["ticker"],))]
+                dcf_row = conn.execute(
+                    "SELECT fair_value FROM dcf WHERE ticker=?", (r["ticker"],)).fetchone()
+                dcf = None
+                if dcf_row and dcf_row["fair_value"]:   # native FV → display ccy
+                    factor, _ = _fx_factor(r["currency_native"], ctx["ccy"], ctx["fx"])
+                    dcf = {"fair_value": dcf_row["fair_value"] * factor}
+                alloc_pct = (r["mkt_value"] / book_value * 100) if book_value else None
+                edays = None
+                if r.get("next_earnings"):
+                    try:
+                        d = (date.fromisoformat(r["next_earnings"]) - date.today()).days
+                        edays = d if 0 <= d <= 60 else None
+                    except (ValueError, TypeError):
+                        pass
+                r["signals"] = metrics.review_signals(
+                    {"avg_price": r.get("avg_price"), "qty": r.get("qty")},
+                    {"price": r.get("price")}, checks, dcf, alloc_pct, edays)
+
+    # NOW apply the market filter: totals, ring, sector mix and the position
+    # list all reflect the chosen market; `total` keeps the unfiltered count so
+    # the empty state can say "switch the market" instead of "empty portfolio".
+    total = len(rows)
+    if market != "BOTH":
+        rows = [r for r in rows if _is_india(r["ticker"]) == (market == "IN")]
     held = [r for r in rows if r.get("mkt_value") is not None]
+
+    # Totals + allocation donut + sector mix over the VISIBLE priced rows.
+    totals = donut = sectors = concentration = None
     if held:
         invested = sum(r["avg_price"] * r["qty"] for r in held)
         value = sum(r["mkt_value"] for r in held)
@@ -566,39 +628,11 @@ def portfolio_page():
         for r in held:
             by_sector[r.get("sector") or "—"] = by_sector.get(r.get("sector") or "—", 0) + r["mkt_value"]
         sectors = metrics.allocation_donut(list(by_sector.items()))
-        # Concentration note — only when the top position tops 25%.
+        # Concentration note — only when the top position tops 25% of the view.
         if donut and donut[0]["pct"] > 25:
             concentration = f"Largest position: {donut[0]['label']} {donut[0]['pct']:.0f}%"
 
-    # Review signals (spec 16) — "worth a look" flags derived at request time
-    # from already-saved rows (health checks, DCF, earnings date, allocation).
-    # No DB writes (§3), same as the deep-dive's snowflake/DCF.
-    value = totals["value"] if totals else 0
-    for r in rows:
-        r["signals"] = []
-    if held:
-        with get_conn() as conn:
-            for r in held:
-                checks = [dict(c) for c in conn.execute(
-                    "SELECT axis, passed FROM health_checks WHERE ticker=?", (r["ticker"],))]
-                dcf_row = conn.execute(
-                    "SELECT fair_value FROM dcf WHERE ticker=?", (r["ticker"],)).fetchone()
-                dcf = None
-                if dcf_row and dcf_row["fair_value"]:   # native FV → display ccy
-                    factor, _ = _fx_factor(r["currency_native"], ctx["ccy"], ctx["fx"])
-                    dcf = {"fair_value": dcf_row["fair_value"] * factor}
-                alloc_pct = (r["mkt_value"] / value * 100) if value else None
-                edays = None
-                if r.get("next_earnings"):
-                    try:
-                        d = (date.fromisoformat(r["next_earnings"]) - date.today()).days
-                        edays = d if 0 <= d <= 60 else None
-                    except (ValueError, TypeError):
-                        pass
-                r["signals"] = metrics.review_signals(
-                    {"avg_price": r.get("avg_price"), "qty": r.get("qty")},
-                    {"price": r.get("price")}, checks, dcf, alloc_pct, edays)
-    # Summary: flagged holdings, most-flagged first (risk flags outweigh info).
+    # Summary: flagged VISIBLE holdings, most-flagged first (risk > info).
     flagged = sorted(
         (r for r in rows if r.get("signals")),
         key=lambda r: (sum(1 for s in r["signals"] if s["kind"] == "risk"),
@@ -606,7 +640,7 @@ def portfolio_page():
 
     # Row dressing: company logo (cached at ingest, same as the deep-dive
     # header), a 30-session sparkline (same read the watchlist does), and each
-    # position's share of the book for the allocation mini-bar. All read-only.
+    # position's share of the WHOLE book for the "of your book" mini-bar.
     if rows:
         with get_conn() as conn:
             for r in rows:
@@ -615,14 +649,17 @@ def portfolio_page():
                     "SELECT close FROM price_history WHERE ticker=? "
                     "ORDER BY d DESC LIMIT 30", (r["ticker"],))][::-1]
                 r["spark"] = metrics.sparkline(closes)
-                r["alloc_pct"] = (r["mkt_value"] / value * 100
-                                  if value and r.get("mkt_value") is not None else None)
+                r["alloc_pct"] = (r["mkt_value"] / book_value * 100
+                                  if book_value and r.get("mkt_value") is not None else None)
 
     resp = make_response(render_template(
         "portfolio.html", rows=rows, as_of=as_of, totals=totals, donut=donut,
-        sectors=sectors, concentration=concentration, flagged=flagged, **ctx))
+        sectors=sectors, concentration=concentration, flagged=flagged,
+        market=market, total=total, market_mix=market_mix, **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
+    if request.args.get("market"):
+        resp.set_cookie("ir_market", market, max_age=60 * 60 * 24 * 365, samesite="Lax")
     _log("view")
     return resp
 

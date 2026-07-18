@@ -84,9 +84,24 @@
   {% elif rows %}
   <p class="sub">{{ rows|length }} holding{{ 's' if rows|length != 1 }} ·
     priced nightly by Otto — value, allocation and review nudges below.</p>
+  {% elif total %}
+  <p class="sub">No {{ 'Indian' if market == 'IN' else 'US' }} holdings —
+    switch the market below to see the rest of your book.</p>
   {% else %}
   <p class="sub">Track what you own — quantity, average buy price, and live P&amp;L.
     Separate from your watchlist: you can hold a stock you don't watch.</p>
+  {% endif %}
+
+  {% if not guest and total %}
+  {# Market filter — US / India / Both, same seg + shared cookie as /today and
+     /watchlist. Totals, ring and rows recompute for the chosen market. #}
+  <nav class="seg today-mkt-seg" aria-label="Which market to show">
+    {% for key, label in (('US', 'US'), ('IN', 'India'), ('BOTH', 'Both')) %}
+    <a href="{{ url_for('portfolio_page', market=key) }}"
+       class="{{ 'active' if market == key }}"
+       {% if market == key %}aria-current="true"{% endif %}>{% if key != 'BOTH' %}{{ flag(key) }}{% endif %}{{ label }}</a>
+    {% endfor %}
+  </nav>
   {% endif %}
 </section>
 
@@ -136,7 +151,21 @@
         </div>
       </div>
       {% endif %}
-      {% if concentration %}<p class="asof port-conc">◍ {{ concentration }} of your book</p>{% endif %}
+      {% if market_mix %}
+      <div class="sector-mix">
+        <span class="asof">Market mix</span>
+        <div class="sector-bar" role="img" aria-label="Market value by market">
+          {% for m in market_mix %}<i style="flex-basis: {{ m['pct'] }}%; background: {{ m['fill'] }}"
+             title="{{ m['label'] }} · {{ m['pct'] }}%"></i>{% endfor %}
+        </div>
+        <div class="sector-legend">
+          {% for m in market_mix %}
+          <span>{{ flag(m['flag']) }}{{ m['label'] }} <b>{{ m['pct'] }}%</b></span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if concentration %}<p class="asof port-conc">◍ {{ concentration }} of {{ 'your book' if market == 'BOTH' else 'this view' }}</p>{% endif %}
     </div>
     {% if donut %}
     <div class="port-alloc" id="alloc">
@@ -349,6 +378,9 @@
     </details>
     {% endfor %}
   </div>
+  {% elif total %}
+  <p class="empty serif">No {{ 'Indian' if market == 'IN' else 'US' }} holdings here.<br>
+    <span class="empty-sub">Switch the market seg above to see the rest of your book.</span></p>
   {% else %}
   <p class="empty serif">Otto's dozing — your portfolio is empty.<br>
     <span class="empty-sub">Add your first holding above to wake him up.</span></p>
