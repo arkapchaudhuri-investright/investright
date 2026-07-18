@@ -17,6 +17,23 @@
 {# Inline holdings editor — native <details>, no JS. Shows/saves the NATIVE avg
    buy price (the value stored), labelled in the stock's native currency. Posts
    to /portfolio/add, which replaces the single lot for this ticker. #}
+{# ⚑ review-signal chip (spec 16). Expands to the plain-English reasons. Risk
+   flags use the amber --wash treatment; the earnings heads-up stays --accent.
+   These are "worth a look" nudges — never buy/sell/hold. #}
+{% macro sig_chip(r) %}
+{% if r['signals'] %}
+{% set risks = r['signals'] | selectattr('kind', 'equalto', 'risk') | list %}
+<details class="sig-chip{{ ' sig-info' if not risks }}">
+  <summary>⚑ {{ r['signals']|length }} to review</summary>
+  <ul class="sig-list">
+    {% for s in r['signals'] %}
+    <li class="sig-{{ s['kind'] }}">{{ s['text'] }}</li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endmacro %}
+
 {% macro holdings_edit(r) %}
 <details class="hold-edit">
   <summary>✎ edit</summary>
@@ -144,6 +161,34 @@
 </section>
 {% endif %}
 
+{# "Worth a look" summary (spec 16) — flagged holdings first, or a calm line
+   when there's nothing to surface. Only shown once you actually hold something. #}
+{% if totals %}
+<section class="card port-review">
+  <div class="card-head"><h2>Worth a look</h2>
+    <span class="asof">review nudges, not advice</span></div>
+  {% if flagged %}
+  <ul class="review-list">
+    {% for r in flagged %}
+    <li class="review-row">
+      <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
+      <span class="name">{{ r['name'] }}</span>
+      <ul class="sig-list">
+        {% for s in r['signals'] %}
+        <li class="sig-{{ s['kind'] }}">{{ s['text'] }}</li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-sub">Nothing needs your attention this week — Otto didn't flag any of your holdings.</p>
+  {% endif %}
+  <p class="asof port-disclaimer">Not investment advice — Otto just crunches numbers.
+    These are prompts to take a second look, not buy or sell calls.</p>
+</section>
+{% endif %}
+
 <section id="portfolio" class="card">
   {% if rows %}
   <div class="card-head">
@@ -167,6 +212,7 @@
           <a class="tick tick-link" href="{{ url_for('stock', ticker=r['ticker']) }}">{{ r['ticker'] }}</a>
           <span class="xchg">{{ r['exchange']|exch }}</span>
           <div class="name">{{ r['name'] }}</div>
+          {{ sig_chip(r) }}
           <a class="row-cta" href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
         </td>
         <td class="num">{{ r['price']|money(ccy) if r['price'] is not none else '—' }}</td>
@@ -214,6 +260,7 @@
           <div><span>Mkt value</span><b>{{ r['mkt_value']|money(ccy) if r['mkt_value'] is not none else '—' }}</b></div>
           <div><span>P&amp;L</span><b>{{ pnl_cell(r) }}</b></div>
         </div>
+        {{ sig_chip(r) }}
         {{ holdings_edit(r) }}
         <div class="wl-actions">
           <a href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>

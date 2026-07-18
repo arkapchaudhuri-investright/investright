@@ -224,3 +224,72 @@ def test_allocation_donut_caps_at_seven_plus_other():
 def test_allocation_donut_empty_and_nonpositive():
     assert metrics.allocation_donut([]) == []
     assert metrics.allocation_donut([("X", 0.0), ("Y", -5.0)]) == []
+
+
+# --- Portfolio review signals (spec 16) -------------------------------------
+def _failing_axes(n):
+    """Checks that make the first n snowflake axes fail (one failing check each)."""
+    axes = ["value", "future", "past", "health", "dividend"]
+    return [{"axis": axes[i], "passed": 0} for i in range(n)]
+
+
+def test_review_signals_spec_verify_example():
+    # The spec's own verify line: rich-vs-FV + concentration + earnings-soon.
+    sigs = metrics.review_signals(
+        {"avg_price": 100, "qty": 10}, {"price": 200}, [], {"fair_value": 120}, 40, 5)
+    codes = {s["code"] for s in sigs}
+    assert codes == {"rich", "concentration", "earnings"}
+
+
+def test_review_signals_rich_only_when_above_threshold():
+    # 1.30× is the line: 130 is not > 1.30*100, 131 is.
+    assert not any(s["code"] == "rich" for s in metrics.review_signals(
+        {"avg_price": 90}, {"price": 130}, [], {"fair_value": 100}, 5, None))
+    assert any(s["code"] == "rich" for s in metrics.review_signals(
+        {"avg_price": 90}, {"price": 131}, [], {"fair_value": 100}, 5, None))
+
+
+def test_review_signals_weak_needs_three_axes():
+    two = metrics.review_signals({}, {"price": 10}, _failing_axes(2), None, 5, None)
+    assert not any(s["code"] == "weak" for s in two)
+    three = metrics.review_signals({}, {"price": 10}, _failing_axes(3), None, 5, None)
+    weak = [s for s in three if s["code"] == "weak"]
+    assert weak and "3 of 5" in weak[0]["text"]
+
+
+def test_review_signals_concentration_boundary():
+    assert not any(s["code"] == "concentration" for s in metrics.review_signals(
+        {}, {"price": 10}, [], None, 25.0, None))
+    assert any(s["code"] == "concentration" for s in metrics.review_signals(
+        {}, {"price": 10}, [], None, 25.1, None))
+
+
+def test_review_signals_down_weak_needs_both():
+    # Down but healthy → no flag; down AND weakening → flag.
+    healthy_down = metrics.review_signals(
+        {"avg_price": 100}, {"price": 70}, [], None, 5, None)
+    assert not any(s["code"] == "down_weak" for s in healthy_down)
+    both = metrics.review_signals(
+        {"avg_price": 100}, {"price": 70}, _failing_axes(3), None, 5, None)
+    assert any(s["code"] == "down_weak" for s in both)
+
+
+def test_review_signals_earnings_window_and_kind():
+    assert not any(s["code"] == "earnings" for s in metrics.review_signals(
+        {}, {"price": 10}, [], None, 5, 8))          # 8 days out → silent
+    soon = metrics.review_signals({}, {"price": 10}, [], None, 5, 3)
+    earn = [s for s in soon if s["code"] == "earnings"]
+    assert earn and earn[0]["kind"] == "info"          # info hue, not risk
+
+
+def test_review_signals_stacks_multiple():
+    sigs = metrics.review_signals(
+        {"avg_price": 100, "qty": 1}, {"price": 70},
+        _failing_axes(4), {"fair_value": 40}, 60, 2)
+    codes = {s["code"] for s in sigs}
+    assert codes == {"rich", "weak", "concentration", "down_weak", "earnings"}
+
+
+def test_review_signals_missing_inputs_no_crash():
+    assert metrics.review_signals({}, {}, None, None, None, None) == []
+    assert metrics.review_signals(None, None, None, None, None, None) == []

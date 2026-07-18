@@ -544,9 +544,43 @@ def portfolio_page():
         if donut and donut[0]["pct"] > 25:
             concentration = f"Largest position: {donut[0]['label']} {donut[0]['pct']:.0f}%"
 
+    # Review signals (spec 16) — "worth a look" flags derived at request time
+    # from already-saved rows (health checks, DCF, earnings date, allocation).
+    # No DB writes (§3), same as the deep-dive's snowflake/DCF.
+    value = totals["value"] if totals else 0
+    for r in rows:
+        r["signals"] = []
+    if held:
+        with get_conn() as conn:
+            for r in held:
+                checks = [dict(c) for c in conn.execute(
+                    "SELECT axis, passed FROM health_checks WHERE ticker=?", (r["ticker"],))]
+                dcf_row = conn.execute(
+                    "SELECT fair_value FROM dcf WHERE ticker=?", (r["ticker"],)).fetchone()
+                dcf = None
+                if dcf_row and dcf_row["fair_value"]:   # native FV → display ccy
+                    factor, _ = _fx_factor(r["currency_native"], ctx["ccy"], ctx["fx"])
+                    dcf = {"fair_value": dcf_row["fair_value"] * factor}
+                alloc_pct = (r["mkt_value"] / value * 100) if value else None
+                edays = None
+                if r.get("next_earnings"):
+                    try:
+                        d = (date.fromisoformat(r["next_earnings"]) - date.today()).days
+                        edays = d if 0 <= d <= 60 else None
+                    except (ValueError, TypeError):
+                        pass
+                r["signals"] = metrics.review_signals(
+                    {"avg_price": r.get("avg_price"), "qty": r.get("qty")},
+                    {"price": r.get("price")}, checks, dcf, alloc_pct, edays)
+    # Summary: flagged holdings, most-flagged first (risk flags outweigh info).
+    flagged = sorted(
+        (r for r in rows if r.get("signals")),
+        key=lambda r: (sum(1 for s in r["signals"] if s["kind"] == "risk"),
+                       len(r["signals"])), reverse=True)
+
     resp = make_response(render_template(
         "portfolio.html", rows=rows, as_of=as_of, totals=totals, donut=donut,
-        sectors=sectors, concentration=concentration, **ctx))
+        sectors=sectors, concentration=concentration, flagged=flagged, **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
     _log("view")
