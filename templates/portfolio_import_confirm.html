@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Confirm import · InvestRight{% endblock %}
+{% block content %}
+
+<section class="team-head">
+  {% with mood = 'happy', size = 72 %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Confirm your import</h1>
+  <p class="sub">{{ rows|length }} row{{ 's' if rows|length != 1 }} parsed ·
+    <b>{{ ok }}</b> ready to add. Fix any tickers Otto wasn't sure about, then
+    confirm — <b>nothing is saved until you do</b>.</p>
+</section>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+{% endwith %}
+
+<section class="card">
+  <form action="{{ url_for('portfolio_import_confirm') }}" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <table class="import-table">
+      <thead><tr>
+        <th></th><th>From file</th><th>Ticker</th>
+        <th class="num">Qty</th><th class="num">Avg buy (native)</th>
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="import-status">
+            {% if r['bad'] %}<span class="down" title="Missing or bad numbers">✕</span>
+            {% elif r['matched'] %}<span class="up" title="Matched">✓</span>
+            {% else %}<span class="flat" title="Check this ticker">⚑</span>{% endif %}
+          </td>
+          <td class="asof">{{ r['raw_symbol'] }}</td>
+          <td>
+            <input type="text" name="ticker" value="{{ r['ticker'] }}"
+                   spellcheck="false" autocapitalize="characters"
+                   class="{{ '' if r['matched'] else 'needs-confirm' }}">
+          </td>
+          <td class="num">
+            <input type="number" name="qty" step="any" min="0" inputmode="decimal"
+                   value="{{ '%g'|format(r['qty']) if r['qty'] else '' }}"
+                   class="{{ 'needs-confirm' if r['bad'] }}"></td>
+          <td class="num">
+            <input type="number" name="avg_price" step="any" min="0" inputmode="decimal"
+                   value="{{ '%g'|format(r['avg_price']) if r['avg_price'] else '' }}"
+                   class="{{ 'needs-confirm' if r['bad'] }}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="asof">✓ matched · ⚑ check the ticker · ✕ fix the numbers. Blank or
+      zero rows are skipped. Indian tickers need <code>.NS</code> / <code>.BO</code>.</p>
+    <div class="import-actions">
+      <button type="submit" class="btn-analyze">Confirm &amp; add</button>
+      <a class="ghost" href="{{ url_for('portfolio_page') }}">Cancel</a>
+    </div>
+  </form>
+</section>
+
+{% endblock %}
