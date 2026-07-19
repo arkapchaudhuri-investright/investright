@@ -23,7 +23,7 @@ ICONS = {
 
 STRATEGIES = [
     dict(
-        id="capex", icon="capex", name="Capex & infrastructure",
+        id="capex", short="Capex", icon="capex", name="Capex & infrastructure",
         link=("https://www.investopedia.com/terms/c/capitalexpenditure.asp", "Capital expenditure — Investopedia"),
         take="Own the companies that build the country.",
         status={"US": "selective outperformance", "IN": "#1 in India right now"},
@@ -60,7 +60,7 @@ STRATEGIES = [
                 ]),
         }),
     dict(
-        id="quality", icon="quality", name="Mega-cap quality growth",
+        id="quality", short="Quality", icon="quality", name="Mega-cap quality growth",
         link=("https://en.wikipedia.org/wiki/Quality_investing", "Quality investing — Wikipedia"),
         take="Buy the undisputed leaders, pay up, hold on.",
         status={"US": "#1 in the US", "IN": "trailing — money chased premiumisation"},
@@ -97,7 +97,7 @@ STRATEGIES = [
                 ]),
         }),
     dict(
-        id="momentum", icon="momentum", name="Pure price momentum",
+        id="momentum", short="Momentum", icon="momentum", name="Pure price momentum",
         link=("https://en.wikipedia.org/wiki/Momentum_investing", "Momentum investing — Wikipedia"),
         take="Buy what's already going up — and respect your stops.",
         status={"US": "works, but algorithm-dominated", "IN": "crushing value investing in SMIDs"},
@@ -132,7 +132,7 @@ STRATEGIES = [
                 ]),
         }),
     dict(
-        id="value", icon="value", name="The value re-rating play",
+        id="value", short="Value", icon="value", name="The value re-rating play",
         link=("https://www.investopedia.com/terms/v/valueinvesting.asp", "Value investing — Investopedia"),
         take="Buy what everyone ignored, wait for the story to change.",
         status={"US": "value-trap risk", "IN": "a historic PSU windfall"},
@@ -169,7 +169,7 @@ STRATEGIES = [
                 ]),
         }),
     dict(
-        id="smartbeta", icon="smartbeta", name="Quantitative smart beta",
+        id="smartbeta", short="Smart beta", icon="smartbeta", name="Quantitative smart beta",
         link=("https://www.investopedia.com/terms/s/smart-beta.asp", "Smart beta — Investopedia"),
         take="Fire the stock picker, hire the rule.",
         status={"US": "mainstream — yield & quality factors", "IN": "exploding from a small base"},
@@ -210,7 +210,7 @@ STRATEGIES = [
 
 FRAMEWORKS = [
     dict(
-        id="canslim", name="CANSLIM", img="oneil",
+        id="canslim", short="CANSLIM", name="CANSLIM", img="oneil",
         link=("https://www.investopedia.com/terms/c/canslim.asp", "CANSLIM — Investopedia"),
         founder="William J. O'Neil", initials="WO", dates="1933–2023",
         role="Founded Investor's Business Daily · wrote How to Make Money in Stocks (1988)",
@@ -242,7 +242,7 @@ FRAMEWORKS = [
                 ]),
         }),
     dict(
-        id="sepa", name="SEPA / VCP", img="minervini",
+        id="sepa", short="SEPA", name="SEPA / VCP", img="minervini",
         link=("https://www.minervini.com/", "minervini.com — the official site"),
         founder="Mark Minervini", initials="MM", dates="b. 1965",
         role="US Investing Champion 1997 & 2021 · wrote Trade Like a Stock Market Wizard",
@@ -271,7 +271,7 @@ FRAMEWORKS = [
                 ]),
         }),
     dict(
-        id="zulu", name="The Zulu Principle", img="slater",
+        id="zulu", short="Zulu", name="The Zulu Principle", img="slater",
         link=("https://en.wikipedia.org/wiki/Jim_Slater_(accountant)", "Jim Slater — Wikipedia"),
         founder="Jim Slater", initials="JS", dates="1929–2015",
         role="British financier · popularised the PEG ratio",
@@ -298,7 +298,7 @@ FRAMEWORKS = [
                 ]),
         }),
     dict(
-        id="darvas", name="Darvas Box", img="darvas",
+        id="darvas", short="Darvas", name="Darvas Box", img="darvas",
         link=("https://www.investopedia.com/terms/d/darvasboxtheory.asp", "Darvas Box theory — Investopedia"),
         founder="Nicolas Darvas", initials="ND", dates="1920–1977",
         role="Ballroom dancer · wrote How I Made $2,000,000 in the Stock Market (1960)",
