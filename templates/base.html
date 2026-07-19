@@ -351,5 +351,44 @@
   window.addEventListener('pageshow', function () { overlay.hidden = true; });
 })();
 </script>
+<script>
+// Long-page affordances (pure enhancement, elements created here so templates
+// stay untouched): a thin accent progress line along the top, and a floating
+// ↑ back-to-top button (bottom-LEFT — Ask Otto owns bottom-right). Both only
+// appear once the page is meaningfully taller than the viewport.
+(function () {
+  var doc = document.documentElement;
+  function tall() { return doc.scrollHeight > window.innerHeight * 2.5; }
+  if (!tall()) return;                       // short page — add nothing
+
+  var bar = document.createElement('div');
+  bar.className = 'scroll-progress';
+  bar.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(bar);
+
+  var top = document.createElement('button');
+  top.className = 'to-top';
+  top.type = 'button';
+  top.setAttribute('aria-label', 'Back to top');
+  top.textContent = '↑';
+  document.body.appendChild(top);
+  top.addEventListener('click', function () {
+    var calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' });
+  });
+
+  var ticking = false;
+  function paint() {
+    ticking = false;
+    var max = doc.scrollHeight - window.innerHeight;
+    bar.style.width = (max > 0 ? (window.scrollY / max) * 100 : 0) + '%';
+    top.classList.toggle('show', window.scrollY > window.innerHeight * 1.5);
+  }
+  window.addEventListener('scroll', function () {
+    if (!ticking) { ticking = true; requestAnimationFrame(paint); }
+  }, { passive: true });
+  paint();
+})();
+</script>
 </body>
 </html>

@@ -1611,6 +1611,22 @@ a.peer:hover { border-color: var(--accent); }
 }
 .digest-more { margin-top: 4px; }
 
+/* long-page affordances: top progress line + floating back-to-top (JS-made) */
+.scroll-progress {
+  position: fixed; top: 0; left: 0; height: 2px; width: 0;
+  background: var(--accent); z-index: 300; pointer-events: none;
+}
+.to-top {
+  position: fixed; bottom: 20px; left: 20px; z-index: 120;
+  width: 42px; height: 42px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--edge); background: var(--card); color: var(--text);
+  font-size: 17px; box-shadow: 0 4px 14px var(--shadow);
+  opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease, border-color .15s;
+}
+.to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+.to-top:hover { border-color: var(--accent); color: var(--accent); }
+
 /* strategies: essence-first playbooks — take + live matches stay up, the
    history/market prose folds behind a quiet inline disclosure. */
 .strat-card[id] { scroll-margin-top: 56px; }
