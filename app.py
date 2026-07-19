@@ -1400,6 +1400,18 @@ def stock(ticker):
         except ValueError:
             pass
 
+    # Otto's verdict (long-scroll fix): the page's payoff compressed to ≤6
+    # anchored one-liners, computed from the same card data rendered below.
+    projection = metrics.future_projection(funds)
+    dividend = metrics.dividend_card(funds, snap["div_yield"] if snap else None)
+    ins_buys = sum(1 for i in insiders if i["action"] == "buy")
+    ins_sells = sum(1 for i in insiders if i["action"] == "sell")
+    is_us = "." not in ticker
+    verdict = metrics.verdict_lines(
+        dcf, axis_detail, senti=senti, projection=projection, dividend=dividend,
+        div_yield=snap["div_yield"] if snap else None,
+        is_us=is_us, ins_buys=ins_buys, ins_sells=ins_sells) if applicable else []
+
     _log("view", ticker)
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
@@ -1417,12 +1429,10 @@ def stock(ticker):
         flow_annual=annual_periods, flow_quarters=quarter_periods,
         flow_current=cur_flow["period"] if cur_flow else None,
         exec_tiers=metrics.exec_tiers(execs),
-        projection=metrics.future_projection(funds),
-        dividend=metrics.dividend_card(funds, snap["div_yield"] if snap else None),
+        projection=projection, dividend=dividend,
         peers=peers, insiders=insiders,
-        ins_buys=sum(1 for i in insiders if i["action"] == "buy"),
-        ins_sells=sum(1 for i in insiders if i["action"] == "sell"),
-        is_us="." not in ticker,
+        ins_buys=ins_buys, ins_sells=ins_sells,
+        is_us=is_us, verdict=verdict,
         trend=trend, rng=rng, rng_label=rng_label, bench_name=bench_name, senti=senti,
         news=news, note=dict(note) if note else None, on_watch=on_watch,
         alerts=alerts, mailer_enabled=mailer.enabled(), native_price=native_price,

@@ -130,6 +130,26 @@
   {% if current_user %}<a href="#notes">Notes</a>{% endif %}
 </nav>
 
+{# Otto's verdict (long-scroll fix): the whole page compressed to a few
+   anchored one-liners so the payoff comes FIRST — each line jumps to the
+   section that backs it. Rule-based from the same card data, never AI. #}
+{% if verdict %}
+<section class="card verdict-card">
+  <div class="card-head"><h2>Otto's verdict</h2>
+    <span class="asof">the page in {{ verdict|length }} lines — tap any to dig in</span></div>
+  <ul class="verdict-list">
+    {% for v in verdict %}
+    <li><a href="#{{ v['anchor'] }}">
+      <span class="verdict-dot {{ v['kind'] }}" aria-hidden="true"></span>
+      <span class="verdict-label">{{ v['label'] }}</span>
+      <span class="verdict-text">{{ v['text'] }}</span>
+      <span class="verdict-go" aria-hidden="true">→</span></a></li>
+    {% endfor %}
+  </ul>
+  <p class="asof">Not investment advice — Otto just crunches numbers.</p>
+</section>
+{% endif %}
+
 {# 1b · Price trend — daily closes from the nightly refresh; ranges are plain
    links (server-rendered, works with JS off). 1D is progressive enhancement:
    a live intraday fetch drawn client-side. #}
@@ -972,5 +992,43 @@
         ao_placeholder = 'Ask about ' + s['ticker'] + '…' %}
 {% include "_ask_otto.html" %}
 {% endwith %}
+
+<script>
+// Jump-nav scroll-spy (pure enhancement — the chips are plain anchors and work
+// without this): as sections cross the upper third of the viewport, the
+// matching chip lights up and slides into view inside the sticky bar, so you
+// always know where you are in the long page.
+(function () {
+  var nav = document.querySelector('.jumpnav');
+  if (!nav || !('IntersectionObserver' in window)) return;
+  var chips = {};
+  nav.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    chips[a.getAttribute('href').slice(1)] = a;
+  });
+  var current = null;
+  function light(id) {
+    if (!chips[id] || current === id) return;
+    nav.querySelectorAll('a.on').forEach(function (a) { a.classList.remove('on'); });
+    chips[id].classList.add('on');
+    chips[id].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    current = id;
+  }
+  // A tapped chip lights instantly — don't wait for the observer to catch up
+  // with the anchor jump (it lags or misses on instant scrolls).
+  nav.addEventListener('click', function (e) {
+    var a = e.target.closest('a[href^="#"]');
+    if (a) light(a.getAttribute('href').slice(1));
+  });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) light(e.target.id);
+    });
+  }, { rootMargin: '-15% 0px -65% 0px' });   // fires in the upper third
+  Object.keys(chips).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) io.observe(el);
+  });
+})();
+</script>
 
 {% endblock %}
