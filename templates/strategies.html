@@ -28,6 +28,14 @@
   {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
 {% endwith %}
 
+{# Jump nav (long-scroll fix) — same sticky chip row as the deep-dive, one chip
+   per playbook. Plain anchors; the scroll-spy below is enhancement only. #}
+<nav class="jumpnav" aria-label="Jump to a playbook">
+  {% for s in strategies %}<a href="#s-{{ s.id }}">{{ s.short }}</a>{% endfor %}
+  {% for fw in frameworks %}<a href="#s-{{ fw.id }}">{{ fw.short }}</a>{% endfor %}
+  <a href="#s-bottom">Bottom line</a>
+</nav>
+
 {# One-time intro (digital onboarding for this page). Hidden by default; the
    script below reveals it only for a first-time visitor, so returning readers
    never see a flash. Dismiss with × (remembered in localStorage). #}
@@ -125,27 +133,32 @@
 
 {# ── The five macro strategies ── #}
 {% for s in strategies %}
-<section class="card strat-card">
+<section class="card strat-card" id="s-{{ s.id }}">
   <div class="card-head">
     <h2><span class="strat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20"
       fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
       stroke-linejoin="round">{{ icons[s.icon]|safe }}</svg></span>{{ loop.index }} · {{ s.name }}</h2>
     <span class="asof">{{ s.status[market] }}</span>
   </div>
+  {# Essence first (long-scroll fix): the take + Otto's live matches stay up;
+     the history/prose folds behind "read the full playbook". #}
   <p class="head-take serif">{{ s.take }}</p>
-  <p class="strat-hist">{{ s.history }}</p>
-  {% if s.link %}
-  <p class="strat-src"><a class="explain-link" href="{{ s.link[0] }}"
-     target="_blank" rel="noopener noreferrer">Read more: {{ s.link[1] }} ↗</a></p>
-  {% endif %}
-  <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
-    <span class="asof">what's working</span></h3>
-  <p class="strat-read">{{ s.markets[market].read }}</p>
   {{ otto_matches(s.id) }}
   {# The editorial examples stay only while the rule finds fewer than 3. #}
   {% if (picks.get(s.id) or [])|length < 3 %}
   {{ stock_rows(s.markets[market], label='Editorial examples' if picks.get(s.id) else None) }}
   {% endif %}
+  <details class="strat-more">
+    <summary>Read the full playbook — history &amp; {{ 'India' if market == 'IN' else 'US' }} read</summary>
+    <p class="strat-hist">{{ s.history }}</p>
+    {% if s.link %}
+    <p class="strat-src"><a class="explain-link" href="{{ s.link[0] }}"
+       target="_blank" rel="noopener noreferrer">Read more: {{ s.link[1] }} ↗</a></p>
+    {% endif %}
+    <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
+      <span class="asof">what's working</span></h3>
+    <p class="strat-read">{{ s.markets[market].read }}</p>
+  </details>
 </section>
 {% endfor %}
 
@@ -157,11 +170,12 @@
 </section>
 
 {% for fw in frameworks %}
-<section class="card strat-card">
+<section class="card strat-card" id="s-{{ fw.id }}">
   <div class="card-head">
     <h2>{{ fw.name }}</h2>
     <span class="asof">{{ fw.dates }}</span>
   </div>
+  {# Portrait + live matches stay up; the biography folds. #}
   <div class="fndr">
     {% set img = fw.img + '.png' %}
     {% if img in portraits %}
@@ -176,23 +190,26 @@
     <span class="fndr-meta"><b>{{ fw.founder }}</b>
       <span class="asof">{{ fw.role }}</span></span>
   </div>
-  <p class="strat-hist">{{ fw.history }}</p>
-  {% if fw.link %}
-  <p class="strat-src"><a class="explain-link" href="{{ fw.link[0] }}"
-     target="_blank" rel="noopener noreferrer">Read more: {{ fw.link[1] }} ↗</a></p>
-  {% endif %}
-  <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
-    <span class="asof">how it's holding up</span></h3>
-  <p class="strat-read">{{ fw.markets[market].read }}</p>
   {{ otto_matches(fw.id) }}
   {% if (picks.get(fw.id) or [])|length < 3 %}
   {{ stock_rows(fw.markets[market], label='Editorial examples' if picks.get(fw.id) else None) }}
   {% endif %}
+  <details class="strat-more">
+    <summary>Read the full playbook — {{ fw.founder.split(' ')[-1] }}'s story &amp; the {{ 'India' if market == 'IN' else 'US' }} read</summary>
+    <p class="strat-hist">{{ fw.history }}</p>
+    {% if fw.link %}
+    <p class="strat-src"><a class="explain-link" href="{{ fw.link[0] }}"
+       target="_blank" rel="noopener noreferrer">Read more: {{ fw.link[1] }} ↗</a></p>
+    {% endif %}
+    <h3 class="axis-h">{{ 'In India' if market == 'IN' else 'In the US' }}
+      <span class="asof">how it's holding up</span></h3>
+    <p class="strat-read">{{ fw.markets[market].read }}</p>
+  </details>
 </section>
 {% endfor %}
 
 {# ── Bottom line ── #}
-<section class="card strat-card">
+<section class="card strat-card" id="s-bottom">
   <div class="card-head"><h2>The bottom line</h2>
     <span class="asof">{{ 'India' if market == 'IN' else 'United States' }}</span></div>
   <p class="head-take serif">{{ bottom_line }}</p>
@@ -206,5 +223,37 @@
         ao_placeholder = 'Ask about a strategy…' %}
 {% include "_ask_otto.html" %}
 {% endwith %}
+
+<script>
+// Jump-nav scroll-spy — same enhancement as the deep-dive: light the chip for
+// the playbook in the upper third; a tapped chip lights instantly.
+(function () {
+  var nav = document.querySelector('.jumpnav');
+  if (!nav || !('IntersectionObserver' in window)) return;
+  var chips = {};
+  nav.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    chips[a.getAttribute('href').slice(1)] = a;
+  });
+  var current = null;
+  function light(id) {
+    if (!chips[id] || current === id) return;
+    nav.querySelectorAll('a.on').forEach(function (a) { a.classList.remove('on'); });
+    chips[id].classList.add('on');
+    chips[id].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    current = id;
+  }
+  nav.addEventListener('click', function (e) {
+    var a = e.target.closest('a[href^="#"]');
+    if (a) light(a.getAttribute('href').slice(1));
+  });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) light(e.target.id); });
+  }, { rootMargin: '-15% 0px -65% 0px' });
+  Object.keys(chips).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) io.observe(el);
+  });
+})();
+</script>
 
 {% endblock %}
