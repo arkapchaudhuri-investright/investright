@@ -490,6 +490,70 @@ def _score_word(s):
     return "strong" if s >= 0.6 else "mixed" if s >= 0.4 else "weak"
 
 
+def verdict_lines(dcf, axis_detail, senti=None, projection=None, dividend=None,
+                  div_yield=None, is_us=False, ins_buys=0, ins_sells=0):
+    """"Otto's verdict" — the deep-dive compressed to ≤6 scannable one-liners,
+    each anchored to the section that backs it, so the payoff comes BEFORE the
+    long scroll. Pure + rule-based from already-computed card data; honest
+    degradation (missing data → the line is skipped, never guessed). Each line:
+    {'anchor','label','text','kind'} where kind ∈ up/down/flat tints the dot."""
+    out = []
+
+    up = (dcf or {}).get("upside_pct")
+    if up is not None:
+        if up > 15:
+            out.append({"anchor": "value", "label": "Value", "kind": "up",
+                        "text": f"Looks ~{round(up)}% undervalued against Otto's cash-flow estimate."})
+        elif up < -15:
+            out.append({"anchor": "value", "label": "Value", "kind": "down",
+                        "text": f"Looks ~{round(-up)}% overvalued against Otto's cash-flow estimate."})
+        else:
+            out.append({"anchor": "value", "label": "Value", "kind": "flat",
+                        "text": "Trading roughly in line with Otto's cash-flow estimate."})
+
+    passed = sum(d["passed"] for d in (axis_detail or {}).values())
+    applic = sum(d["applicable"] for d in (axis_detail or {}).values())
+    if applic:
+        ratio = passed / applic
+        out.append({"anchor": "checks", "label": "Health",
+                    "kind": "up" if ratio >= .6 else "down" if ratio < .4 else "flat",
+                    "text": f"{passed} of {applic} health checks pass."})
+
+    g = ((projection or {}).get("revenue") or {}).get("growth_pct")
+    if g is not None:
+        out.append({"anchor": "future", "label": "Growth",
+                    "kind": "up" if g > 0 else "down",
+                    "text": f"Revenue trend ≈ {g:+.0f}%/yr (extended trend, not a forecast)."})
+
+    rec = (senti or {}).get("rec_key")
+    tpct = (senti or {}).get("target_pct")
+    if rec or tpct is not None:
+        bits = []
+        if rec:
+            bits.append(f"analysts lean {rec}")
+        if tpct is not None:
+            bits.append(f"avg target {tpct:+.0f}% from here")
+        out.append({"anchor": "sentiment", "label": "Street",
+                    "kind": ("up" if tpct and tpct > 0 else "down" if tpct and tpct < 0 else "flat"),
+                    "text": (" · ".join(bits)).capitalize() + "."})
+
+    if dividend is not None:
+        if dividend.get("pays"):
+            y = f" — yields {div_yield:.2f}%" if div_yield else ""
+            out.append({"anchor": "dividend", "label": "Dividend", "kind": "flat",
+                        "text": f"Pays a dividend{y}."})
+        else:
+            out.append({"anchor": "dividend", "label": "Dividend", "kind": "flat",
+                        "text": "No dividend — this is a growth-only story."})
+
+    if is_us and (ins_buys or ins_sells):
+        out.append({"anchor": "insiders", "label": "Insiders",
+                    "kind": ("up" if ins_buys > ins_sells
+                             else "down" if ins_sells > ins_buys else "flat"),
+                    "text": f"Insiders, last 12 months: {ins_buys} buys · {ins_sells} sells."})
+    return out[:6]
+
+
 def takeaway(name, dcf, scores, senti=None):
     """A one-glance outlook for the deep-dive header: where the price sits versus
     the company's cash-flow value, then the two most telling forward signals we
