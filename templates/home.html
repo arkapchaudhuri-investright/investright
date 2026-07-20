@@ -7,7 +7,13 @@
   {# Greeting is personalised client-side: time-of-day from the VISITOR's clock
      (server {{ greeting }} is the no-JS fallback) + a name they type once,
      remembered in localStorage. Upgrades to a real account later. #}
-  <h1 class="serif" id="greet">{{ greeting }}</h1>
+  {# Menlo-style hero (2026-07-19): tiny personal eyebrow (the old greeting —
+     JS still personalises #greet), then the brand statement in heavy display
+     sans with the accent word + full stop, then a serif tagline. The brand
+     name IS the sentence. #}
+  <p class="hero-eyebrow" id="greet">{{ greeting }}</p>
+  <h1 class="hero-display">When you invest,<br>invest <span class="hero-accent">right</span>.</h1>
+  <p class="hero-tag serif">Calm, plain-English stock research for the US and India — free, no ads.</p>
 
   {# First-visit welcome popup. Two steps: (1) choose how to start — create an
      account, continue as a guest, or sign in; (2) guests give a name + market.
