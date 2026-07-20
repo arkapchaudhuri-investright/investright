@@ -183,11 +183,19 @@ def persist_ccy(resp):
 
 @app.context_processor
 def inject_theme():
-    """Make the chosen theme available to every template (§5 dark/light toggle).
-    None ⇒ no explicit choice: base.html omits data-theme so the CSS
-    prefers-color-scheme media query decides — no flash, respects the OS."""
-    theme = request.args.get("theme") or request.cookies.get("theme")
-    return {"theme": theme if theme in ("dark", "light") else None}
+    """Make the chosen theme available to every template (§5 toggle).
+
+    Light-first (Menlo pass, 2026-07-19): a visitor with NO stored choice gets
+    the warm light theme — the editorial default — rather than following the
+    OS. "System" is now an explicit stored choice (cookie value "system"),
+    rendered as no data-theme attribute so the prefers-color-scheme media
+    query decides. `theme` drives the attribute; `theme_choice` drives the
+    gear's active state (they differ only for system)."""
+    choice = request.args.get("theme") or request.cookies.get("theme")
+    if choice not in ("dark", "light", "system"):
+        choice = "light"                       # light-first default
+    return {"theme": None if choice == "system" else choice,
+            "theme_choice": choice}
 
 
 @app.after_request
@@ -196,10 +204,9 @@ def persist_theme(resp):
     (The header toggle sets the cookie client-side too, for an instant,
     reload-free switch; this covers the no-JS fallback.)"""
     t = request.args.get("theme")
-    if t in ("dark", "light"):
+    if t in ("dark", "light", "system"):     # system is a stored choice now —
+        # an absent cookie means "never chose" ⇒ the light-first default.
         resp.set_cookie("theme", t, max_age=180 * 24 * 3600, samesite="Lax")
-    elif t == "system":                  # clear the choice → follow OS (no-JS path)
-        resp.delete_cookie("theme")
     return resp
 
 

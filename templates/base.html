@@ -146,11 +146,11 @@
           <span class="set-label">Theme</span>
           <nav class="seg theme-seg" aria-label="Colour theme">
             <a href="?theme=light" data-theme="light" title="Light theme" aria-label="Light theme"
-               class="{{ 'active' if theme == 'light' }}">☀</a>
+               class="{{ 'active' if theme_choice == 'light' }}">☀</a>
             <a href="?theme=dark" data-theme="dark" title="Dark theme" aria-label="Dark theme"
-               class="{{ 'active' if theme == 'dark' }}">☾</a>
+               class="{{ 'active' if theme_choice == 'dark' }}">☾</a>
             <a href="?theme=system" data-theme="system" title="Match system setting" aria-label="Match system setting"
-               class="{{ 'active' if not theme }}">System</a>
+               class="{{ 'active' if theme_choice == 'system' }}">System</a>
           </nav>
         </div>
         {# Market lives on the /today and /watchlist toggles now — not the gear. #}
@@ -237,7 +237,9 @@
       var t = a.dataset.theme;
       if (t === 'system') {
         root.removeAttribute('data-theme');
-        document.cookie = 'theme=;path=/;max-age=0;samesite=lax';   // clear → follow OS
+        // Stored choice (light-first pass): an absent cookie now means "never
+        // chose" ⇒ light default, so system must persist explicitly.
+        document.cookie = 'theme=system;path=/;max-age=' + (180 * 24 * 3600) + ';samesite=lax';
       } else {
         root.setAttribute('data-theme', t);
         document.cookie = 'theme=' + t + ';path=/;max-age=' + (180 * 24 * 3600) + ';samesite=lax';
