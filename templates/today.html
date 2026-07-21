@@ -72,17 +72,7 @@
   <p class="flash flash-error">The AI hasn't answered since {{ digest['date_label'] }} —
     this is the last note it wrote. The ranking below is still current.</p>
   {% endif %}
-  {# Long-scroll fix: the nightly note opens on its first paragraph only — the
-     rest sits behind "read the full note", so the ranked list is one glance
-     away instead of below an essay. #}
-  {% set paras = digest['body'].split('\n\n') %}
-  <p class="digest-body">{{ paras[0] }}</p>
-  {% if paras|length > 1 %}
-  <details class="checks-all digest-more">
-    <summary>Read Otto's full note ({{ paras|length - 1 }} more paragraph{{ 's' if paras|length > 2 }})</summary>
-    <p class="digest-body" style="margin-top:8px">{{ paras[1:] | join('\n\n') }}</p>
-  </details>
-  {% endif %}
+  <p class="digest-body">{{ digest['body'] }}</p>
   <p class="asof perf-note">Written by {{ digest['model'] }} on {{ digest['date_label'] }},
     summarizing the rule-based screener output below — it reads our arithmetic, it doesn't
     do research. Not investment advice.
@@ -139,58 +129,6 @@
   {% if picks %}
   <ol class="scr-list">
     {% for p in picks %}
-    {% if loop.index > 3 %}
-    {# Ranks 4+ fold to a slim scannable row (long-scroll fix): rank · radar ·
-       ticker · price · score up front, the why-chips + score anatomy on tap.
-       The top three keep the full treatment — a podium, then a list. #}
-    <li class="scr-fold-li{% if not p['is_watchlist'] %} scr-peer{% endif %}">
-      <details class="scr-fold-d">
-        <summary class="scr-sum">
-          <span class="scr-rank">{{ p['rank'] }}</span>
-          {% if p['snowflake'] %}
-          <svg class="peer-snow" viewBox="0 0 60 60" aria-hidden="true">
-            <polygon points="{{ p['snowflake']['rings'][3] }}" fill="none" stroke="var(--hairline)" stroke-width="1"/>
-            <polygon points="{{ p['snowflake']['polygon'] }}" fill="rgba(29,158,117,.25)" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
-          </svg>
-          {% endif %}
-          <span class="scr-name">
-            <a class="tick tick-link" href="{{ url_for('stock', ticker=p['ticker']) }}">{{ p['ticker'] }}</a>
-            {% if p['mine'] %}<span class="scr-star" title="On your watchlist">★</span>
-            {% elif not p['is_watchlist'] %}<span class="xchg">peer</span>{% endif %}
-            <span class="name">{{ p['name'] }}</span>
-          </span>
-          {% if p['price'] %}
-          <span class="peer-px">{{ p['price']|money(p['currency']) }}
-            {% if p['change_pct'] is not none %}
-            <span class="{{ 'up' if p['change_pct'] > 0 else 'down' if p['change_pct'] < 0 else 'flat' }}">{{ '%+.1f%%'|format(p['change_pct']) }}</span>
-            {% endif %}</span>
-          {% endif %}
-          <span class="scr-score"><b class="{{ 'score-hi' if p['score'] >= 70 else 'score-lo' if p['score'] < 40 else '' }}">{{ p['score']|round|int }}</b><span class="asof">/100</span></span>
-          <span class="wl-chev" aria-hidden="true">⌄</span>
-        </summary>
-        <div class="scr-fold-body">
-          {% if p['reasons'] %}
-          <div class="scr-reasons">
-            {% for reason in p['reasons'][:4] %}
-            <span class="reason reason-{{ reason['kind'] }}">{{ reason['label'] }}</span>
-            {% endfor %}
-          </div>
-          {% endif %}
-          <span class="sbar" aria-hidden="true">
-            <span class="sbar-seg sbar-fund" style="width:{{ p['components'].get('fundamentals', 0) }}%"></span>
-            <span class="sbar-seg sbar-value" style="width:{{ p['components'].get('value_gap', 0) }}%"></span>
-            <span class="sbar-seg sbar-insider" style="width:{{ p['components'].get('insiders', 0) }}%"></span>
-            <span class="sbar-seg sbar-div" style="width:{{ p['components'].get('dividend', 0) }}%"></span>
-          </span>
-          <p class="asof">fundamentals {{ p['components'].get('fundamentals') }}/{{ weights['fundamentals'] }}
-            · value gap {{ p['components'].get('value_gap') }}/{{ weights['value_gap'] }}
-            · insiders {{ p['components'].get('insiders') }}/{{ weights['insiders'] }}
-            · dividend {{ p['components'].get('dividend') }}/{{ weights['dividend'] }}
-            · <a href="{{ url_for('stock', ticker=p['ticker']) }}">full analysis →</a></p>
-        </div>
-      </details>
-    </li>
-    {% else %}
     <li class="scr-row{% if not p['is_watchlist'] %} scr-peer{% endif %}{% if p['rank'] == 1 %} scr-top{% endif %}">
       <span class="scr-rank">{{ p['rank'] }}</span>
       {% if p['snowflake'] %}
@@ -253,7 +191,6 @@
         </span>
       </div>
     </li>
-    {% endif %}
     {% endfor %}
   </ol>
   <details class="checks-all">
