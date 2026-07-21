@@ -673,7 +673,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   border-bottom: 1px solid var(--hairline); font-size: 14px;
 }
 .earn-list li:last-child { border-bottom: 0; }
-.earn-list a { font-weight: 600; }
+.earn-list a { font-weight: 600; color: var(--accent); }
 
 /* price-alert popover (deep-dive header) */
 .alert-set { position: relative; font-size: 13px; }
@@ -1592,33 +1592,6 @@ a.peer:hover { border-color: var(--accent); }
 .scr-main { flex: 1; min-width: 0; }
 .scr-name { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
 .scr-star { color: var(--accent); font-size: 12px; }
-/* ranks 4+ fold to slim rows (long-scroll fix): summary = the scan line,
-   why-chips + score anatomy expand on tap. Podium (1–3) keeps the full rows. */
-.scr-fold-li { border-bottom: 1px solid var(--hairline); margin: 0 -10px; }
-.scr-fold-li:last-child { border-bottom: 0; }
-.scr-sum {
-  display: flex; align-items: center; gap: 14px; padding: 9px 10px;
-  border-radius: 8px; cursor: pointer; list-style: none;
-  transition: background-color .15s ease;
-}
-.scr-sum::-webkit-details-marker { display: none; }
-.scr-sum:hover { background: var(--wash); }
-.scr-sum .peer-snow { flex: none; width: 34px; height: 34px; }
-.scr-sum .scr-name { flex: 1; min-width: 0; }
-.scr-sum .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.scr-sum .peer-px, .scr-sum .scr-score { flex: none; }
-.scr-sum .wl-chev { flex: none; color: var(--muted); transition: transform .18s ease; }
-.scr-fold-d[open] .wl-chev { transform: rotate(180deg); }
-.scr-fold-body { padding: 2px 10px 12px 48px; }
-.scr-fold-body .sbar { display: block; margin-top: 8px; max-width: 260px; }
-.scr-fold-body .asof { margin-top: 6px; }
-.scr-fold-body a { color: var(--accent); }
-@media (max-width: 560px) {
-  .scr-sum { gap: 9px; }
-  .scr-sum .peer-snow { display: none; }
-  .scr-fold-body { padding-left: 33px; }
-}
-.digest-more { margin-top: 4px; }
 
 /* long-page affordances: top progress line + floating back-to-top (JS-made) */
 .scroll-progress {
