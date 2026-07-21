@@ -130,22 +130,109 @@
   {% if current_user %}<a href="#notes">Notes</a>{% endif %}
 </nav>
 
-{# Otto's verdict (long-scroll fix): the whole page compressed to a few
-   anchored one-liners so the payoff comes FIRST — each line jumps to the
-   section that backs it. Rule-based from the same card data, never AI. #}
+{# Otto's verdict, bento edition (long-scroll fix): the page's payoff as a grid
+   of glanceable tiles — score radar, fair-value gap, health, price move, growth,
+   dividend — each a link down to the section that backs it. Same rule-based
+   data as the cards below, never AI. #}
 {% if verdict %}
-<section class="card verdict-card">
-  <div class="card-head"><h2>Otto's verdict</h2>
-    <span class="asof">the page in {{ verdict|length }} lines — tap any to dig in</span></div>
-  <ul class="verdict-list">
-    {% for v in verdict %}
-    <li><a href="#{{ v['anchor'] }}">
-      <span class="verdict-dot {{ v['kind'] }}" aria-hidden="true"></span>
-      <span class="verdict-label">{{ v['label'] }}</span>
-      <span class="verdict-text">{{ v['text'] }}</span>
-      <span class="verdict-go" aria-hidden="true">→</span></a></li>
-    {% endfor %}
-  </ul>
+{% set chk_pass = axis_detail.values()|map(attribute='passed')|sum %}
+{% set chk_app = axis_detail.values()|map(attribute='applicable')|sum %}
+<section class="card bento-card">
+  <div class="card-head"><h2>At a glance</h2>
+    <span class="asof">tap a tile to dig in</span></div>
+  <div class="bento-grid">
+
+    {# Score — the hero tile: mini radar + overall 0–100. #}
+    {% if overall is not none %}
+    <a class="bento-tile bento-score" href="#snowflake">
+      {% if bento_snow %}
+      <svg class="bento-snow" viewBox="0 0 60 60" aria-hidden="true">
+        <polygon points="{{ bento_snow['rings'][3] }}" fill="none" stroke="var(--hairline)" stroke-width="1"/>
+        <polygon points="{{ bento_snow['rings'][1] }}" fill="none" stroke="var(--hairline)" stroke-width="1" opacity=".6"/>
+        <polygon points="{{ bento_snow['polygon'] }}" fill="rgba(29,158,117,.22)"
+                 stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+      {% endif %}
+      <span class="bento-score-wrap">
+        <span class="bento-score-num">{{ (overall * 100)|round|int }}</span>
+        <span class="bento-k">overall score</span>
+      </span>
+    </a>
+    {% endif %}
+
+    {# Fair value — DCF gap. #}
+    {% if dcf and dcf['upside_pct'] is not none %}
+    {% set up = dcf['upside_pct'] %}
+    <a class="bento-tile" href="#value">
+      <span class="bento-k">Fair value</span>
+      <span class="bento-v {{ 'up' if up > 15 else 'down' if up < -15 else 'flat' }}">{{ '%+.0f'|format(up) }}%</span>
+      <span class="bento-sub">{{ 'undervalued' if up > 15 else 'overvalued' if up < -15 else '≈ fair' }} vs estimate</span>
+    </a>
+    {% endif %}
+
+    {# Health — checks passed. #}
+    {% if chk_app %}
+    <a class="bento-tile" href="#checks">
+      <span class="bento-k">Health</span>
+      <span class="bento-v {{ 'up' if chk_pass / chk_app >= 0.6 else 'down' if chk_pass / chk_app < 0.4 else 'flat' }}">{{ chk_pass }}<span class="bento-of">/{{ chk_app }}</span></span>
+      <span class="bento-sub">checks pass</span>
+    </a>
+    {% endif %}
+
+    {# Price move — the default range, with a mini line. #}
+    {% if trend and trend.change_pct is not none %}
+    <a class="bento-tile bento-priced {{ trend.dir }}" href="#trend">
+      <span class="bento-k">Price · {{ rng_label }}</span>
+      <span class="bento-v {{ trend.dir }}">{{ '%+.1f'|format(trend.change_pct) }}%</span>
+      <svg class="bento-spark" viewBox="0 0 {{ trend.width }} {{ trend.height }}"
+           preserveAspectRatio="none" aria-hidden="true">
+        <polyline points="{{ trend.points }}" fill="none" stroke="currentColor"
+                  stroke-width="3" vector-effect="non-scaling-stroke"
+                  stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+    </a>
+    {% endif %}
+
+    {# Growth — extended revenue trend. #}
+    {% if projection and projection.get('revenue') %}
+    {% set g = projection['revenue']['growth_pct'] %}
+    <a class="bento-tile" href="#future">
+      <span class="bento-k">Growth</span>
+      <span class="bento-v {{ 'up' if g > 0 else 'down' }}">{{ g }}%<span class="bento-of">/yr</span></span>
+      <span class="bento-sub">revenue trend</span>
+    </a>
+    {% endif %}
+
+    {# Dividend — yield or none. #}
+    {% if dividend %}
+    <a class="bento-tile" href="#dividend">
+      <span class="bento-k">Dividend</span>
+      {% if dividend.get('pays') and snap and snap['div_yield'] %}
+      <span class="bento-v flat">{{ '%.2f'|format(snap['div_yield']) }}%</span>
+      <span class="bento-sub">yield</span>
+      {% else %}
+      <span class="bento-v flat">—</span>
+      <span class="bento-sub">no dividend</span>
+      {% endif %}
+    </a>
+    {% endif %}
+
+    {# P/E — a universal valuation multiple (keeps US + India tile counts even;
+       insiders stays reachable via its section + the jump-nav chip). #}
+    {% if snap %}
+    <a class="bento-tile" href="#value">
+      <span class="bento-k">P / E</span>
+      {% if snap['pe'] %}
+      <span class="bento-v flat">{{ '%.1f'|format(snap['pe']) }}</span>
+      <span class="bento-sub">price / earnings</span>
+      {% else %}
+      <span class="bento-v flat">—</span>
+      <span class="bento-sub">no earnings</span>
+      {% endif %}
+    </a>
+    {% endif %}
+
+  </div>
   <p class="asof">Not investment advice — Otto just crunches numbers.</p>
 </section>
 {% endif %}

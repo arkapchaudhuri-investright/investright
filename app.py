@@ -1418,11 +1418,15 @@ def stock(ticker):
         dcf, axis_detail, senti=senti, projection=projection, dividend=dividend,
         div_yield=snap["div_yield"] if snap else None,
         is_us=is_us, ins_buys=ins_buys, ins_sells=ins_sells) if applicable else []
+    # A compact radar for the bento "at a glance" tile (same geometry as the
+    # /today mini-snowflakes: cx/cy=30, R=25 → a 0..60 viewBox).
+    bento_snow = (metrics.snowflake(scores, cx=30, cy=30, R=25)
+                  if scores and any(v is not None for v in scores.values()) else None)
 
     _log("view", ticker)
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
-        earnings_days=earnings_days,
+        earnings_days=earnings_days, bento_snow=bento_snow,
         logo=logos.find(ticker),
         ccy=ccy, native_ccy=s["currency"], dcf=dcf, price=price, overridden=overridden,
         checks_by_axis=checks_by_axis, axis_names=dict(metrics.AXES),
