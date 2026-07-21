@@ -203,13 +203,14 @@
     </a>
     {% endif %}
 
-    {# Dividend — yield or none. #}
+    {# Dividend — decision keys off dividend.pays (matches the verdict line);
+       the yield shows only when we have it, so the two never disagree. #}
     {% if dividend %}
     <a class="bento-tile" href="#dividend">
       <span class="bento-k">Dividend</span>
-      {% if dividend.get('pays') and snap and snap['div_yield'] %}
-      <span class="bento-v flat">{{ '%.2f'|format(snap['div_yield']) }}%</span>
-      <span class="bento-sub">yield</span>
+      {% if dividend.get('pays') %}
+      <span class="bento-v flat">{{ ('%.2f'|format(snap['div_yield']) + '%') if (snap and snap['div_yield']) else 'Yes' }}</span>
+      <span class="bento-sub">{{ 'yield' if (snap and snap['div_yield']) else 'pays a dividend' }}</span>
       {% else %}
       <span class="bento-v flat">—</span>
       <span class="bento-sub">no dividend</span>
@@ -222,17 +223,28 @@
     {% if snap %}
     <a class="bento-tile" href="#value">
       <span class="bento-k">P / E</span>
-      {% if snap['pe'] %}
-      <span class="bento-v flat">{{ '%.1f'|format(snap['pe']) }}</span>
+      <span class="bento-v flat">{{ '%.1f'|format(snap['pe']) if snap['pe'] else '—' }}</span>
       <span class="bento-sub">price / earnings</span>
-      {% else %}
-      <span class="bento-v flat">—</span>
-      <span class="bento-sub">no earnings</span>
-      {% endif %}
     </a>
     {% endif %}
 
   </div>
+</section>
+
+{# The same verdict in words — a few anchored one-liners under the tiles, for
+   readers who'd rather scan sentences than a grid. Same data, both kept. #}
+<section class="card verdict-card">
+  <div class="card-head"><h2>Otto's verdict</h2>
+    <span class="asof">the tiles above, in a line each</span></div>
+  <ul class="verdict-list">
+    {% for v in verdict %}
+    <li><a href="#{{ v['anchor'] }}">
+      <span class="verdict-dot {{ v['kind'] }}" aria-hidden="true"></span>
+      <span class="verdict-label">{{ v['label'] }}</span>
+      <span class="verdict-text">{{ v['text'] }}</span>
+      <span class="verdict-go" aria-hidden="true">→</span></a></li>
+    {% endfor %}
+  </ul>
   <p class="asof">Not investment advice — Otto just crunches numbers.</p>
 </section>
 {% endif %}
