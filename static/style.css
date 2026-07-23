@@ -1076,7 +1076,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 /* Page titles read in the serif voice on every page — the deep-dive and
    /today were the last two sans holdouts. */
 .head-row h1 { font-size: 23px; margin: 0; font-weight: 500; font-family: var(--serif); }
-.head-row .tick { font-weight: 600; color: var(--muted); }
+.head-row .tick { font-weight: 600; color: var(--accent); }
 .head-take { color: var(--text); font-size: 17px; margin: 8px 0 12px; line-height: 1.4; }
 /* The deep-dive outlook summary reads as a quiet note, not a headline — normal
    weight, italic (overrides the .serif medium weight it also carries). */
