@@ -315,6 +315,52 @@ CREATE TABLE IF NOT EXISTS income_flow (
     fetched_at    TEXT NOT NULL,
     PRIMARY KEY (ticker, period)
 );
+
+-- Analytics (Phase: user-tracking). Both are DERIVED caches the nightly job
+-- (analytics.py) rebuilds from `events` — web only reads them, nothing here is
+-- source-of-truth. New TABLES via CREATE IF NOT EXISTS (not columns) so the two
+-- gunicorn workers can't race on first deploy.
+CREATE TABLE IF NOT EXISTS geo_cache (
+    ip           TEXT PRIMARY KEY,
+    city         TEXT,
+    region       TEXT,
+    country      TEXT,
+    country_code TEXT,
+    is_bot       INTEGER DEFAULT 0,   -- 1 = crawler/datacenter/localhost
+    bot_reason   TEXT,
+    resolved_at  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    id           TEXT PRIMARY KEY,    -- visitor + start-slot hash
+    visitor      TEXT,
+    started_at   TEXT NOT NULL,
+    ended_at     TEXT NOT NULL,
+    duration_s   INTEGER NOT NULL,    -- last event ts − first event ts
+    pages        INTEGER NOT NULL,    -- events in the visit
+    entry_path   TEXT,
+    exit_path    TEXT,
+    ip           TEXT,
+    name         TEXT,                -- self-reported, unverified
+    market       TEXT,
+    signed_in    INTEGER DEFAULT 0,
+    user_id      INTEGER,
+    is_bot       INTEGER DEFAULT 0,
+    -- funnel milestones reached during this visit (see analytics.FUNNEL)
+    hit_search   INTEGER DEFAULT 0,
+    hit_deepdive INTEGER DEFAULT 0,
+    hit_save     INTEGER DEFAULT 0,
+    hit_signup   INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
+
+-- Admin grants. A TABLE rather than a users.is_admin column on purpose: a new
+-- column added in _migrate races the two gunicorn workers on first deploy (one
+-- 502s on "duplicate column" until systemd restarts it), whereas CREATE TABLE
+-- IF NOT EXISTS is safe. CASCADE so deleting an account revokes admin with it.
+CREATE TABLE IF NOT EXISTS admins (
+    user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    granted_at TEXT NOT NULL
+);
 """
 
 
@@ -550,6 +596,26 @@ def remove_user_watch(conn, user_id, ticker):
     the global union intact (other users / peers / refresh may still need it)."""
     conn.execute("DELETE FROM user_watchlist WHERE user_id=? AND ticker=?",
                  (user_id, ticker))
+
+
+def is_admin(conn, user_id):
+    """True when this account holds an admin grant (see the `admins` table).
+    Admin unlocks the /admin pages from the UI, so the signed-in visitor no
+    longer needs the ADMIN_KEY in the URL."""
+    if not user_id:
+        return False
+    return conn.execute("SELECT 1 FROM admins WHERE user_id = ?",
+                        (user_id,)).fetchone() is not None
+
+
+def grant_admin(conn, user_id):
+    """Idempotent admin grant."""
+    conn.execute("INSERT OR IGNORE INTO admins (user_id, granted_at) VALUES (?,?)",
+                 (user_id, datetime.now(timezone.utc).isoformat(timespec="seconds")))
+
+
+def revoke_admin(conn, user_id):
+    conn.execute("DELETE FROM admins WHERE user_id = ?", (user_id,))
 
 
 def user_watches(conn, user_id, ticker):

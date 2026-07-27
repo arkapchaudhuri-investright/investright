@@ -164,6 +164,17 @@
           {% else %}FX rate unavailable{% endif %}
         </div>
         {% endif %}
+        {# Owner-only tools. Rendered solely for an account with an admin grant,
+           so no secret key needs to travel in the URL. #}
+        {% if is_admin %}
+        <div class="set-row set-admin">
+          <span class="set-label">Admin</span>
+          <span class="acct-links">
+            <a href="{{ url_for('admin_analytics') }}">Analytics</a>
+            <a href="{{ url_for('admin') }}">Event log</a>
+          </span>
+        </div>
+        {% endif %}
       </div>
     </details>
 </header>
@@ -203,6 +214,7 @@
 </div>
 <footer>
   <p class="foot-disclaim">Prices from Yahoo Finance, ~15-min delayed / EOD · Not investment advice — Otto just crunches numbers.</p>
+  <p class="foot-disclaim">We keep basic, private analytics — page views and an approximate location from your IP — to see what's useful and improve the site. No trackers, no ads, never sold or shared.</p>
   <p class="foot-credit">Designed with love by Arkaprava Chaudhuri <span class="heart">♥</span></p>
 </footer>
 <script>

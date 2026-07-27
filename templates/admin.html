@@ -39,6 +39,9 @@
 {% block content %}
 <div class="adm">
   <h1 class="serif">Visitor activity</h1>
+  <p class="note" style="margin-bottom:8px"><b><a href="{{ url_for('admin_analytics') }}?key={{ key }}"
+     style="color:var(--accent)">→ Open the analytics dashboard</a></b>
+     (funnel · journeys · geography · time-on-site). This page is the raw event log.</p>
   <p class="note">Best-effort log. <b>Account</b> is the only verified column —
     it's set when the visitor was signed in, and blanks out if that account is
     later deleted. Everything else is unverified: <b>visitor</b> is an anonymous
