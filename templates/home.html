@@ -54,7 +54,8 @@
     </form>
   </dialog>
 
-  {# Market switcher lives only in the ⚙ gear now (§11 corrected) — no hero/top-bar copy. #}
+  {# Market is chosen by the US/India/Both segs on /today, /watchlist and
+     /portfolio — it was removed from the gear, so no hero/top-bar copy either. #}
 
   {# Google-style hero: the field stands alone, the two actions sit beneath it
      as calm siblings. Enter still analyzes — the first submit button wins. #}
@@ -227,8 +228,8 @@
       text: 'Add the stocks you own — by hand or a broker CSV — and Otto tracks your P&L, allocation, and weekly “worth a look” nudges. Sign in to start yours.' },
     { sel: '[data-tour="team"]',     title: 'Meet the team',
       text: 'Who’s behind InvestRight and why we built it. Otto’s roost is small but growing.' },
-    { sel: '[data-tour="settings"]', title: 'Everything lives in the gear',
-      text: 'Your market (US / India / Both), currency, the live $→₹ rate, light/dark theme, and your account all live behind this gear.' }
+    { sel: '[data-tour="settings"]', title: 'Settings live in the gear',
+      text: 'Currency, the live $→₹ rate, light/dark theme, and your account all live behind this gear.' }
   ];
   var overlay = document.getElementById('tour');
   if (!overlay) return;
