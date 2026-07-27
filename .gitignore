@@ -38,3 +38,7 @@ static/0cbc74a6-*.JPG
 # repopulate on the VM via the nightly refresh / any /analyze. Don't commit them.
 static/logos/
 static/execs/
+
+# Analytics geo database (downloaded at runtime, ~130MB — never commit)
+data/dbip-city-lite.mmdb
+data/dbip-city-lite.mmdb.gz

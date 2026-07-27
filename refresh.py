@@ -390,6 +390,17 @@ def main():
         picks_status = f"failed: {e}"
         print(f"  strategy screen failed: {e}")
 
+    # Analytics enrichment — geolocate new IPs + rebuild sessions from events.
+    # Best-effort, mirrors the strategy-screen guard: a failure here must never
+    # dent the market refresh (the reason this cron exists).
+    analytics_status = "ok"
+    try:
+        import analytics
+        analytics_status = analytics.build()
+    except Exception as e:
+        analytics_status = f"failed: {e}"
+        print(f"  analytics failed: {e}")
+
     stamp = datetime.now().isoformat(timespec="seconds")
     print(f"{stamp}  snapshots {len(snaps)}/{len(everyone)} (incl. {len(peers)} peers)"
           + (f" (failed: {', '.join(failed)})" if failed else "")

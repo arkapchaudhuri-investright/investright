@@ -315,6 +315,43 @@ CREATE TABLE IF NOT EXISTS income_flow (
     fetched_at    TEXT NOT NULL,
     PRIMARY KEY (ticker, period)
 );
+
+-- Analytics (Phase: user-tracking). Both are DERIVED caches the nightly job
+-- (analytics.py) rebuilds from `events` — web only reads them, nothing here is
+-- source-of-truth. New TABLES via CREATE IF NOT EXISTS (not columns) so the two
+-- gunicorn workers can't race on first deploy.
+CREATE TABLE IF NOT EXISTS geo_cache (
+    ip           TEXT PRIMARY KEY,
+    city         TEXT,
+    region       TEXT,
+    country      TEXT,
+    country_code TEXT,
+    is_bot       INTEGER DEFAULT 0,   -- 1 = crawler/datacenter/localhost
+    bot_reason   TEXT,
+    resolved_at  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    id           TEXT PRIMARY KEY,    -- visitor + start-slot hash
+    visitor      TEXT,
+    started_at   TEXT NOT NULL,
+    ended_at     TEXT NOT NULL,
+    duration_s   INTEGER NOT NULL,    -- last event ts − first event ts
+    pages        INTEGER NOT NULL,    -- events in the visit
+    entry_path   TEXT,
+    exit_path    TEXT,
+    ip           TEXT,
+    name         TEXT,                -- self-reported, unverified
+    market       TEXT,
+    signed_in    INTEGER DEFAULT 0,
+    user_id      INTEGER,
+    is_bot       INTEGER DEFAULT 0,
+    -- funnel milestones reached during this visit (see analytics.FUNNEL)
+    hit_search   INTEGER DEFAULT 0,
+    hit_deepdive INTEGER DEFAULT 0,
+    hit_save     INTEGER DEFAULT 0,
+    hit_signup   INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
 """
 
 

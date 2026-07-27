@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Analytics · InvestRight{% endblock %}
+{% block head %}
+<meta name="robots" content="noindex, nofollow">
+<style>
+  /* Page-scoped: the analytics dashboard. Shares base.html's shell + theme. */
+  .an { max-width: 1100px; }
+  .an h1 { font-size: 24px; margin: 24px 0 2px; }
+  .an .note { color: var(--muted); font-size: 13px; margin: 0 0 16px; max-width: 78ch; }
+  .an-toggle { display: inline-flex; gap: 2px; border: 1px solid var(--edge);
+    border-radius: 999px; padding: 3px; margin-bottom: 20px; font-size: 13px; }
+  .an-toggle a { padding: 5px 14px; border-radius: 999px; text-decoration: none;
+    color: var(--muted); }
+  .an-toggle a.on { background: var(--accent-deep); color: #fff; }
+  .an-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin-bottom: 26px; }
+  .an-kpi { background: var(--card); border: 1px solid var(--hairline);
+    border-radius: 12px; padding: 14px 16px; }
+  .an-kpi b { font-size: 26px; display: block; font-variant-numeric: tabular-nums;
+    font-family: var(--serif); font-weight: 500; }
+  .an-kpi span { color: var(--muted); font-size: 12px; }
+  .an h2 { font-size: 16px; margin: 26px 0 12px; }
+  /* funnel */
+  .funnel { display: flex; flex-direction: column; gap: 8px; max-width: 620px; }
+  .fn-row { display: grid; grid-template-columns: 170px 1fr 120px; align-items: center;
+    gap: 12px; font-size: 13.5px; }
+  .fn-label { color: var(--muted); }
+  .fn-track { background: var(--wash); border-radius: 6px; height: 26px; overflow: hidden; }
+  /* display:block matters — an inline <span> ignores both width:% and
+     height:100%, which left every bar rendering as an empty grey track. */
+  .fn-fill { display: block; height: 100%;
+    background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+    border-radius: 6px; min-width: 2px; }
+  .fn-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .fn-drop { color: var(--down); font-size: 11.5px; }
+  /* two-up */
+  .an-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 720px) { .an-cols { grid-template-columns: 1fr; } }
+  .an-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .an-list li { display: flex; justify-content: space-between; gap: 10px;
+    padding: 6px 0; border-bottom: 1px solid var(--hairline); }
+  .an-list .muted { color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* table */
+  .an-wrap { overflow-x: auto; border: 1px solid var(--hairline); border-radius: 12px; margin-top: 6px; }
+  table.an-tbl { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  .an-tbl th, .an-tbl td { text-align: left; padding: 8px 12px;
+    border-bottom: 1px solid var(--hairline); white-space: nowrap; }
+  .an-tbl th { color: var(--muted); font-weight: 600; position: sticky; top: 0;
+    background: var(--card); }
+  .an-tbl tr:last-child td { border-bottom: 0; }
+  .an-tbl a { color: var(--accent); text-decoration: none; }
+  .an-tbl .bot { color: var(--muted); }
+  .pill { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
+    border: 1px solid var(--hairline); color: var(--muted); }
+  .pill.you { color: var(--accent); border-color: var(--accent); }
+  .dot { display: inline-flex; gap: 5px; align-items: center; }
+  .dot i { width: 6px; height: 6px; border-radius: 999px; background: var(--accent); }
+  /* journey */
+  .jrny { position: relative; margin: 8px 0 0 8px; padding-left: 22px;
+    border-left: 2px solid var(--hairline); }
+  .jrny-step { position: relative; padding: 8px 0; }
+  .jrny-step::before { content: ""; position: absolute; left: -27px; top: 13px;
+    width: 9px; height: 9px; border-radius: 999px; background: var(--accent);
+    box-shadow: 0 0 0 3px var(--bg); }
+  .jrny-path { font-weight: 600; }
+  .jrny-meta { color: var(--muted); font-size: 12px; }
+</style>
+{% endblock %}
+{% block content %}
+{% set base = url_for('admin_analytics') ~ '?key=' ~ key %}
+{% macro dur(s) -%}
+  {%- if s is none -%}—{%- elif s >= 60 -%}{{ s // 60 }}m {{ s % 60 }}s{%- else -%}{{ s }}s{%- endif -%}
+{%- endmacro %}
+
+<div class="an">
+  <h1>Visitor analytics</h1>
+
+  {% if journey_meta %}
+  {# ── one visit's journey ─────────────────────────────────── #}
+  <p class="note"><a href="{{ base }}{{ '&bots=1' if include_bots }}">← back to overview</a></p>
+  <div class="an-kpis">
+    <div class="an-kpi"><b>{{ dur(journey_meta.duration_s) }}</b><span>time on site</span></div>
+    <div class="an-kpi"><b>{{ journey_meta.pages }}</b><span>pages</span></div>
+    <div class="an-kpi"><b>{{ (journey_meta.city ~ ', ' if journey_meta.city) ~ (journey_meta.country or '—') }}</b><span>location (approx)</span></div>
+    <div class="an-kpi"><b>{{ journey_meta.name or '—' }}</b><span>name (self-reported)</span></div>
+  </div>
+  <p class="note">Visitor <code>{{ journey_meta.visitor[:12] }}…</code> · IP {{ journey_meta.ip }}
+    {% if journey_meta.signed_in %}· <span class="pill you">signed in</span>{% endif %}
+    {% if journey_meta.is_bot %}· <span class="pill">likely bot ({{ journey_meta.bot_reason }})</span>{% endif %}</p>
+  <div class="jrny">
+    {% for st in steps %}
+    <div class="jrny-step">
+      <div class="jrny-path">{{ st.path }}{% if st.ticker %} · {{ st.ticker }}{% endif %}</div>
+      <div class="jrny-meta">{{ st.ts_local }} · {{ st.action }}
+        {% if st.dwell_s is not none %}· stayed {{ dur(st.dwell_s) }}{% else %}· (last page — exit){% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  {# ── overview ────────────────────────────────────────────── #}
+  <p class="note">Built nightly from {{ built }} sessions. Location is offline IP→city
+    (rough — treat as "vicinity"). Names are self-reported and unverified.
+    Time-on-page is a server estimate (gap to the next page); a visit's last page
+    has no measurable dwell.</p>
+
+  <div class="an-toggle">
+    <a href="{{ base }}" class="{{ 'on' if not include_bots }}">Humans only</a>
+    <a href="{{ base }}&bots=1" class="{{ 'on' if include_bots }}">Include bots</a>
+  </div>
+
+  <div class="an-kpis">
+    <div class="an-kpi"><b>{{ kpis.visitors }}</b><span>unique visitors</span></div>
+    <div class="an-kpi"><b>{{ kpis.sessions }}</b><span>sessions</span></div>
+    <div class="an-kpi"><b>{{ kpis.signed_sessions or 0 }}</b><span>signed-in sessions</span></div>
+    <div class="an-kpi"><b>{{ dur(kpis.avg_dur|round|int) if kpis.avg_dur else '—' }}</b><span>avg time on site</span></div>
+    <div class="an-kpi"><b>{{ '%.1f'|format(kpis.avg_pages or 0) }}</b><span>avg pages / visit</span></div>
+    <div class="an-kpi"><b>{{ '%.0f'|format(kpis.bounce_rate) }}%</b><span>bounce (1-page)</span></div>
+    <div class="an-kpi"><b>{{ kpis.bot_sessions }}</b><span>bot sessions (filtered)</span></div>
+  </div>
+
+  <h2>What visitors did <span class="asof">— share of sessions reaching each milestone</span></h2>
+  <p class="note" style="margin-bottom:10px">Independent milestones, not funnel steps:
+    search engines drop people straight onto a stock page, so "opened a deep-dive"
+    outruns "searched", and returning account holders sign in without saving.</p>
+  <div class="funnel">
+    {% for f in funnel %}
+    <div class="fn-row">
+      <span class="fn-label">{{ f.label }}</span>
+      <span class="fn-track"><span class="fn-fill" style="width:{{ f.pct_top }}%"></span></span>
+      <span class="fn-num">{{ f.count }} <span class="asof">({{ '%.0f'|format(f.pct_top) }}%)</span></span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="an-cols">
+    <div>
+      <h2>Top cities</h2>
+      <ul class="an-list">
+        {% for g in geo %}
+        <li><span>{{ g.place or '(unknown)' }}</span><span class="muted">{{ g.visitors }}</span></li>
+        {% else %}<li class="muted">No location data yet.</li>{% endfor %}
+      </ul>
+    </div>
+    <div>
+      <h2>Top pages</h2>
+      <ul class="an-list">
+        {% for p in pages %}
+        <li><span>{{ p.path }}</span><span class="muted">{{ p.views }} · {{ p.visitors }} ppl</span></li>
+        {% else %}<li class="muted">No page data yet.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <h2>Recent visits <span class="asof">— tap a row for the full journey</span></h2>
+  <div class="an-wrap">
+    <table class="an-tbl">
+      <thead><tr>
+        <th>When</th><th>Location</th><th>Name</th><th>Pages</th><th>Time</th>
+        <th>Path in → out</th><th>Reached</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr class="{{ 'bot' if s.is_bot }}">
+          <td>{{ s.start_local }}</td>
+          <td>{{ (s.city ~ ', ' if s.city) ~ (s.country_code or s.country or '—') }}</td>
+          <td>{{ s.name or '' }}{% if s.signed_in %} <span class="pill you">acct</span>{% elif s.is_bot %} <span class="pill">bot</span>{% endif %}</td>
+          <td>{{ s.pages }}</td>
+          <td>{{ dur(s.duration_s) }}</td>
+          <td>{{ s.entry_path }} → {{ s.exit_path }}</td>
+          <td>{% if s.hit_save %}💾 saved{% elif s.hit_deepdive %}📊 deep-dive{% elif s.hit_search %}🔍 search{% else %}—{% endif %}</td>
+          <td><a href="{{ base }}{{ '&bots=1' if include_bots }}&s={{ s.id }}">journey →</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="bot">No sessions yet — the nightly job hasn't run, or all traffic was filtered.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

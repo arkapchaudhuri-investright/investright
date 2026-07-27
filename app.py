@@ -12,6 +12,7 @@ from urllib.parse import unquote
 from flask import (Flask, abort, flash, g, jsonify, make_response, redirect,
                    render_template, request, session, url_for)
 
+import analytics
 import digest
 import fetch
 import logos
@@ -903,6 +904,7 @@ def refresh_stock(ticker):
 @app.route("/team")
 def team():
     """Meet Our Team (§4-style static page). No DB — content lives in the template."""
+    _log("view")
     return render_template("team.html")
 
 
@@ -993,6 +995,44 @@ def admin():
                            visitors=visitors, top=top, key=key,
                            failures=failures, login_window=LOGIN_WINDOW_MIN,
                            max_email=LOGIN_MAX_PER_EMAIL, max_ip=LOGIN_MAX_PER_IP)
+
+
+@app.route("/admin/analytics")
+def admin_analytics():
+    """Visitor analytics dashboard (same ADMIN_KEY gate as /admin, 404 otherwise).
+    Reads only the nightly-built caches (geo_cache, sessions) — no request-time
+    geolocation or session math. `bots=1` includes crawler/datacenter traffic;
+    the default is humans-only. `s=<id>` drills into one visit's journey."""
+    key = request.args.get("key", "")
+    if not ADMIN_KEY or not hmac.compare_digest(key, ADMIN_KEY):
+        abort(404)
+    include_bots = request.args.get("bots") == "1"
+    sid = request.args.get("s")
+    with get_conn() as conn:
+        built = conn.execute("SELECT COUNT(*) c FROM sessions").fetchone()["c"]
+        kpis = analytics.overview(conn, include_bots)
+        steps_of = geo = pages = funnel = sessions = journey_meta = None
+        if sid:
+            journey_meta, steps_of = analytics.session_journey(conn, sid)
+        else:
+            funnel = analytics.funnel(conn, include_bots)
+            sessions = analytics.recent_sessions(conn, include_bots, limit=120)
+            geo = analytics.geo_breakdown(conn, include_bots, by="city", limit=30)
+            pages = analytics.top_pages(conn, include_bots, limit=15)
+
+    def _local(ts):
+        try:
+            return datetime.fromisoformat(ts).astimezone().strftime("%-d %b %H:%M")
+        except Exception:
+            return ts
+    for s in (sessions or []):
+        s["start_local"] = _local(s["started_at"])
+    for st in (steps_of or []):
+        st["ts_local"] = _local(st["ts"])
+    return render_template(
+        "analytics.html", key=key, include_bots=include_bots, built=built,
+        kpis=kpis, funnel=funnel, sessions=sessions, geo=geo, pages=pages,
+        journey_meta=journey_meta, steps=steps_of)
 
 
 @app.route("/today")
