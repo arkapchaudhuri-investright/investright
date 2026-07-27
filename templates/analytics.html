@@ -29,8 +29,7 @@
   /* charts */
   .an-card { background: var(--card); border: 1px solid var(--hairline);
     border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; }
-  .an-chart, .an-funnel { display: block; width: 100%; height: auto; }
-  .an-funnel-wrap { padding: 18px 16px; }
+  .an-chart { display: block; width: 100%; height: auto; }
   .an-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 12px; margin-bottom: 26px; }
   .an-kpi { background: var(--card); border: 1px solid var(--hairline);
@@ -68,6 +67,14 @@
     background: var(--card); }
   .an-tbl tr:last-child td { border-bottom: 0; }
   .an-tbl a { color: var(--accent); text-decoration: none; }
+  /* The journey link was scrolling off the right edge on narrow screens. Pin
+     the last column so it stays reachable however far the table scrolls, and
+     let the long entry→exit paths ellipsis rather than push it out of view. */
+  .an-tbl th:last-child, .an-tbl td:last-child {
+    position: sticky; right: 0; background: var(--card);
+    box-shadow: -6px 0 6px -6px var(--shadow);
+  }
+  .an-tbl td.path-cell { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .an-tbl .bot { color: var(--muted); }
   .pill { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
     border: 1px solid var(--hairline); color: var(--muted); }
@@ -195,9 +202,6 @@
   <p class="note" style="margin-bottom:10px">Independent milestones, not funnel steps:
     search engines drop people straight onto a stock page, so "opened a deep-dive"
     outruns "searched", and returning account holders sign in without saving.</p>
-  {% if fchart %}
-  <div class="an-card an-funnel-wrap">{{ fchart|safe }}</div>
-  {% endif %}
   <div class="funnel">
     {% for f in funnel %}
     <div class="fn-row">
@@ -242,7 +246,7 @@
           <td>{{ s.name or '' }}{% if s.signed_in %} <span class="pill you">acct</span>{% elif s.is_bot %} <span class="pill">bot</span>{% endif %}</td>
           <td>{{ s.pages }}</td>
           <td>{{ dur(s.duration_s) }}</td>
-          <td>{{ s.entry_path }} → {{ s.exit_path }}</td>
+          <td class="path-cell" title="{{ s.entry_path }} → {{ s.exit_path }}">{{ s.entry_path }} → {{ s.exit_path }}</td>
           <td>{% if s.hit_save %}💾 saved{% elif s.hit_deepdive %}📊 deep-dive{% elif s.hit_search %}🔍 search{% else %}—{% endif %}</td>
           <td><a href="{{ base }}{{ keep }}&s={{ s.id }}">journey →</a></td>
         </tr>

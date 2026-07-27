@@ -483,45 +483,6 @@ def traffic_chart(series, width=920, height=200, pad=26):
         f'<polyline points="{vline}" fill="none" stroke="var(--muted)" stroke-width="1.5" '
         f'stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>'
         f'{ticks}</svg>')
-
-
-def funnel_svg(steps, width=760, band=54, gap=7):
-    """Milestones as a centred tapering infographic — each band's width is its
-    share of all sessions, so the narrowing IS the data. Labels sit inside wide
-    bands and outside narrow ones so they never overflow."""
-    if not steps:
-        return ""
-    height = len(steps) * (band + gap)
-    body = ""
-    for i, s in enumerate(steps):
-        pct = max(s["pct_top"], 0)
-        w = max(width * pct / 100, 3)
-        x, y = (width - w) / 2, i * (band + gap)
-        shade = 0.92 - i * 0.13                      # deepest at the top
-        body += (f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="{band}" rx="8" '
-                 f'fill="var(--accent)" opacity="{max(shade, 0.3):.2f}"/>')
-        if w > 260:
-            # Roomy band: two centred lines in white, sitting on the fill.
-            body += (
-                f'<text x="{width / 2:.1f}" y="{y + band / 2 - 2:.1f}" text-anchor="middle" '
-                f'font-size="13" font-weight="600" dominant-baseline="middle" '
-                f'fill="#fff">{s["label"]}</text>'
-                f'<text x="{width / 2:.1f}" y="{y + band / 2 + 15:.1f}" text-anchor="middle" '
-                f'font-size="11.5" dominant-baseline="middle" fill="#fff" '
-                f'opacity=".85">{s["count"]} · {pct:.0f}%</text>')
-        else:
-            # Narrow band: one line set BESIDE the bar. Centring it would print
-            # the text straight over a 3%-wide sliver and make both unreadable.
-            body += (
-                f'<text x="{x + w + 12:.1f}" y="{y + band / 2:.1f}" text-anchor="start" '
-                f'font-size="13" dominant-baseline="middle" fill="var(--text)">'
-                f'{s["label"]} <tspan fill="var(--muted)" font-size="11.5">'
-                f'{s["count"]} · {pct:.0f}%</tspan></text>')
-    return (f'<svg viewBox="0 0 {width} {height}" class="an-funnel" role="img" '
-            f'aria-label="Engagement milestones">{body}</svg>')
-
-
-# ─────────────────────────── exports ────────────────────────────────
 def export_tables(conn, include_bots=False, win=None):
     """The dashboard as plain tabular data: {sheet_name: (headers, rows)}.
     One source for every export format, so CSV, Excel and print never drift."""
