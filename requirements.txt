@@ -3,3 +3,4 @@ yfinance>=0.2.40
 requests>=2.31
 gunicorn>=21  # Phase 5: production WSGI server on the VM (replaces Flask's debug dev server)
 maxminddb>=2.2  # analytics: offline IP→city reader (DB-IP mmdb, downloaded to data/)
+openpyxl>=3.1  # analytics: multi-sheet .xlsx export (pure Python, no system libs)

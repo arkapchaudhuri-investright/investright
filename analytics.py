@@ -234,14 +234,67 @@ PERIODS = {"7d": ("Last 7 days", 7), "30d": ("Last 30 days", 30),
 DEFAULT_PERIOD = "30d"
 
 
+class Window:
+    """The reporting range: either a named preset or an explicit from/to pair.
+    Bundled into one object so the queries below don't each carry three
+    range arguments. `label` is what the page prints above the numbers."""
+
+    def __init__(self, period=DEFAULT_PERIOD, dt_from=None, dt_to=None):
+        self.period = period if period in PERIODS else DEFAULT_PERIOD
+        self.dt_from, self.dt_to = dt_from, dt_to   # UTC ISO strings or None
+        self.custom = bool(dt_from or dt_to)
+
+    def sql(self, col="s.started_at"):
+        return _period(self.period, col, self.dt_from, self.dt_to)
+
+    @property
+    def label(self):
+        if not self.custom:
+            return PERIODS[self.period][0].lower()
+        fmt = lambda s: (datetime.fromisoformat(s).astimezone()
+                         .strftime("%-d %b %Y, %H:%M") if s else None)
+        a, b = fmt(self.dt_from), fmt(self.dt_to)
+        if a and b:
+            return f"{a} → {b}"
+        return f"since {a}" if a else f"up to {b}"
+
+
 def _where_bot(include_bots):
     # Always qualified to the sessions row (s) — geo_cache also has an is_bot,
     # so an unqualified name is ambiguous wherever the two are joined.
     return "" if include_bots else " AND s.is_bot = 0"
 
 
-def _period(period, col="s.started_at"):
-    """(sql_fragment, params) restricting `col` to the chosen window."""
+def to_utc(local_str):
+    """'2026-07-23T14:30' from <input type="datetime-local"> → UTC ISO8601.
+
+    The picker hands back naive wall-clock text in the viewer's own timezone,
+    while `events.ts` is stored UTC — comparing the two directly would silently
+    shift every boundary by the UTC offset."""
+    if not local_str:
+        return None
+    try:
+        dt = datetime.fromisoformat(local_str)
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.astimezone()             # naive → interpret as this machine's local
+    return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
+def _period(period, col="s.started_at", dt_from=None, dt_to=None):
+    """(sql_fragment, params) restricting `col` to the chosen window. An explicit
+    from/to pair (already UTC, via to_utc) overrides the preset; either bound may
+    stand alone."""
+    if dt_from or dt_to:
+        sql, params = "", []
+        if dt_from:
+            sql += f" AND {col} >= ?"
+            params.append(dt_from)
+        if dt_to:
+            sql += f" AND {col} <= ?"
+            params.append(dt_to)
+        return sql, params
     days = PERIODS.get(period, PERIODS[DEFAULT_PERIOD])[1]
     if not days:
         return "", []
@@ -249,10 +302,10 @@ def _period(period, col="s.started_at"):
     return f" AND {col} >= ?", [cutoff]
 
 
-def overview(conn, include_bots=False, period=DEFAULT_PERIOD):
+def overview(conn, include_bots=False, win=None):
     """Headline KPIs over sessions (humans-only unless include_bots)."""
     wb = _where_bot(include_bots)
-    wp, pp = _period(period)
+    wp, pp = (win or Window()).sql()
     row = conn.execute(
         f"SELECT COUNT(*) sessions, COUNT(DISTINCT visitor) visitors, "
         f"  SUM(signed_in) signed_sessions, "
@@ -270,12 +323,12 @@ def overview(conn, include_bots=False, period=DEFAULT_PERIOD):
     return d
 
 
-def funnel(conn, include_bots=False, period=DEFAULT_PERIOD):
+def funnel(conn, include_bots=False, win=None):
     """Engagement milestones: how many sessions ever reached each one, as a share
     of all sessions. Independent measures, not sequential steps — see FUNNEL for
     why drop-off between them would be meaningless here."""
     wb = _where_bot(include_bots)
-    wp, pp = _period(period)
+    wp, pp = (win or Window()).sql()
     cols = {
         "visit":    "COUNT(*)",
         "search":   "SUM(hit_search)",
@@ -292,10 +345,10 @@ def funnel(conn, include_bots=False, period=DEFAULT_PERIOD):
             for key, label, _ in FUNNEL]
 
 
-def recent_sessions(conn, include_bots=False, period=DEFAULT_PERIOD, limit=100):
+def recent_sessions(conn, include_bots=False, win=None, limit=100):
     """Most recent visits with geo joined, newest first."""
     wb = _where_bot(include_bots)
-    wp, pp = _period(period)
+    wp, pp = (win or Window()).sql()
     rows = conn.execute(
         f"SELECT s.*, g.city, g.region, g.country, g.country_code, g.bot_reason "
         f"FROM sessions s LEFT JOIN geo_cache g ON g.ip = s.ip "
@@ -331,10 +384,10 @@ def session_journey(conn, session_id):
     return s, steps
 
 
-def geo_breakdown(conn, include_bots=False, period=DEFAULT_PERIOD, by="country", limit=40):
+def geo_breakdown(conn, include_bots=False, win=None, by="country", limit=40):
     """Distinct-visitor + session counts grouped by country or city."""
     wb = _where_bot(include_bots)
-    wp, pp = _period(period)
+    wp, pp = (win or Window()).sql()
     grp = "g.country" if by == "country" else \
           "COALESCE(g.city,'(unknown)') || ', ' || COALESCE(g.country,'')"
     rows = conn.execute(
@@ -345,14 +398,224 @@ def geo_breakdown(conn, include_bots=False, period=DEFAULT_PERIOD, by="country",
     return [dict(r) for r in rows]
 
 
-def top_pages(conn, include_bots=False, period=DEFAULT_PERIOD, limit=20):
+def top_pages(conn, include_bots=False, win=None, limit=20):
     """Most-viewed paths. Reads `events` directly (not sessions), so the window
     filters on e.ts; joins geo_cache by ip to honour the bot filter."""
     wb = " AND COALESCE(g.is_bot,0) = 0" if not include_bots else ""
-    wp, pp = _period(period, col="e.ts")
+    wp, pp = (win or Window()).sql("e.ts")
     rows = conn.execute(
         f"SELECT e.path, COUNT(*) views, COUNT(DISTINCT e.visitor) visitors "
         f"FROM events e LEFT JOIN geo_cache g ON g.ip = e.ip "
         f"WHERE e.path IS NOT NULL{wb}{wp} "
         f"GROUP BY e.path ORDER BY views DESC LIMIT ?", pp + [limit]).fetchall()
     return [dict(r) for r in rows]
+
+
+def daily_series(conn, include_bots=False, win=None):
+    """Sessions + unique visitors per calendar day across the window, gap-filled
+    so quiet days plot as zero rather than closing the line over them."""
+    wb = _where_bot(include_bots)
+    wp, pp = (win or Window()).sql()
+    rows = conn.execute(
+        f"SELECT substr(s.started_at, 1, 10) day, COUNT(*) sessions, "
+        f"  COUNT(DISTINCT s.visitor) visitors "
+        f"FROM sessions s WHERE 1=1{wb}{wp} GROUP BY day ORDER BY day", pp).fetchall()
+    got = {r["day"]: dict(r) for r in rows}
+    if not got:
+        return []
+    first = datetime.fromisoformat(min(got)).date()
+    last = datetime.fromisoformat(max(got)).date()
+    out, d = [], first
+    while d <= last:
+        key = d.isoformat()
+        out.append(got.get(key, {"day": key, "sessions": 0, "visitors": 0}))
+        d += timedelta(days=1)
+    return out
+
+
+# ─────────────────────────── inline SVG charts ──────────────────────
+# Built in Python and dropped straight into the page, the same way metrics.py
+# draws the deep-dive charts — no JS charting library, nothing loaded remotely.
+def _pts(values, w, h, pad):
+    """Map a series to (x, y) pixel points inside a padded box."""
+    if not values:
+        return []
+    hi = max(values) or 1
+    span = max(len(values) - 1, 1)
+    return [(pad + i * (w - 2 * pad) / span,
+             h - pad - (v / hi) * (h - 2 * pad)) for i, v in enumerate(values)]
+
+
+def traffic_chart(series, width=920, height=200, pad=26):
+    """Filled area + line of daily sessions, with unique visitors as a second
+    line. Returns an SVG string, or '' when there's nothing to draw."""
+    if len(series) < 2:
+        return ""
+    sess = [d["sessions"] for d in series]
+    vis = [d["visitors"] for d in series]
+    hi = max(sess) or 1
+    ps = _pts(sess, width, height, pad)
+    pv = _pts(vis, width, height, pad)
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in ps)
+    area = (f"{pad},{height - pad} " + line + f" {width - pad},{height - pad}")
+    vline = " ".join(f"{x:.1f},{y:.1f}" for x, y in pv)
+    # y gridlines at 0 / half / max
+    grid = "".join(
+        f'<line x1="{pad}" y1="{y:.1f}" x2="{width - pad}" y2="{y:.1f}" '
+        f'stroke="var(--hairline)" stroke-width="1"/>'
+        f'<text x="{pad - 6}" y="{y + 3:.1f}" text-anchor="end" font-size="10" '
+        f'fill="var(--muted)">{v}</text>'
+        for v, y in ((hi, pad), (hi // 2, height / 2), (0, height - pad)))
+    # date ticks: first, middle, last
+    ticks = ""
+    for idx in dict.fromkeys((0, len(series) // 2, len(series) - 1)):
+        x = ps[idx][0]
+        lbl = datetime.fromisoformat(series[idx]["day"]).strftime("%-d %b")
+        anchor = "start" if idx == 0 else "end" if idx == len(series) - 1 else "middle"
+        ticks += (f'<text x="{x:.1f}" y="{height - 6}" text-anchor="{anchor}" '
+                  f'font-size="10" fill="var(--muted)">{lbl}</text>')
+    return (
+        f'<svg viewBox="0 0 {width} {height}" class="an-chart" role="img" '
+        f'aria-label="Daily sessions and unique visitors">{grid}'
+        f'<polygon points="{area}" fill="var(--accent)" opacity=".14"/>'
+        f'<polyline points="{line}" fill="none" stroke="var(--accent)" stroke-width="2" '
+        f'stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+        f'<polyline points="{vline}" fill="none" stroke="var(--muted)" stroke-width="1.5" '
+        f'stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>'
+        f'{ticks}</svg>')
+
+
+def funnel_svg(steps, width=760, band=54, gap=7):
+    """Milestones as a centred tapering infographic — each band's width is its
+    share of all sessions, so the narrowing IS the data. Labels sit inside wide
+    bands and outside narrow ones so they never overflow."""
+    if not steps:
+        return ""
+    height = len(steps) * (band + gap)
+    body = ""
+    for i, s in enumerate(steps):
+        pct = max(s["pct_top"], 0)
+        w = max(width * pct / 100, 3)
+        x, y = (width - w) / 2, i * (band + gap)
+        shade = 0.92 - i * 0.13                      # deepest at the top
+        body += (f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="{band}" rx="8" '
+                 f'fill="var(--accent)" opacity="{max(shade, 0.3):.2f}"/>')
+        if w > 260:
+            # Roomy band: two centred lines in white, sitting on the fill.
+            body += (
+                f'<text x="{width / 2:.1f}" y="{y + band / 2 - 2:.1f}" text-anchor="middle" '
+                f'font-size="13" font-weight="600" dominant-baseline="middle" '
+                f'fill="#fff">{s["label"]}</text>'
+                f'<text x="{width / 2:.1f}" y="{y + band / 2 + 15:.1f}" text-anchor="middle" '
+                f'font-size="11.5" dominant-baseline="middle" fill="#fff" '
+                f'opacity=".85">{s["count"]} · {pct:.0f}%</text>')
+        else:
+            # Narrow band: one line set BESIDE the bar. Centring it would print
+            # the text straight over a 3%-wide sliver and make both unreadable.
+            body += (
+                f'<text x="{x + w + 12:.1f}" y="{y + band / 2:.1f}" text-anchor="start" '
+                f'font-size="13" dominant-baseline="middle" fill="var(--text)">'
+                f'{s["label"]} <tspan fill="var(--muted)" font-size="11.5">'
+                f'{s["count"]} · {pct:.0f}%</tspan></text>')
+    return (f'<svg viewBox="0 0 {width} {height}" class="an-funnel" role="img" '
+            f'aria-label="Engagement milestones">{body}</svg>')
+
+
+# ─────────────────────────── exports ────────────────────────────────
+def export_tables(conn, include_bots=False, win=None):
+    """The dashboard as plain tabular data: {sheet_name: (headers, rows)}.
+    One source for every export format, so CSV, Excel and print never drift."""
+    win = win or Window()
+    kpis = overview(conn, include_bots, win)
+    tables = {}
+
+    tables["Summary"] = (
+        ["Metric", "Value"],
+        [["Window", win.label],
+         ["Bots included", "yes" if include_bots else "no"],
+         ["Unique visitors", kpis["visitors"] or 0],
+         ["Sessions", kpis["sessions"] or 0],
+         ["Signed-in sessions", kpis["signed_sessions"] or 0],
+         ["Avg time on site (s)", round(kpis["avg_dur"] or 0)],
+         ["Avg pages per visit", round(kpis["avg_pages"] or 0, 2)],
+         ["Bounce rate (%)", round(kpis["bounce_rate"], 1)],
+         ["Bot sessions in window", kpis["bot_sessions"]],
+         ["Generated (UTC)", datetime.now(timezone.utc).isoformat(timespec="seconds")]])
+
+    tables["Milestones"] = (
+        ["Milestone", "Sessions", "% of sessions"],
+        [[f["label"], f["count"], round(f["pct_top"], 1)]
+         for f in funnel(conn, include_bots, win)])
+
+    tables["Daily"] = (
+        ["Day", "Sessions", "Unique visitors"],
+        [[d["day"], d["sessions"], d["visitors"]]
+         for d in daily_series(conn, include_bots, win)])
+
+    tables["Cities"] = (
+        ["Place", "Visitors", "Sessions"],
+        [[g["place"] or "(unknown)", g["visitors"], g["sessions"]]
+         for g in geo_breakdown(conn, include_bots, win, by="city", limit=500)])
+
+    tables["Pages"] = (
+        ["Path", "Views", "Visitors"],
+        [[p["path"], p["views"], p["visitors"]]
+         for p in top_pages(conn, include_bots, win, limit=500)])
+
+    tables["Visits"] = (
+        ["Started", "Ended", "Duration (s)", "Pages", "City", "Country", "IP",
+         "Name (self-reported)", "Signed in", "Likely bot", "Entry", "Exit",
+         "Deep-dive", "Searched", "Saved"],
+        [[s["started_at"], s["ended_at"], s["duration_s"], s["pages"],
+          s["city"] or "", s["country"] or "", s["ip"] or "", s["name"] or "",
+          "yes" if s["signed_in"] else "", "yes" if s["is_bot"] else "",
+          s["entry_path"] or "", s["exit_path"] or "",
+          "yes" if s["hit_deepdive"] else "", "yes" if s["hit_search"] else "",
+          "yes" if s["hit_save"] else ""]
+         for s in recent_sessions(conn, include_bots, win, limit=5000)])
+    return tables
+
+
+def to_xlsx(tables):
+    """Multi-sheet .xlsx (bytes) — one sheet per table, bold frozen headers and
+    auto-ish column widths. openpyxl is a pure-Python dependency, no system
+    libraries, so it installs cleanly on the VM."""
+    from io import BytesIO
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    wb.remove(wb.active)
+    for name, (headers, rows) in tables.items():
+        ws = wb.create_sheet(name[:31])          # Excel caps sheet names at 31
+        ws.append(headers)
+        for c in ws[1]:
+            c.font = Font(bold=True)
+        ws.freeze_panes = "A2"
+        for r in rows:
+            ws.append(r)
+        for i, h in enumerate(headers, start=1):
+            widest = max([len(str(h))] +
+                         [len(str(r[i - 1])) for r in rows[:200] if i <= len(r)] or [0])
+            ws.column_dimensions[get_column_letter(i)].width = min(max(widest + 2, 10), 44)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def to_csv(tables):
+    """All tables in one CSV, separated by a blank line and a section header —
+    Excel and Sheets both open it directly."""
+    import csv
+    import io
+
+    out = io.StringIO()
+    w = csv.writer(out)
+    for name, (headers, rows) in tables.items():
+        w.writerow([f"# {name}"])
+        w.writerow(headers)
+        w.writerows(rows)
+        w.writerow([])
+    return out.getvalue()

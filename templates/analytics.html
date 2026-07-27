@@ -13,6 +13,24 @@
   .an-toggle a { padding: 5px 14px; border-radius: 999px; text-decoration: none;
     color: var(--muted); }
   .an-toggle a.on { background: var(--accent-deep); color: #fff; }
+  /* exact range + exports */
+  .an-range { display: flex; flex-wrap: wrap; align-items: end; gap: 10px;
+    margin-bottom: 24px; font-size: 12.5px; color: var(--muted); }
+  .an-range label { display: flex; flex-direction: column; gap: 4px; }
+  .an-range input { font: inherit; font-size: 13px; color: var(--text);
+    background: var(--card); border: 1px solid var(--edge); border-radius: 8px;
+    padding: 6px 10px; }
+  .an-btn { font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: none;
+    color: var(--text); background: var(--card); border: 1px solid var(--edge);
+    border-radius: 999px; padding: 7px 14px; display: inline-flex; align-items: center; }
+  .an-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .an-btn.ghost { border-style: dashed; }
+  .an-exports { display: flex; gap: 8px; margin-left: auto; }
+  /* charts */
+  .an-card { background: var(--card); border: 1px solid var(--hairline);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; }
+  .an-chart, .an-funnel { display: block; width: 100%; height: auto; }
+  .an-funnel-wrap { padding: 18px 16px; }
   .an-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 12px; margin-bottom: 26px; }
   .an-kpi { background: var(--card); border: 1px solid var(--hairline);
@@ -65,12 +83,30 @@
     box-shadow: 0 0 0 3px var(--bg); }
   .jrny-path { font-weight: 600; }
   .jrny-meta { color: var(--muted); font-size: 12px; }
+  /* PDF = the browser's own print-to-PDF, so the export keeps the real charts
+     and needs no PDF library on the server. Strip the app chrome and the
+     controls (which do nothing on paper), and force light ink. */
+  @media print {
+    @page { margin: 14mm; }
+    header, footer, .tape, .an-controls, .an-range, .ao-fab, .scroll-progress,
+    .backtotop, .an-tbl th a, .an-toggle { display: none !important; }
+    :root { --bg: #fff; --card: #fff; --text: #111; --muted: #555;
+            --hairline: #ccc; --edge: #999; --wash: #f4f4f4; }
+    body, main { background: #fff !important; }
+    .an { max-width: none; }
+    .an-kpi, .an-card, .an-wrap { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    .an-tbl { font-size: 10.5px; }
+    .an-wrap { overflow: visible; border: 0; }
+    a { text-decoration: none; color: inherit; }
+  }
 </style>
 {% endblock %}
 {% block content %}
 {# Every link must carry BOTH toggles or switching one silently resets the other. #}
 {% set base = url_for('admin_analytics') ~ '?key=' ~ key %}
-{% set keep = ('&bots=1' if include_bots else '') ~ '&period=' ~ period %}
+{% set range_q = (('&from=' ~ dt_from) if dt_from else '') ~ (('&to=' ~ dt_to) if dt_to else '') %}
+{% set keep = ('&bots=1' if include_bots else '') ~ '&period=' ~ period ~ range_q %}
 {% macro dur(s) -%}
   {%- if s is none -%}—{%- elif s >= 60 -%}{{ s // 60 }}m {{ s % 60 }}s{%- else -%}{{ s }}s{%- endif -%}
 {%- endmacro %}
@@ -102,7 +138,7 @@
 
   {% else %}
   {# ── overview ────────────────────────────────────────────── #}
-  <p class="note">Showing <b>{{ periods[period][0]|lower }}</b> · rebuilt nightly from
+  <p class="note">Showing <b>{{ win.label }}</b> · rebuilt nightly from
     {{ built }} sessions total. Location is offline IP→city
     (rough — treat as "vicinity"). Names are self-reported and unverified.
     Time-on-page is a server estimate (gap to the next page); a visit's last page
@@ -111,15 +147,34 @@
   <div class="an-controls">
     <div class="an-toggle">
       {% for pk, (plabel, _pdays) in periods.items() %}
+      {# A preset clears any custom from/to, otherwise the pair would keep winning. #}
       <a href="{{ base }}{{ '&bots=1' if include_bots }}&period={{ pk }}"
-         class="{{ 'on' if period == pk }}">{{ plabel }}</a>
+         class="{{ 'on' if period == pk and not win.custom }}">{{ plabel }}</a>
       {% endfor %}
     </div>
     <div class="an-toggle">
-      <a href="{{ base }}&period={{ period }}" class="{{ 'on' if not include_bots }}">Humans only</a>
-      <a href="{{ base }}&bots=1&period={{ period }}" class="{{ 'on' if include_bots }}">Include bots</a>
+      <a href="{{ base }}&period={{ period }}{{ range_q }}" class="{{ 'on' if not include_bots }}">Humans only</a>
+      <a href="{{ base }}&bots=1&period={{ period }}{{ range_q }}" class="{{ 'on' if include_bots }}">Include bots</a>
     </div>
   </div>
+
+  {# Exact range — native datetime-local, so it's a real calendar + clock with
+     no JS library. Submitting GET keeps the whole view shareable as a URL. #}
+  <form class="an-range" method="get" action="{{ url_for('admin_analytics') }}">
+    {% if key %}<input type="hidden" name="key" value="{{ key }}">{% endif %}
+    {% if include_bots %}<input type="hidden" name="bots" value="1">{% endif %}
+    <label>From <input type="datetime-local" name="from" value="{{ dt_from }}"></label>
+    <label>To <input type="datetime-local" name="to" value="{{ dt_to }}"></label>
+    <button type="submit" class="an-btn">Apply range</button>
+    {% if win.custom %}
+    <a class="an-btn ghost" href="{{ base }}{{ '&bots=1' if include_bots }}&period={{ period }}">Clear</a>
+    {% endif %}
+    <span class="an-exports">
+      <a class="an-btn" href="{{ url_for('admin_analytics_export', fmt='xlsx') }}?key={{ key }}{{ '&bots=1' if include_bots }}&period={{ period }}{{ range_q }}">⬇ Excel</a>
+      <a class="an-btn" href="{{ url_for('admin_analytics_export', fmt='csv') }}?key={{ key }}{{ '&bots=1' if include_bots }}&period={{ period }}{{ range_q }}">⬇ CSV</a>
+      <button type="button" class="an-btn" onclick="window.print()">⎙ PDF</button>
+    </span>
+  </form>
 
   <div class="an-kpis">
     <div class="an-kpi"><b>{{ kpis.visitors }}</b><span>unique visitors</span></div>
@@ -131,10 +186,18 @@
     <div class="an-kpi"><b>{{ kpis.bot_sessions }}</b><span>bot sessions (filtered)</span></div>
   </div>
 
+  {% if chart %}
+  <h2>Traffic over time <span class="asof">— solid = sessions · dashed = unique visitors</span></h2>
+  <div class="an-card">{{ chart|safe }}</div>
+  {% endif %}
+
   <h2>What visitors did <span class="asof">— share of sessions reaching each milestone</span></h2>
   <p class="note" style="margin-bottom:10px">Independent milestones, not funnel steps:
     search engines drop people straight onto a stock page, so "opened a deep-dive"
     outruns "searched", and returning account holders sign in without saving.</p>
+  {% if fchart %}
+  <div class="an-card an-funnel-wrap">{{ fchart|safe }}</div>
+  {% endif %}
   <div class="funnel">
     {% for f in funnel %}
     <div class="fn-row">

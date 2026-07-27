@@ -125,6 +125,21 @@ def _require_admin():
     abort(404)
 
 
+def _analytics_window():
+    """Read the reporting range off the query string, shared by the dashboard
+    and its exports so a download always matches the view. An explicit
+    from/to pair (datetime-local, local wall-clock) wins over the preset.
+    Returns (Window, raw_from, raw_to, period) — the raw strings go straight
+    back into the inputs so the picker keeps showing what was chosen."""
+    period = request.args.get("period")
+    if period not in analytics.PERIODS:
+        period = analytics.DEFAULT_PERIOD
+    raw_from = request.args.get("from") or ""
+    raw_to = request.args.get("to") or ""
+    win = analytics.Window(period, analytics.to_utc(raw_from), analytics.to_utc(raw_to))
+    return win, raw_from, raw_to, period
+
+
 def _log(action, ticker=None):
     """Record one activity event. name/market are self-reported values the
     browser mirrors from localStorage into cookies (see base.html); IP prefers
@@ -160,6 +175,13 @@ def inject_wl_count():
         return {"wl_count": n}
     except Exception:
         return {"wl_count": 0}
+
+
+@app.context_processor
+def inject_year():
+    """Current year for the footer's copyright line — computed, so it never
+    goes stale on 1 January."""
+    return {"year": date.today().year}
 
 
 @app.context_processor
@@ -1038,21 +1060,24 @@ def admin_analytics():
     the default is humans-only. `s=<id>` drills into one visit's journey."""
     key = _require_admin()
     include_bots = request.args.get("bots") == "1"
-    period = request.args.get("period")
-    if period not in analytics.PERIODS:
-        period = analytics.DEFAULT_PERIOD
+    win, raw_from, raw_to, period = _analytics_window()
+    printing = request.args.get("print") == "1"
     sid = request.args.get("s")
     with get_conn() as conn:
         built = conn.execute("SELECT COUNT(*) c FROM sessions").fetchone()["c"]
-        kpis = analytics.overview(conn, include_bots, period)
+        kpis = analytics.overview(conn, include_bots, win)
         steps_of = geo = pages = funnel = sessions = journey_meta = None
+        chart = fchart = ""
         if sid:
             journey_meta, steps_of = analytics.session_journey(conn, sid)
         else:
-            funnel = analytics.funnel(conn, include_bots, period)
-            sessions = analytics.recent_sessions(conn, include_bots, period, limit=120)
-            geo = analytics.geo_breakdown(conn, include_bots, period, by="city", limit=30)
-            pages = analytics.top_pages(conn, include_bots, period, limit=15)
+            funnel = analytics.funnel(conn, include_bots, win)
+            sessions = analytics.recent_sessions(conn, include_bots, win, limit=120)
+            geo = analytics.geo_breakdown(conn, include_bots, win, by="city", limit=30)
+            pages = analytics.top_pages(conn, include_bots, win, limit=15)
+            chart = analytics.traffic_chart(
+                analytics.daily_series(conn, include_bots, win))
+            fchart = analytics.funnel_svg(funnel)
 
     def _local(ts):
         try:
@@ -1067,7 +1092,37 @@ def admin_analytics():
         "analytics.html", key=key, include_bots=include_bots, built=built,
         kpis=kpis, funnel=funnel, sessions=sessions, geo=geo, pages=pages,
         journey_meta=journey_meta, steps=steps_of,
-        period=period, periods=analytics.PERIODS)
+        period=period, periods=analytics.PERIODS, win=win,
+        dt_from=raw_from, dt_to=raw_to, chart=chart, fchart=fchart,
+        printing=printing)
+
+
+@app.route("/admin/analytics/export.<fmt>")
+def admin_analytics_export(fmt):
+    """Download the current view as .xlsx (multi-sheet) or .csv. Honours the
+    same window + bot filter as the page, so the file matches what you're
+    looking at. PDF isn't served here — the dashboard's Print button renders
+    the page itself through the browser, which keeps the charts and needs no
+    system PDF libraries on the VM."""
+    _require_admin()
+    if fmt not in ("xlsx", "csv"):
+        abort(404)
+    include_bots = request.args.get("bots") == "1"
+    win, _f, _t, _p = _analytics_window()
+    with get_conn() as conn:
+        tables = analytics.export_tables(conn, include_bots, win)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M")
+    if fmt == "xlsx":
+        body = analytics.to_xlsx(tables)
+        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        body = analytics.to_csv(tables)
+        mime = "text/csv; charset=utf-8"
+    resp = make_response(body)
+    resp.headers["Content-Type"] = mime
+    resp.headers["Content-Disposition"] = \
+        f'attachment; filename="investright-analytics-{stamp}.{fmt}"'
+    return resp
 
 
 @app.route("/today")
