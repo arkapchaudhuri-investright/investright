@@ -1745,6 +1745,7 @@ a.peer:hover { border-color: var(--accent); }
 footer .foot-disclaim { margin: 0; }
 footer .foot-credit { margin: 9px 0 0; }
 footer .foot-credit .heart { color: var(--accent); font-style: normal; }
+footer .foot-legal { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
 
 .team-head { text-align: center; padding: 40px 0 6px; }
 .team-head h1 { font-size: 30px; margin: 0 0 6px; }
