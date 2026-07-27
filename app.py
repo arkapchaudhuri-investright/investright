@@ -1067,7 +1067,7 @@ def admin_analytics():
         built = conn.execute("SELECT COUNT(*) c FROM sessions").fetchone()["c"]
         kpis = analytics.overview(conn, include_bots, win)
         steps_of = geo = pages = funnel = sessions = journey_meta = None
-        chart = fchart = ""
+        chart = ""
         if sid:
             journey_meta, steps_of = analytics.session_journey(conn, sid)
         else:
@@ -1077,7 +1077,6 @@ def admin_analytics():
             pages = analytics.top_pages(conn, include_bots, win, limit=15)
             chart = analytics.traffic_chart(
                 analytics.daily_series(conn, include_bots, win))
-            fchart = analytics.funnel_svg(funnel)
 
     def _local(ts):
         try:
@@ -1093,7 +1092,7 @@ def admin_analytics():
         kpis=kpis, funnel=funnel, sessions=sessions, geo=geo, pages=pages,
         journey_meta=journey_meta, steps=steps_of,
         period=period, periods=analytics.PERIODS, win=win,
-        dt_from=raw_from, dt_to=raw_to, chart=chart, fchart=fchart,
+        dt_from=raw_from, dt_to=raw_to, chart=chart,
         printing=printing)
 
 
