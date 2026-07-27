@@ -20,7 +20,7 @@ import ipaddress
 import os
 import shutil
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from db import get_conn
 
@@ -226,35 +226,56 @@ def build():
 
 
 # ─────────────────────────── dashboard queries ──────────────────────
+# Selectable reporting windows. Keys are what the URL carries; the value is a
+# day count (None = all time). A whitelist, so no caller-supplied value ever
+# reaches the SQL — the cutoff itself is still passed as a bound parameter.
+PERIODS = {"7d": ("Last 7 days", 7), "30d": ("Last 30 days", 30),
+           "90d": ("Last 90 days", 90), "all": ("All time", None)}
+DEFAULT_PERIOD = "30d"
+
+
 def _where_bot(include_bots):
     # Always qualified to the sessions row (s) — geo_cache also has an is_bot,
     # so an unqualified name is ambiguous wherever the two are joined.
     return "" if include_bots else " AND s.is_bot = 0"
 
 
-def overview(conn, include_bots=False):
+def _period(period, col="s.started_at"):
+    """(sql_fragment, params) restricting `col` to the chosen window."""
+    days = PERIODS.get(period, PERIODS[DEFAULT_PERIOD])[1]
+    if not days:
+        return "", []
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    return f" AND {col} >= ?", [cutoff]
+
+
+def overview(conn, include_bots=False, period=DEFAULT_PERIOD):
     """Headline KPIs over sessions (humans-only unless include_bots)."""
     wb = _where_bot(include_bots)
+    wp, pp = _period(period)
     row = conn.execute(
         f"SELECT COUNT(*) sessions, COUNT(DISTINCT visitor) visitors, "
         f"  SUM(signed_in) signed_sessions, "
         f"  AVG(duration_s) avg_dur, AVG(pages) avg_pages, "
         f"  SUM(CASE WHEN pages <= 1 THEN 1 ELSE 0 END) bounces "
-        f"FROM sessions s WHERE 1=1{wb}").fetchone()
-    total_sessions = conn.execute("SELECT COUNT(*) c FROM sessions").fetchone()["c"]
-    bot_sessions = conn.execute("SELECT COUNT(*) c FROM sessions WHERE is_bot=1").fetchone()["c"]
+        f"FROM sessions s WHERE 1=1{wb}{wp}", pp).fetchone()
+    # Bot counts follow the same window, so "filtered" reflects what you're seeing.
+    totals = conn.execute(
+        f"SELECT COUNT(*) total, SUM(is_bot) bots FROM sessions s WHERE 1=1{wp}",
+        pp).fetchone()
     d = dict(row)
-    d["bot_sessions"] = bot_sessions
-    d["human_sessions"] = total_sessions - bot_sessions
+    d["bot_sessions"] = totals["bots"] or 0
+    d["human_sessions"] = (totals["total"] or 0) - d["bot_sessions"]
     d["bounce_rate"] = (100 * d["bounces"] / d["sessions"]) if d["sessions"] else 0
     return d
 
 
-def funnel(conn, include_bots=False):
+def funnel(conn, include_bots=False, period=DEFAULT_PERIOD):
     """Engagement milestones: how many sessions ever reached each one, as a share
     of all sessions. Independent measures, not sequential steps — see FUNNEL for
     why drop-off between them would be meaningless here."""
     wb = _where_bot(include_bots)
+    wp, pp = _period(period)
     cols = {
         "visit":    "COUNT(*)",
         "search":   "SUM(hit_search)",
@@ -264,20 +285,22 @@ def funnel(conn, include_bots=False):
     }
     row = conn.execute(
         f"SELECT {', '.join(f'{expr} AS {k}' for k, expr in cols.items())} "
-        f"FROM sessions s WHERE 1=1{wb}").fetchone()
+        f"FROM sessions s WHERE 1=1{wb}{wp}", pp).fetchone()
     top = row["visit"] or 0
     return [{"key": key, "label": label, "count": row[key] or 0,
              "pct_top": (100 * (row[key] or 0) / top) if top else 0}
             for key, label, _ in FUNNEL]
 
 
-def recent_sessions(conn, include_bots=False, limit=100):
+def recent_sessions(conn, include_bots=False, period=DEFAULT_PERIOD, limit=100):
     """Most recent visits with geo joined, newest first."""
     wb = _where_bot(include_bots)
+    wp, pp = _period(period)
     rows = conn.execute(
         f"SELECT s.*, g.city, g.region, g.country, g.country_code, g.bot_reason "
         f"FROM sessions s LEFT JOIN geo_cache g ON g.ip = s.ip "
-        f"WHERE 1=1{wb} ORDER BY s.started_at DESC LIMIT ?", (limit,)).fetchall()
+        f"WHERE 1=1{wb}{wp} ORDER BY s.started_at DESC LIMIT ?",
+        pp + [limit]).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -308,26 +331,28 @@ def session_journey(conn, session_id):
     return s, steps
 
 
-def geo_breakdown(conn, include_bots=False, by="country", limit=40):
+def geo_breakdown(conn, include_bots=False, period=DEFAULT_PERIOD, by="country", limit=40):
     """Distinct-visitor + session counts grouped by country or city."""
     wb = _where_bot(include_bots)
+    wp, pp = _period(period)
     grp = "g.country" if by == "country" else \
           "COALESCE(g.city,'(unknown)') || ', ' || COALESCE(g.country,'')"
     rows = conn.execute(
         f"SELECT {grp} place, COUNT(DISTINCT s.visitor) visitors, COUNT(*) sessions "
         f"FROM sessions s LEFT JOIN geo_cache g ON g.ip = s.ip "
-        f"WHERE 1=1{wb} GROUP BY place ORDER BY visitors DESC LIMIT ?",
-        (limit,)).fetchall()
+        f"WHERE 1=1{wb}{wp} GROUP BY place ORDER BY visitors DESC LIMIT ?",
+        pp + [limit]).fetchall()
     return [dict(r) for r in rows]
 
 
-def top_pages(conn, include_bots=False, limit=20):
-    """Most-viewed paths, with avg dwell (server estimate). Joins events→geo via
-    ip to honour the bot filter."""
+def top_pages(conn, include_bots=False, period=DEFAULT_PERIOD, limit=20):
+    """Most-viewed paths. Reads `events` directly (not sessions), so the window
+    filters on e.ts; joins geo_cache by ip to honour the bot filter."""
     wb = " AND COALESCE(g.is_bot,0) = 0" if not include_bots else ""
+    wp, pp = _period(period, col="e.ts")
     rows = conn.execute(
         f"SELECT e.path, COUNT(*) views, COUNT(DISTINCT e.visitor) visitors "
         f"FROM events e LEFT JOIN geo_cache g ON g.ip = e.ip "
-        f"WHERE e.path IS NOT NULL{wb} "
-        f"GROUP BY e.path ORDER BY views DESC LIMIT ?", (limit,)).fetchall()
+        f"WHERE e.path IS NOT NULL{wb}{wp} "
+        f"GROUP BY e.path ORDER BY views DESC LIMIT ?", pp + [limit]).fetchall()
     return [dict(r) for r in rows]

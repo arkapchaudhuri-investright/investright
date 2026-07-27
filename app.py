@@ -25,6 +25,7 @@ import strategy_screen
 from auth import bp as auth_bp, client_ip, current_user, login_required
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 add_user_peer, add_user_watch, get_conn, get_user_note, init_db,
+                is_admin as db_is_admin,   # aliased: _require_admin owns the short name
                 log_event, recent_login_failures, remove_user_peer,
                 remove_holding, remove_user_watch, save_price_history,
                 save_snapshot, save_user_note, upsert_holding, user_peers_for,
@@ -105,6 +106,25 @@ def inject_csrf():
     return {"csrf_token": token}
 
 
+def _require_admin():
+    """Gate the /admin pages. Two ways in, both fine:
+      • signed in with an admin grant (the `admins` table) — reachable from the
+        UI, nothing secret in the URL; or
+      • ?key=<ADMIN_KEY>, the original break-glass path that works logged out.
+    404 (never 403) so the pages stay invisible to everyone else. Returns the
+    key to echo into template links — empty for the admin-account path, which
+    is exactly right: those links shouldn't carry a secret."""
+    key = request.args.get("key", "")
+    if ADMIN_KEY and hmac.compare_digest(key, ADMIN_KEY):
+        return key
+    user = current_user()
+    if user:
+        with get_conn() as conn:
+            if db_is_admin(conn, user["id"]):
+                return ""
+    abort(404)
+
+
 def _log(action, ticker=None):
     """Record one activity event. name/market are self-reported values the
     browser mirrors from localStorage into cookies (see base.html); IP prefers
@@ -140,6 +160,21 @@ def inject_wl_count():
         return {"wl_count": n}
     except Exception:
         return {"wl_count": 0}
+
+
+@app.context_processor
+def inject_admin():
+    """`is_admin` for every template — the gear shows the admin links only to
+    an account holding a grant. Never raises: a failure here would break every
+    page, and the routes re-check the grant themselves anyway."""
+    try:
+        user = current_user()
+        if not user:
+            return {"is_admin": False}
+        with get_conn() as conn:
+            return {"is_admin": db_is_admin(conn, user["id"])}
+    except Exception:
+        return {"is_admin": False}
 
 
 @app.context_processor
@@ -968,9 +1003,7 @@ def admin():
     anonymous cookie UUID, and name/market are self-reported. Disabled entirely
     (404) unless ADMIN_KEY is set in .env, and the key never appears in a link
     on the site, so it stays out of logs/history unless you type it."""
-    key = request.args.get("key", "")
-    if not ADMIN_KEY or not hmac.compare_digest(key, ADMIN_KEY):
-        abort(404)                       # don't reveal the page exists
+    key = _require_admin()
     with get_conn() as conn:
         events = [dict(r) for r in conn.execute(
             "SELECT e.*, u.email AS account FROM events e "
@@ -1003,22 +1036,23 @@ def admin_analytics():
     Reads only the nightly-built caches (geo_cache, sessions) — no request-time
     geolocation or session math. `bots=1` includes crawler/datacenter traffic;
     the default is humans-only. `s=<id>` drills into one visit's journey."""
-    key = request.args.get("key", "")
-    if not ADMIN_KEY or not hmac.compare_digest(key, ADMIN_KEY):
-        abort(404)
+    key = _require_admin()
     include_bots = request.args.get("bots") == "1"
+    period = request.args.get("period")
+    if period not in analytics.PERIODS:
+        period = analytics.DEFAULT_PERIOD
     sid = request.args.get("s")
     with get_conn() as conn:
         built = conn.execute("SELECT COUNT(*) c FROM sessions").fetchone()["c"]
-        kpis = analytics.overview(conn, include_bots)
+        kpis = analytics.overview(conn, include_bots, period)
         steps_of = geo = pages = funnel = sessions = journey_meta = None
         if sid:
             journey_meta, steps_of = analytics.session_journey(conn, sid)
         else:
-            funnel = analytics.funnel(conn, include_bots)
-            sessions = analytics.recent_sessions(conn, include_bots, limit=120)
-            geo = analytics.geo_breakdown(conn, include_bots, by="city", limit=30)
-            pages = analytics.top_pages(conn, include_bots, limit=15)
+            funnel = analytics.funnel(conn, include_bots, period)
+            sessions = analytics.recent_sessions(conn, include_bots, period, limit=120)
+            geo = analytics.geo_breakdown(conn, include_bots, period, by="city", limit=30)
+            pages = analytics.top_pages(conn, include_bots, period, limit=15)
 
     def _local(ts):
         try:
@@ -1032,7 +1066,8 @@ def admin_analytics():
     return render_template(
         "analytics.html", key=key, include_bots=include_bots, built=built,
         kpis=kpis, funnel=funnel, sessions=sessions, geo=geo, pages=pages,
-        journey_meta=journey_meta, steps=steps_of)
+        journey_meta=journey_meta, steps=steps_of,
+        period=period, periods=analytics.PERIODS)
 
 
 @app.route("/today")

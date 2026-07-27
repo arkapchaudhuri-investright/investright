@@ -352,6 +352,15 @@ CREATE TABLE IF NOT EXISTS sessions (
     hit_signup   INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
+
+-- Admin grants. A TABLE rather than a users.is_admin column on purpose: a new
+-- column added in _migrate races the two gunicorn workers on first deploy (one
+-- 502s on "duplicate column" until systemd restarts it), whereas CREATE TABLE
+-- IF NOT EXISTS is safe. CASCADE so deleting an account revokes admin with it.
+CREATE TABLE IF NOT EXISTS admins (
+    user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    granted_at TEXT NOT NULL
+);
 """
 
 
@@ -587,6 +596,26 @@ def remove_user_watch(conn, user_id, ticker):
     the global union intact (other users / peers / refresh may still need it)."""
     conn.execute("DELETE FROM user_watchlist WHERE user_id=? AND ticker=?",
                  (user_id, ticker))
+
+
+def is_admin(conn, user_id):
+    """True when this account holds an admin grant (see the `admins` table).
+    Admin unlocks the /admin pages from the UI, so the signed-in visitor no
+    longer needs the ADMIN_KEY in the URL."""
+    if not user_id:
+        return False
+    return conn.execute("SELECT 1 FROM admins WHERE user_id = ?",
+                        (user_id,)).fetchone() is not None
+
+
+def grant_admin(conn, user_id):
+    """Idempotent admin grant."""
+    conn.execute("INSERT OR IGNORE INTO admins (user_id, granted_at) VALUES (?,?)",
+                 (user_id, datetime.now(timezone.utc).isoformat(timespec="seconds")))
+
+
+def revoke_admin(conn, user_id):
+    conn.execute("DELETE FROM admins WHERE user_id = ?", (user_id,))
 
 
 def user_watches(conn, user_id, ticker):

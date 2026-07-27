@@ -40,6 +40,7 @@ from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
+import db
 from db import DB_PATH, get_conn, get_user_by_email, set_password
 
 
@@ -259,6 +260,31 @@ def migrate_holdings(commit):
               "old user_watchlist columns. Done.")
 
 
+def set_admin(email, revoke, apply_):
+    """Grant (or revoke) the admin flag that unlocks /admin + /admin/analytics
+    from the UI for a signed-in account."""
+    email = email.strip().lower()
+    with get_conn() as conn:
+        user = get_user_by_email(conn, email)
+        if not user:
+            sys.exit(f"No account with email {email!r}.")
+        already = db.is_admin(conn, user["id"])
+        verb = "Revoke admin from" if revoke else "Grant admin to"
+        print(f"{verb}: id={user['id']} email={user['email']} name={user['name']!r}")
+        print(f"Currently admin: {'yes' if already else 'no'}")
+        if (revoke and not already) or (not revoke and already):
+            print("Nothing to change.")
+            return
+        if not apply_:
+            print("\nDRY RUN — nothing written. Re-run with --apply.")
+            return
+        if revoke:
+            db.revoke_admin(conn, user["id"])
+        else:
+            db.grant_admin(conn, user["id"])
+        print("Done. Sign out and back in isn't needed — it takes effect immediately.")
+
+
 def set_user_password(email, password, apply_):
     email = email.strip().lower()
     with get_conn() as conn:
@@ -432,8 +458,18 @@ def main():
     b.add_argument("--apply", action="store_true",
                    help="actually write (default is a dry run)")
 
+    ad = sub.add_parser("set-admin",
+                        help="grant/revoke admin (unlocks /admin + /admin/analytics "
+                             "from the UI for that signed-in account)")
+    ad.add_argument("--email", required=True)
+    ad.add_argument("--revoke", action="store_true", help="remove admin instead of granting")
+    ad.add_argument("--apply", action="store_true",
+                    help="actually write (default is a dry run)")
+
     args = ap.parse_args()
-    if args.cmd == "migrate-watchlist":
+    if args.cmd == "set-admin":
+        set_admin(args.email, args.revoke, args.apply)
+    elif args.cmd == "migrate-watchlist":
         migrate_watchlist(args.email, args.apply)
     elif args.cmd == "migrate-holdings":
         migrate_holdings(args.commit)
