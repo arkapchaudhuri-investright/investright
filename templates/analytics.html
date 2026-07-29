@@ -30,6 +30,9 @@
   .an-card { background: var(--card); border: 1px solid var(--hairline);
     border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; }
   .an-chart { display: block; width: 100%; height: auto; }
+  /* .trend-wrap supplies position:relative + the crosshair cursor; the height
+     override stops the shared .trend-chart rule pinning this one to 150px. */
+  .an-chart-wrap .an-chart { height: auto; }
   .an-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 12px; margin-bottom: 26px; }
   .an-kpi { background: var(--card); border: 1px solid var(--hairline);
@@ -195,7 +198,50 @@
 
   {% if chart %}
   <h2>Traffic over time <span class="asof">— solid = sessions · dashed = unique visitors</span></h2>
-  <div class="an-card">{{ chart|safe }}</div>
+  {# Crosshair overlay reuses the deep-dive price chart's classes, so the
+     readout behaves identically: hover (or drag on touch) to pin a day. #}
+  <div class="an-card">
+    <div class="trend-wrap an-chart-wrap" id="an-wrap">
+      {{ chart.svg|safe }}
+      <div class="trend-cross" id="an-cross" hidden><span class="trend-cross-dot" id="an-dot"></span></div>
+      <div class="trend-tip" id="an-tip" hidden></div>
+    </div>
+  </div>
+  <script id="an-chart-data" type="application/json">{{ chart|tojson }}</script>
+  <script>
+  (function () {
+    var data = {};
+    try { data = JSON.parse(document.getElementById('an-chart-data').textContent); } catch (e) { return; }
+    var pts = data.points || [];
+    if (!pts.length) return;
+    var W = data.width, H = data.height;
+    var wrap = document.getElementById('an-wrap'), cross = document.getElementById('an-cross'),
+        dot = document.getElementById('an-dot'), tip = document.getElementById('an-tip');
+    function hide() { cross.hidden = true; tip.hidden = true; }
+    function onMove(e) {
+      var r = wrap.getBoundingClientRect();
+      var px = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+      var tx = Math.max(0, Math.min(1, px / r.width)) * W;
+      var best = pts[0], bd = Infinity;
+      for (var i = 0; i < pts.length; i++) {
+        var d = Math.abs(pts[i].x - tx);
+        if (d < bd) { bd = d; best = pts[i]; }
+      }
+      var lx = (best.x / W) * r.width;
+      cross.hidden = false; cross.style.left = lx + 'px';
+      dot.style.top = (best.y / H) * r.height + 'px';
+      tip.hidden = false;
+      tip.innerHTML = '<b>' + best.sessions + (best.sessions === 1 ? ' session' : ' sessions') +
+        '</b><span>' + best.visitors + (best.visitors === 1 ? ' visitor' : ' visitors') +
+        ' · ' + best.label + '</span>';
+      tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, lx - tip.offsetWidth / 2)) + 'px';
+    }
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerleave', hide);
+    wrap.addEventListener('touchmove', onMove, {passive: true});
+    wrap.addEventListener('touchend', hide);
+  })();
+  </script>
   {% endif %}
 
   <h2>What visitors did <span class="asof">— share of sessions reaching each milestone</span></h2>

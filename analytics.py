@@ -75,7 +75,14 @@ def ensure_geodb():
     for ym in months:
         try:
             tmp = GEODB_PATH + ".gz"
-            urllib.request.urlretrieve(GEODB_URL.format(ym=ym), tmp)
+            # DB-IP 403s the default "Python-urllib/3.x" agent, so the download
+            # must identify itself. Without this the fetch failed silently on
+            # the VM and every IP resolved with a NULL city/country.
+            req = urllib.request.Request(
+                GEODB_URL.format(ym=ym),
+                headers={"User-Agent": "InvestRight/1.0 (+https://investright.us)"})
+            with urllib.request.urlopen(req, timeout=180) as r, open(tmp, "wb") as f:
+                shutil.copyfileobj(r, f)
             with gzip.open(tmp, "rb") as fi, open(GEODB_PATH, "wb") as fo:
                 shutil.copyfileobj(fi, fo)
             os.remove(tmp)
@@ -83,6 +90,14 @@ def ensure_geodb():
         except Exception:
             continue
     return None
+
+
+def regeolocate_all(conn):
+    """Drop and rebuild every geo_cache row. Needed after the database first
+    becomes available: rows resolved while it was missing carry a bot flag but
+    a NULL city/country, and geolocate_new() skips IPs it has already seen."""
+    conn.execute("DELETE FROM geo_cache")
+    return geolocate_new(conn)
 
 
 def _is_private(ip):
@@ -448,9 +463,14 @@ def _pts(values, w, h, pad):
 
 def traffic_chart(series, width=920, height=200, pad=26):
     """Filled area + line of daily sessions, with unique visitors as a second
-    line. Returns an SVG string, or '' when there's nothing to draw."""
+    line.
+
+    Returns {'svg', 'width', 'height', 'points'} — the points carry each day's
+    plotted x/y plus its raw numbers, so the page can hang the same crosshair
+    readout on it that the deep-dive price chart uses. {} when there's nothing
+    to draw."""
     if len(series) < 2:
-        return ""
+        return {}
     sess = [d["sessions"] for d in series]
     vis = [d["visitors"] for d in series]
     hi = max(sess) or 1
@@ -474,7 +494,7 @@ def traffic_chart(series, width=920, height=200, pad=26):
         anchor = "start" if idx == 0 else "end" if idx == len(series) - 1 else "middle"
         ticks += (f'<text x="{x:.1f}" y="{height - 6}" text-anchor="{anchor}" '
                   f'font-size="10" fill="var(--muted)">{lbl}</text>')
-    return (
+    svg = (
         f'<svg viewBox="0 0 {width} {height}" class="an-chart" role="img" '
         f'aria-label="Daily sessions and unique visitors">{grid}'
         f'<polygon points="{area}" fill="var(--accent)" opacity=".14"/>'
@@ -483,6 +503,12 @@ def traffic_chart(series, width=920, height=200, pad=26):
         f'<polyline points="{vline}" fill="none" stroke="var(--muted)" stroke-width="1.5" '
         f'stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>'
         f'{ticks}</svg>')
+    points = [{"x": round(ps[i][0], 1), "y": round(ps[i][1], 1),
+               "vy": round(pv[i][1], 1), "day": series[i]["day"],
+               "label": datetime.fromisoformat(series[i]["day"]).strftime("%-d %b %Y"),
+               "sessions": series[i]["sessions"], "visitors": series[i]["visitors"]}
+              for i in range(len(series))]
+    return {"svg": svg, "width": width, "height": height, "points": points}
 def export_tables(conn, include_bots=False, win=None):
     """The dashboard as plain tabular data: {sheet_name: (headers, rows)}.
     One source for every export format, so CSV, Excel and print never drift."""

@@ -65,7 +65,7 @@
     <table class="adm-tbl">
       <thead><tr>
         <th>When</th><th>Action</th><th>Ticker</th><th>Account</th><th>Name</th><th>Market</th>
-        <th>Visitor</th><th>IP</th><th>Browser</th>
+        <th>Location</th><th>Visitor</th><th>IP</th><th>Browser</th>
       </tr></thead>
       <tbody>
         {% for e in events %}
@@ -76,6 +76,16 @@
           <td class="acct" title="{{ e['account'] or '' }}">{{ e['account'] or '—' }}</td>
           <td>{{ e['name'] or '—' }}</td>
           <td>{{ e['market'] or '—' }}</td>
+          {# Location comes from geo_cache, keyed on IP — so it fills in for old
+             rows too. Approximate by nature; bots get flagged rather than hidden. #}
+          <td class="loc" title="{{ (e['bot_reason'] ~ ' — likely bot') if e['is_bot'] else '' }}">
+            {%- if e['city'] or e['country'] -%}
+              {{ e['city'] ~ ', ' if e['city'] }}{{ e['country_code'] or e['country'] }}
+              {%- if e['is_bot'] %} <span class="pill">bot</span>{% endif -%}
+            {%- elif e['is_bot'] -%}
+              <span class="pill">bot</span>
+            {%- else -%}—{%- endif -%}
+          </td>
           <td class="vid">{{ (e['visitor'] or '')[:8] }}</td>
           <td class="vid">{{ e['ip'] or '' }}</td>
           <td class="ua" title="{{ e['ua'] }}">{{ e['ua'] or '' }}</td>
