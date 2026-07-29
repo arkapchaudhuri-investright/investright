@@ -1027,9 +1027,14 @@ def admin():
     on the site, so it stays out of logs/history unless you type it."""
     key = _require_admin()
     with get_conn() as conn:
+        # geo_cache covers every IP ever seen, so joining it back onto the log
+        # gives historical rows a location too — no backfill of `events` needed.
         events = [dict(r) for r in conn.execute(
-            "SELECT e.*, u.email AS account FROM events e "
+            "SELECT e.*, u.email AS account, "
+            "       g.city, g.country, g.country_code, g.is_bot, g.bot_reason "
+            "FROM events e "
             "LEFT JOIN users u ON u.id = e.user_id "
+            "LEFT JOIN geo_cache g ON g.ip = e.ip "
             "ORDER BY e.id DESC LIMIT 500")]
         total = conn.execute("SELECT COUNT(*) c FROM events").fetchone()["c"]
         visitors = conn.execute(
