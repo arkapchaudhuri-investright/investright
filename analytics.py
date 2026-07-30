@@ -26,8 +26,10 @@ from db import get_conn
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 GEODB_PATH = os.path.join(DATA_DIR, "dbip-city-lite.mmdb")
-# DB-IP publishes a free monthly City-Lite mmdb (CC-BY 4.0), no account needed.
+ASNDB_PATH = os.path.join(DATA_DIR, "dbip-asn-lite.mmdb")
+# DB-IP publishes free monthly City- and ASN-Lite mmdbs (CC-BY 4.0), no account.
 GEODB_URL = "https://download.db-ip.com/free/dbip-city-lite-{ym}.mmdb.gz"
+ASNDB_URL = "https://download.db-ip.com/free/dbip-asn-lite-{ym}.mmdb.gz"
 
 SESSION_GAP_S = 30 * 60          # a >30-min silence starts a new visit
 DWELL_CAP_S = 30 * 60           # cap one page's counted dwell (idle tabs, lunch)
@@ -36,8 +38,76 @@ DWELL_CAP_S = 30 * 60           # cap one page's counted dwell (idle tabs, lunch
 # IP prefixes we've actually seen. This only *labels*; nothing is dropped.
 BOT_UA = ("bot", "crawl", "spider", "slurp", "bingpreview", "facebookexternalhit",
           "headless", "python-requests", "curl", "wget", "httpclient", "scan",
-          "monitor", "uptime", "lighthouse", "pagespeed", "semrush", "ahrefs")
+          "monitor", "uptime", "lighthouse", "pagespeed", "semrush", "ahrefs",
+          "go-http", "java/", "okhttp", "axios", "node-fetch", "libwww",
+          "phantomjs", "selenium", "puppeteer", "playwright", "archiver",
+          "feedfetcher", "preview", "validator", "checker", "fetcher")
 BOT_IP_PREFIX = ("66.249.",)   # Googlebot
+
+# Hosting / cloud / CDN autonomous systems. Nobody browses a stock site from
+# inside a datacenter, so traffic from these is automation however convincing
+# its user-agent — this is what unmasked the "1,239 visitors from Singapore"
+# (AWS ap-southeast-1) and "853 from Dallas" that survived every UA check.
+#
+# Deliberately made of hosting-specific words and named providers: residential
+# and mobile ISPs must never match, so broad terms like "telecom",
+# "communications", "broadband" and "mobile" are kept out on purpose.
+HOSTING_ORG = (
+    "amazon", "aws", "google llc", "google cloud", "microsoft", "azure",
+    "ovh", "digitalocean", "hetzner", "linode", "akamai", "cloudflare",
+    "fastly", "alibaba", "tencent", "huawei cloud", "oracle cloud", "vultr",
+    "choopa", "contabo", "scaleway", "leaseweb", "rackspace", "interserver",
+    "hostinger", "godaddy", "namecheap", "bluehost", "dreamhost", "ionos",
+    "1&1", "m247", "datacamp", "g-core", "zenlayer", "cogent", "hivelocity",
+    "quadranet", "psychz", "servers.com", "serverius", "worldstream",
+    "netcup", "aruba s.p.a.", "online s.a.s.", "iomart", "webair", "vpsville",
+    "digital ocean", "upcloud", "clouvider", "melbicom", "flokinet", "frantech",
+    "buyvm", "colocrossing", "limestone", "sharktech", "nforce", "ipxo",
+    "constant company", "latitude.sh", "packet host", "equinix", "fly.io",
+    "railway", "render", "heroku", "vercel", "netlify", "meta platforms",
+    "facebook", "bytedance", "yandex", "baidu", "openai", "anthropic",
+    "hosting", "datacenter", "data center", "colocation", "colo ", " vps",
+    "dedicated server", "cloud services", "cloud computing", "web services",
+)
+
+
+def looks_datacenter(as_org):
+    """True when an AS organisation name reads as hosting/cloud infrastructure
+    rather than a consumer ISP."""
+    if not as_org:
+        return False
+    o = as_org.lower()
+    return any(tok in o for tok in HOSTING_ORG)
+
+# Datacenter / hosting detection by AS organisation. This is the filter that
+# actually matters: the loudest "visitors" run a real browser engine from a
+# rented server, so no user-agent test catches them — but nobody browses a
+# stock site from inside AWS. Matched as substrings against the lowercased AS
+# org name. Deliberately specific: generic words like "telecom", "network" or
+# "communications" would sweep up genuine consumer ISPs.
+DATACENTER_ORGS = (
+    # hyperscale + cloud
+    "amazon", "aws", "google llc", "google cloud", "microsoft", "azure",
+    "oracle cloud", "alibaba", "tencent", "huawei cloud", "ibm",
+    # VPS / hosting
+    "ovh", "digitalocean", "digital ocean", "linode", "hetzner", "vultr",
+    "scaleway", "contabo", "leaseweb", "choopa", "quadranet", "psychz",
+    "colocrossing", "hivelocity", "interserver", "hostwinds", "liquid web",
+    "godaddy", "hostinger", "namecheap", "bluehost", "dreamhost", "ionos",
+    "netcup", "upcloud", "kamatera", "m247", "datacamp", "worldstream",
+    "serverius", "zenlayer", "rackspace", "packet host", "equinix",
+    "digitalpacific", "servermania", "nforce", "aruba s.p.a", "online s.a.s",
+    # CDNs / edge (their fetchers, not their customers)
+    "cloudflare", "fastly", "akamai", "stackpath", "bunny",
+    # crawlers, scrapers and scanners that ship a browser
+    "facebook", "meta platforms", "bytedance", "twitter", "x corp",
+    "censys", "shodan", "internet measurement", "driftnet", "binaryedge",
+    "palo alto", "qualys", "rapid7", "netcraft", "bitsight",
+    # generic giveaways
+    "hosting", "datacenter", "data center", "colocation", "vps", "dedicated server",
+)
+# Consumer ISPs whose names collide with the list above — never flag these.
+DATACENTER_EXCEPT = ("google fiber", "amazon prime",)
 
 # Engagement MILESTONES, ordered by depth of intent — deliberately NOT a
 # sequential funnel. Search engines land people straight on /stock/<ticker>, so
@@ -57,16 +127,16 @@ FUNNEL = [
 
 
 # ─────────────────────────── geolocation ────────────────────────────
-def ensure_geodb():
-    """Return a path to the DB-IP City mmdb, downloading it once if absent.
-    Tries the current month then the previous two (start-of-month lag). Returns
-    None if it can't be fetched — geolocation then degrades to bot-flag only."""
-    if os.path.exists(GEODB_PATH):
-        return GEODB_PATH
+def _ensure_db(path, url_tmpl):
+    """Return `path` to a DB-IP mmdb, downloading it once if absent. Tries the
+    current month then the previous two (DB-IP publishes with a start-of-month
+    lag). Returns None if it can't be fetched, so callers degrade rather than
+    crash."""
+    if os.path.exists(path):
+        return path
     os.makedirs(DATA_DIR, exist_ok=True)
     now = datetime.now(timezone.utc)
-    months = []
-    y, m = now.year, now.month
+    months, y, m = [], now.year, now.month
     for _ in range(3):
         months.append(f"{y:04d}-{m:02d}")
         m -= 1
@@ -74,22 +144,33 @@ def ensure_geodb():
             y, m = y - 1, 12
     for ym in months:
         try:
-            tmp = GEODB_PATH + ".gz"
+            tmp = path + ".gz"
             # DB-IP 403s the default "Python-urllib/3.x" agent, so the download
             # must identify itself. Without this the fetch failed silently on
             # the VM and every IP resolved with a NULL city/country.
             req = urllib.request.Request(
-                GEODB_URL.format(ym=ym),
+                url_tmpl.format(ym=ym),
                 headers={"User-Agent": "InvestRight/1.0 (+https://investright.us)"})
             with urllib.request.urlopen(req, timeout=180) as r, open(tmp, "wb") as f:
                 shutil.copyfileobj(r, f)
-            with gzip.open(tmp, "rb") as fi, open(GEODB_PATH, "wb") as fo:
+            with gzip.open(tmp, "rb") as fi, open(path, "wb") as fo:
                 shutil.copyfileobj(fi, fo)
             os.remove(tmp)
-            return GEODB_PATH
+            return path
         except Exception:
             continue
     return None
+
+
+def ensure_geodb():
+    """DB-IP City mmdb — IP → city/region/country."""
+    return _ensure_db(GEODB_PATH, GEODB_URL)
+
+
+def ensure_asndb():
+    """DB-IP ASN mmdb — IP → autonomous-system org, which is how datacenter
+    traffic gets caught."""
+    return _ensure_db(ASNDB_PATH, ASNDB_URL)
 
 
 def regeolocate_all(conn):
@@ -107,7 +188,19 @@ def _is_private(ip):
         return True                      # unparseable → treat as non-public
 
 
-def _bot_reason(ip, ua):
+def looks_datacenter(org):
+    """True when an AS organisation name reads as hosting/cloud/crawler rather
+    than a consumer ISP."""
+    o = (org or "").lower()
+    if not o or any(x in o for x in DATACENTER_EXCEPT):
+        return False
+    return any(tok in o for tok in DATACENTER_ORGS)
+
+
+def _bot_reason(ip, ua, as_org=None):
+    """Why this IP is considered non-human, or None. Ordered cheapest-first;
+    the AS-organisation test is what catches headless browsers on rented
+    servers, which no user-agent check can see."""
     ua = (ua or "").lower()
     if _is_private(ip):
         return "localhost/private"
@@ -115,6 +208,10 @@ def _bot_reason(ip, ua):
         return "googlebot"
     if any(tok in ua for tok in BOT_UA):
         return "ua"
+    if not ua:
+        return "no user-agent"
+    if looks_datacenter(as_org):
+        return f"datacenter: {as_org}"
     return None
 
 
@@ -125,7 +222,7 @@ def geolocate_new(conn):
         import maxminddb
     except Exception:
         maxminddb = None
-    reader = None
+    reader = asn_reader = None
     if maxminddb:
         path = ensure_geodb()
         if path:
@@ -133,6 +230,12 @@ def geolocate_new(conn):
                 reader = maxminddb.open_database(path)
             except Exception:
                 reader = None
+        apath = ensure_asndb()
+        if apath:
+            try:
+                asn_reader = maxminddb.open_database(apath)
+            except Exception:
+                asn_reader = None
 
     todo = conn.execute(
         "SELECT DISTINCT e.ip, "
@@ -143,7 +246,13 @@ def geolocate_new(conn):
     n = 0
     for row in todo:
         ip, ua = row["ip"], row["ua"]
-        reason = _bot_reason(ip, ua)
+        as_org = None
+        if asn_reader and not _is_private(ip):
+            try:
+                as_org = (asn_reader.get(ip) or {}).get("autonomous_system_organization")
+            except (ValueError, KeyError):
+                pass
+        reason = _bot_reason(ip, ua, as_org)
         city = region = country = cc = None
         if reader and not _is_private(ip):
             try:
@@ -163,6 +272,8 @@ def geolocate_new(conn):
         n += 1
     if reader:
         reader.close()
+    if asn_reader:
+        asn_reader.close()
     return n
 
 
@@ -180,6 +291,25 @@ def rebuild_sessions(conn):
     entry/exit, funnel milestones, and whether the visit was a bot. Returns the
     number of sessions written."""
     bots = {r["ip"]: r["is_bot"] for r in conn.execute("SELECT ip, is_bot FROM geo_cache")}
+
+    # Behavioural pass: a crawler that ignores Set-Cookie gets a brand-new
+    # visitor id on every request, so one IP appears as dozens of one-page
+    # "visitors". Real shared IPs (offices, mobile NAT) show far fewer distinct
+    # ids and people who actually read something, so require BOTH a high id
+    # count and almost every event being a single-page hit before flagging.
+    for r in conn.execute(
+            "SELECT ip, COUNT(DISTINCT visitor) ids, COUNT(*) evs "
+            "FROM events WHERE ip IS NOT NULL AND ip != '' GROUP BY ip "
+            "HAVING ids >= 15"):
+        if r["evs"] <= r["ids"] * 1.3:      # ~1 event per identity = no session
+            bots[r["ip"]] = 1
+            # Persist it so the /admin event log's Location column agrees with
+            # the dashboard instead of calling the same IP human.
+            conn.execute(
+                "UPDATE geo_cache SET is_bot = 1, "
+                "  bot_reason = COALESCE(NULLIF(bot_reason,''), ?) WHERE ip = ?",
+                (f"cookie-less: {r['ids']} ids / {r['evs']} hits", r["ip"]))
+
     rows = conn.execute(
         "SELECT ts, visitor, name, market, action, path, ua, ip, user_id "
         "FROM events WHERE visitor IS NOT NULL ORDER BY visitor, ts").fetchall()
