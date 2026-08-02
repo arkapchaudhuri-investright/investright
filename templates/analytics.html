@@ -294,7 +294,11 @@
           <td>{{ dur(s.duration_s) }}</td>
           <td class="path-cell" title="{{ s.entry_path }} → {{ s.exit_path }}">{{ s.entry_path }} → {{ s.exit_path }}</td>
           <td>{% if s.hit_save %}💾 saved{% elif s.hit_deepdive %}📊 deep-dive{% elif s.hit_search %}🔍 search{% else %}—{% endif %}</td>
-          <td><a href="{{ base }}{{ keep }}&s={{ s.id }}">journey →</a></td>
+          {# |urlencode is required, not cosmetic: the session id ends in a UTC
+             offset ("…T02:55:43+00:00") and a bare '+' in a query string decodes
+             to a space, so the lookup silently missed and fell back to the
+             overview. Jinja's autoescaping only handles HTML, not URLs. #}
+          <td><a href="{{ base }}{{ keep }}&s={{ s.id|urlencode }}">journey →</a></td>
         </tr>
         {% else %}
         <tr><td colspan="8" class="bot">No sessions yet — the nightly job hasn't run, or all traffic was filtered.</td></tr>
