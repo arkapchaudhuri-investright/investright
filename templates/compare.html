@@ -2,6 +2,13 @@
 {% block title %}Compare · InvestRight{% endblock %}
 {% block content %}
 
+{# Without this the page's own flashes ("already in this comparison", the
+   four-company limit) were set but never drawn, then surfaced on whatever
+   page the visitor happened to load next. #}
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+{% endwith %}
+
 <section class="card">
   <div class="card-head"><h2>Compare</h2>
     <span class="asof">{{ cols|length }} stocks · latest saved figures</span></div>
@@ -13,6 +20,14 @@
           <th class="im-corner cmp-metric"></th>
           {% for c in cols %}
           <th class="cmp-head">
+            {# Remove = a plain link back to /compare minus this ticker. The
+               comparison lives entirely in ?t=, so editing it needs no account
+               and no DB write — guests can rearrange freely. #}
+            {% if cols|length > 2 %}
+            {% set rest = cols|rejectattr('ticker', 'equalto', c['ticker'])|map(attribute='ticker')|join(',') %}
+            <a class="cmp-del" href="{{ url_for('compare', t=rest) }}"
+               title="Remove {{ c['ticker'] }}" aria-label="Remove {{ c['ticker'] }} from the comparison">✕</a>
+            {% endif %}
             <a href="{{ url_for('stock', ticker=c['ticker']) }}" class="cmp-headlink">
               {% if c['logo'] %}
               <img class="cmp-logo" src="{{ url_for('static', filename='logos/' + c['logo']) }}" alt="" width="34" height="34">
@@ -71,6 +86,21 @@
       </tbody>
     </table>
   </div>
+  {# Add a company — mirrors the deep-dive's "add a competitor" field, including
+     free-text resolution (a company name lands on the right ticker). #}
+  {% if cols|length < max_cols %}
+  <form class="cmp-add" action="{{ url_for('compare_add') }}" method="post" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="t" value="{{ cols|map(attribute='ticker')|join(',') }}">
+    <input name="symbol" type="text" spellcheck="false"
+           placeholder="Add a company — name or ticker…"
+           aria-label="Add a company to this comparison">
+    <button type="submit" class="ghost">+ Add</button>
+  </form>
+  {% else %}
+  <p class="asof cmp-full">Four is the limit — remove one with ✕ to swap in another.</p>
+  {% endif %}
+
   <p class="asof perf-note">Figures from each stock's latest saved snapshot; the
     health score is the share of Otto's checks passed. Not investment advice.</p>
 </section>

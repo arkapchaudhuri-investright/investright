@@ -1687,7 +1687,11 @@ def compare():
             cols.append({
                 **row, "logo": logos.find(tk),
                 "scores": sc, "overall": metrics.overall_score(sc),
-                "snowflake": (metrics.snowflake(sc)
+                # cx/cy=30, R=25 to match the template's 0 0 60 60 viewBox —
+                # the default geometry is 200x200 (cx=cy=100, R=78), so leaving
+                # it drew a radar 3x too large and the cell showed only its
+                # top-left corner as a stray sliver.
+                "snowflake": (metrics.snowflake(sc, cx=30, cy=30, R=25)
                               if any(v is not None for v in sc.values()) else None),
                 "upside": dcf["upside_pct"] if dcf else None,
                 "initials": metrics.initials(s["name"]),
@@ -1696,7 +1700,39 @@ def compare():
         flash("Pick at least two tracked stocks to compare.", "error")
         return redirect(url_for("home"))
     _log("compare")
-    return render_template("compare.html", cols=cols, **ctx)
+    return render_template("compare.html", cols=cols, max_cols=4, **ctx)
+
+
+@app.post("/compare/add")
+def compare_add():
+    """Add a company to a comparison. A POST, not a GET, precisely because an
+    unrecognised symbol gets ingested here — the read-only /compare view must
+    stay free of DB writes (§3). Open to guests: the comparison lives in the
+    ?t= URL, so there's nothing account-specific to protect."""
+    current = [t.strip().upper() for t in (request.form.get("t") or "").split(",") if t.strip()]
+    raw = (request.form.get("symbol") or "").strip()
+    back = redirect(url_for("compare", t=",".join(current)))
+    if not raw:
+        return back
+    symbol = raw.upper()
+    with get_conn() as conn:
+        known = {r["ticker"] for r in conn.execute("SELECT ticker FROM stocks")}
+    if symbol not in known:
+        meta = _ingest_stock(symbol)
+        if not meta:                        # free text → nearest symbol, as /analyze does
+            resolved = fetch.search(raw)
+            meta = _ingest_stock(resolved) if resolved else None
+        if not meta:
+            flash(f"Couldn't find “{raw}” on Yahoo — check the name or ticker.", "error")
+            return back
+        symbol = meta["ticker"]
+    if symbol in current:
+        flash(f"{symbol} is already in this comparison.", "info")
+        return back
+    if len(current) >= 4:
+        flash("Compare fits four companies — remove one first.", "error")
+        return back
+    return redirect(url_for("compare", t=",".join(current + [symbol])))
 
 
 @app.route("/notes.csv")

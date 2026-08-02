@@ -204,6 +204,19 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 .cmp-tick { font-weight: 600; font-size: 13.5px; }
 .cmp-name { font-size: 11px; color: var(--muted); }
 .compare-link { margin-left: auto; }
+/* Editing the comparison: ✕ per column, plus an add field under the table. */
+.cmp-head { position: relative; }
+.cmp-del {
+  position: absolute; top: 0; right: 6px; z-index: 1;
+  width: 22px; height: 22px; border-radius: 999px; font-size: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--muted); text-decoration: none; border: 1px solid transparent;
+}
+.cmp-del:hover { color: var(--down); border-color: var(--hairline); background: var(--card); }
+.cmp-add { display: flex; gap: 10px; margin-top: 14px; }
+.cmp-add input[name="symbol"] { flex: 1; min-width: 0; }
+.cmp-add .ghost { flex: none; white-space: nowrap; }
+.cmp-full { margin-top: 14px; }
 
 /* Notes hub on /account (spec 10). */
 .acct-notes { margin-top: 26px; text-align: left; }
