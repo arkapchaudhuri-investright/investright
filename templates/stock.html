@@ -351,7 +351,20 @@
       setActive(range); hideCross();
       fetch(url).then(function (r) { return r.json(); }).then(function (j) {
         if (el.tagName === 'BUTTON') { el.disabled = false; el.textContent = old; }
-        if (j.error) { cap.textContent = j.error; return; }
+        // Blank the chart rather than leaving the previous range's line, price
+        // move and legend sitting under the newly-selected tab — that read as
+        // "the selector is broken" (1Y highlighted above an intraday chart).
+        if (j.error) {
+          line.setAttribute('points', ''); area.setAttribute('points', '');
+          if (bench) bench.setAttribute('points', '');
+          if (benchCap) benchCap.hidden = true;
+          chg.textContent = ''; legL.textContent = ''; legR.textContent = '';
+          var ax = document.getElementById('trend-axis');
+          if (ax) ax.innerHTML = '';
+          series = []; hideCross();
+          cap.textContent = j.error;
+          return;
+        }
         redraw(j);
         cap.textContent = range === '1d' ? 'today (5-minute bars, live)'
           : ({'1m':'over the last month','6m':'over six months','1y':'over one year',
