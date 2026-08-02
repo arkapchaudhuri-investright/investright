@@ -356,7 +356,7 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
   color: var(--muted); border: 1px solid var(--hairline); border-radius: 999px;
   width: 40px; height: 40px; display: inline-flex; align-items: center;
   justify-content: center; user-select: none;
-  position: relative; z-index: 62;   /* stay crisp above the scrim */
+  position: relative; z-index: 135;   /* stay crisp above the scrim */
 }
 .set-btn::-webkit-details-marker { display: none; }
 /* Inline SVG gear: brand green, and centred by the flexbox above (an emoji sat
@@ -369,11 +369,16 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 /* Opening the gear tints the rest of the screen (a spotlight on the panel). */
 .settings-scrim { display: none; }
 .settings[open] .settings-scrim {
-  display: block; position: fixed; inset: 0; z-index: 55;
+  display: block; position: fixed; inset: 0; z-index: 130;
   background: rgba(0, 0, 0, .45); backdrop-filter: blur(1px);
 }
+/* These sit above the sticky .jumpnav (80), Ask Otto (80) and back-to-top
+   (120): .topbar sets no position/z-index, so it creates no stacking context
+   and the panel competes with those directly — at its old z-index of 60 the
+   strategies/deep-dive chip row painted straight over the open gear. Still
+   below the tour (200) and toasts (201), which should overlay everything. */
 .settings-panel {
-  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 140;
   background: var(--card); border: 1px solid var(--hairline); border-radius: 14px;
   padding: 12px 14px; min-width: 208px; box-shadow: 0 12px 34px var(--shadow-pop);
   display: flex; flex-direction: column; gap: 12px;
@@ -1549,7 +1554,9 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   padding: 14px 10px 12px; text-decoration: none; color: var(--text); text-align: center;
 }
 a.peer:hover { border-color: var(--accent); }
-.peer-snow { width: 54px; height: 54px; }
+.peer-snow { width: 54px; height: 54px; flex: none; }
+/* Empty stand-in so an unscored peer still reserves the radar's height. */
+.peer-snow-empty { display: block; }
 .peer-name {
   color: var(--muted); font-size: 11.5px; max-width: 100%;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1565,7 +1572,11 @@ a.peer:hover { border-color: var(--accent); }
 .peer-cell .peer { flex: 1; min-width: 0; max-width: none; }
 .peer-badge {
   font-size: 10px; color: var(--muted); border: 1px solid var(--hairline);
-  border-radius: 5px; padding: 1px 6px; margin-top: 4px;
+  border-radius: 5px; padding: 1px 6px;
+  /* auto, not a fixed gap: unscored peers carry an extra "scores after next
+     refresh" line, so pinning the badge to the bottom keeps the row of badges
+     level however much content sits above it. */
+  margin-top: auto; padding-top: 1px;
   text-transform: uppercase; letter-spacing: .05em;
 }
 .peer-del-form { position: absolute; top: 4px; right: 4px; }
