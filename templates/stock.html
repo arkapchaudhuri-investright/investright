@@ -930,6 +930,10 @@
         <polygon points="{{ p['snowflake']['polygon'] }}" fill="rgba(29,158,117,.25)"
                  stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
       </svg>
+      {% else %}
+      {# Hold the radar's space so ticker/name/price still line up across the
+         row when a peer hasn't been scored yet. #}
+      <span class="peer-snow peer-snow-empty" aria-hidden="true"></span>
       {% endif %}
       <span class="tick">{{ p['ticker'] }}</span>
       <span class="peer-name">{{ p['name'] }}</span>
