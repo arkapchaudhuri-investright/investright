@@ -334,7 +334,16 @@ def main():
     # Daily closes for the trend chart: full backfill the first time a ticker
     # shows up, a one-month top-up after (weekends/holidays make gaps; the
     # upsert doesn't care). Failures just keep yesterday's chart.
-    for sym in everyone:
+    #
+    # Every saved stock, not just watchlist + peers: anything reached by search
+    # or surfaced by the strategy screener is browsable, and without history its
+    # deep-dive can only answer "no saved history for this range yet" on every
+    # tab but 1D. That stranded 34 of 74 tickers in production. The extra cost
+    # is one-off — later runs only top up a month per ticker.
+    with get_conn() as conn:
+        chartable = [r["ticker"] for r in conn.execute(
+            "SELECT ticker FROM stocks WHERE exchange IS NULL OR exchange != 'INDEX'")]
+    for sym in sorted(set(everyone) | set(chartable)):
         try:
             with get_conn() as conn:
                 seen = conn.execute("SELECT 1 FROM price_history WHERE ticker=? LIMIT 1",
