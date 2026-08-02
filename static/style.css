@@ -1770,6 +1770,21 @@ footer .foot-disclaim { margin: 0; }
 footer .foot-credit { margin: 9px 0 0; }
 footer .foot-credit .heart { color: var(--accent); font-style: normal; }
 footer .foot-legal { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+footer .foot-legal a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+footer .foot-legal a:hover { color: var(--accent); }
+
+/* Privacy page — long-form prose, narrower than the data pages so it reads. */
+.prose { text-align: left; max-width: 68ch; margin: 0 auto; }
+.prose h2 { font-family: var(--serif); font-weight: 500; font-size: 18px; margin: 26px 0 6px; }
+.prose h2:first-child { margin-top: 0; }
+.prose p { margin: 0 0 10px; line-height: 1.6; }
+.prose code { font-size: 12.5px; background: var(--wash); padding: 1px 5px; border-radius: 4px; }
+.prose a { color: var(--accent); }
+.prose-list { margin: 0 0 10px; padding-left: 20px; line-height: 1.6; }
+.prose-list li { margin-bottom: 5px; }
+.prv-form { margin: 12px 0 4px; }
+.prv-state { margin: 0 0 8px; }
+.prv-off { color: var(--accent); }
 
 .team-head { text-align: center; padding: 40px 0 6px; }
 .team-head h1 { font-size: 30px; margin: 0 0 6px; }

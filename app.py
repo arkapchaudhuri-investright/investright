@@ -60,6 +60,10 @@ app.jinja_env.globals["EXPLAIN"] = metrics.GRAPH_EXPLAINERS
 # Secret gating the /admin activity log. Loaded from .env (via refresh→digest's
 # tiny loader at import). Unset ⇒ /admin is disabled (404), never wide open.
 ADMIN_KEY = os.environ.get("ADMIN_KEY")
+# How long raw visit rows are kept before the nightly job deletes them. Keeping
+# them forever contradicts the privacy page and GDPR's storage-limitation
+# principle; 13 months still allows a full year-over-year comparison.
+EVENT_RETENTION_DAYS = 400
 
 # Canonical public origin — used to build absolute URLs for social/OG meta tags
 # (crawlers need absolute image + page URLs). Overridable via .env for staging.
@@ -143,8 +147,14 @@ def _analytics_window():
 def _log(action, ticker=None):
     """Record one activity event. name/market are self-reported values the
     browser mirrors from localStorage into cookies (see base.html); IP prefers
-    Caddy's X-Forwarded-For. Best-effort: never let logging break a request."""
+    Caddy's X-Forwarded-For. Best-effort: never let logging break a request.
+
+    Honours the `ir_dnt` opt-out cookie: if the visitor has asked not to be
+    counted, nothing is written at all — no IP, no path, no row. The opt-out has
+    to bite here rather than at read time, or the data would still exist."""
     try:
+        if request.cookies.get("ir_dnt") == "1":
+            return
         ip = client_ip()
         # name/market cookies are percent-encoded client-side (names may hold
         # spaces/unicode); Werkzeug doesn't unquote them, so do it here.
@@ -963,6 +973,32 @@ def team():
     """Meet Our Team (§4-style static page). No DB — content lives in the template."""
     _log("view")
     return render_template("team.html")
+
+
+@app.route("/privacy")
+def privacy():
+    """What we collect and why, in plain English. Static — content lives in the
+    template. Deliberately NOT logged: someone reading the privacy page
+    shouldn't have that visit recorded to make the point."""
+    return render_template("privacy.html",
+                           opted_out=request.cookies.get("ir_dnt") == "1",
+                           retention_days=EVENT_RETENTION_DAYS)
+
+
+@app.post("/privacy/tracking")
+def privacy_tracking():
+    """Turn analytics off (or back on) for this browser. A POST because it
+    changes stored state; the cookie is the whole mechanism, so it works for
+    guests and signed-in visitors alike and needs no account."""
+    off = request.form.get("off") == "1"
+    resp = redirect(url_for("privacy"))
+    if off:
+        resp.set_cookie("ir_dnt", "1", max_age=5 * 365 * 24 * 3600, samesite="Lax")
+        flash("Analytics off — this browser's visits are no longer recorded.", "ok")
+    else:
+        resp.delete_cookie("ir_dnt")
+        flash("Analytics back on. Thanks — it's what tells me what's worth building.", "ok")
+    return resp
 
 
 @app.route("/strategies")

@@ -31,6 +31,7 @@ ASNDB_PATH = os.path.join(DATA_DIR, "dbip-asn-lite.mmdb")
 GEODB_URL = "https://download.db-ip.com/free/dbip-city-lite-{ym}.mmdb.gz"
 ASNDB_URL = "https://download.db-ip.com/free/dbip-asn-lite-{ym}.mmdb.gz"
 
+RETENTION_DAYS = 400             # ~13 months: enough for year-over-year, then gone
 SESSION_GAP_S = 30 * 60          # a >30-min silence starts a new visit
 DWELL_CAP_S = 30 * 60           # cap one page's counted dwell (idle tabs, lunch)
 
@@ -361,13 +362,26 @@ def rebuild_sessions(conn):
     return len(sessions)
 
 
+def purge_old(conn, days=RETENTION_DAYS):
+    """Delete visit rows past the retention window, and any geo_cache entry no
+    longer referenced by one. The privacy page promises this happens, and
+    keeping raw IPs indefinitely is exactly what GDPR's storage-limitation
+    principle prohibits — so it runs nightly rather than on request."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    n = conn.execute("DELETE FROM events WHERE ts < ?", (cutoff,)).rowcount
+    conn.execute("DELETE FROM geo_cache WHERE ip NOT IN "
+                 "(SELECT DISTINCT ip FROM events WHERE ip IS NOT NULL)")
+    return n
+
+
 def build():
-    """Nightly entry point: geolocate new IPs, then rebuild sessions. Best-effort
-    and self-contained; safe to call from refresh.py. Returns a status string."""
+    """Nightly entry point: expire old visits, geolocate new IPs, then rebuild
+    sessions. Best-effort and self-contained; safe to call from refresh.py."""
     with get_conn() as conn:
+        purged = purge_old(conn)
         geo = geolocate_new(conn)
         sess = rebuild_sessions(conn)
-    return f"geo +{geo} · sessions {sess}"
+    return f"purged {purged} · geo +{geo} · sessions {sess}"
 
 
 # ─────────────────────────── dashboard queries ──────────────────────
