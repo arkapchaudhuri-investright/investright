@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Privacy · InvestRight{% endblock %}
+{% block content %}
+
+{# Static page — content lives here, like team.html. Every claim below must stay
+   true of the code: if you add a field to `events`, a cookie, or a new outbound
+   service, update this page in the same PR. #}
+<section class="hero team-head">
+  <h1 class="serif">Privacy</h1>
+  <p class="team-sub">What InvestRight collects, why, and how to switch it off.
+    Plain English — no legal padding.</p>
+</section>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+{% endwith %}
+
+<section class="card prose">
+  <h2>The short version</h2>
+  <p>InvestRight is a free, ad-free stock-research site run by one person. There
+    are no advertising trackers, no third-party analytics, no data brokers, and
+    nothing is ever sold or shared for marketing. The site keeps basic visit
+    records so I can see which pages are worth improving, and — if you make an
+    account — the watchlist, notes and holdings you save.</p>
+
+  <h2>What's recorded when you browse</h2>
+  <p>For each page view the site stores: the page address, the time, your IP
+    address, your browser's user-agent string, and a random id kept in a cookie
+    so repeat views can be grouped into one visit. From the IP address the site
+    works out an <b>approximate</b> city and country, using a database stored on
+    the server — your IP is never sent to any outside geolocation service. If you
+    typed a first name into the welcome popup, that name is stored alongside
+    those records; it's whatever you chose to type and is never verified.</p>
+  <p>These records are deleted automatically after
+    <b>{{ (retention_days / 30)|round|int }} months</b>.</p>
+
+  <h2>If you create an account</h2>
+  <p>An account stores your email address, a hashed password (never the password
+    itself), the display name and market you chose, and whatever you save —
+    watchlist, notes, holdings, price alerts. Your email is used only to sign you
+    in, reset your password, and send the weekly summary if you're subscribed.</p>
+
+  <h2>Cookies</h2>
+  <ul class="prose-list">
+    <li><b>Sign-in cookie</b> — keeps you logged in. Essential.</li>
+    <li><b>Visitor id</b> (<code>vid</code>) — a random id used to group page
+      views into a visit. Analytics; you can switch it off below.</li>
+    <li><b>Preferences</b> (<code>theme</code>, <code>ccy</code>,
+      <code>ir_market</code>, <code>ir_today_scope</code>, and the name you
+      typed) — remember your display settings. No tracking.</li>
+    <li><b>Opt-out</b> (<code>ir_dnt</code>) — set only if you turn analytics
+      off, so the site remembers to leave you alone.</li>
+  </ul>
+  <p>There's no cookie banner because none of these follow you to other
+    websites — and the one that isn't strictly necessary has an off switch.</p>
+
+  <h2>Who else sees anything</h2>
+  <ul class="prose-list">
+    <li><b>Oracle Cloud</b> hosts the server, so traffic passes through their
+      infrastructure.</li>
+    <li><b>Yahoo Finance</b> supplies share prices. The site fetches those on a
+      schedule; your identity is not part of those requests.</li>
+    <li><b>Google (Gemini) or Groq</b> generate the nightly market summary and
+      answer “Ask Otto” questions. <b>If you type a question into Ask Otto, that
+      question is sent to whichever of those services is configured</b>, along
+      with the saved figures for the stock you're viewing. Don't put personal
+      information into that box.</li>
+    <li><b>Gmail</b> delivers password-reset and newsletter email, if and when
+      email is switched on.</li>
+  </ul>
+  <p>Nobody else. No advertising networks, no analytics vendors, no data
+    brokers.</p>
+
+  <h2>Your choices</h2>
+  <p>You can turn visit analytics off for this browser right now. Nothing is
+    written at all while it's off — not your IP, not the page, not a row.</p>
+  <form class="prv-form" action="{{ url_for('privacy_tracking') }}" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    {% if opted_out %}
+    <p class="prv-state prv-off">✓ Analytics are <b>off</b> for this browser.</p>
+    <input type="hidden" name="off" value="0">
+    <button type="submit" class="ghost">Turn analytics back on</button>
+    {% else %}
+    <p class="prv-state">Analytics are currently <b>on</b> for this browser.</p>
+    <input type="hidden" name="off" value="1">
+    <button type="submit" class="ghost">Don't record my visits</button>
+    {% endif %}
+  </form>
+  <p class="asof">The setting lives in a cookie, so it applies to this browser.
+    Clearing your cookies clears it too.</p>
+
+  <h2>Seeing or deleting your data</h2>
+  <p>If you have an account, <a href="{{ url_for('auth.account') }}">your account
+    page</a> lets you change your password or <b>delete the account outright</b>,
+    which removes your email, your saved lists and your notes.</p>
+  <p>To ask what's held about you, or to have visit records erased, email
+    <a href="mailto:arkap.chaudhuri@gmail.com">arkap.chaudhuri@gmail.com</a>.
+    It's one person reading, so allow a few days. If you're in the UK, EU or a
+    similar jurisdiction, you have the right to access, correct, export or erase
+    your data, and to object to it being collected — the opt-out above is the
+    instant version of that last one.</p>
+
+  <h2>Children</h2>
+  <p>This site isn't aimed at children and doesn't knowingly collect their data.</p>
+
+  <h2>Changes</h2>
+  <p>If what's collected changes, this page changes with it. Last updated
+    {{ '2 August 2026' }}.</p>
+
+  <p class="asof perf-note">InvestRight publishes research tools, not financial
+    advice, and this page describes data handling rather than constituting legal
+    advice.</p>
+</section>
+
+{% endblock %}
