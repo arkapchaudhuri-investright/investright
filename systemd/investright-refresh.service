@@ -1,0 +1,14 @@
+[Unit]
+Description=InvestRight Nightly Refresh
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/investright
+ExecStart=/opt/investright/.venv/bin/python refresh.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+investright.us {
+	reverse_proxy 127.0.0.1:8700 {
+		header_up X-Forwarded-Proto https
+	}
+}
+
+www.investright.us {
+	redir https://investright.us{uri} permanent
+}
