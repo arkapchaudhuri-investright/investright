@@ -1,0 +1,11 @@
+[Unit]
+Description=InvestRight Nightly Refresh Timer
+Requires=investright-refresh.service
+
+[Timer]
+OnCalendar=*-*-* 22:00:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

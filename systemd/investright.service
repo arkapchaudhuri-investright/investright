@@ -1,0 +1,15 @@
+[Unit]
+Description=InvestRight Flask App
+After=network.target
+
+[Service]
+Type=notify
+User=ubuntu
+WorkingDirectory=/opt/investright
+ExecStart=/opt/investright/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8700 --timeout 120 app:app
+Restart=always
+RestartSec=5
+Environment="PATH=/opt/investright/.venv/bin"
+
+[Install]
+WantedBy=multi-user.target

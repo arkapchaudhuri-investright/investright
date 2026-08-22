@@ -10,6 +10,7 @@ OnFailure=investright-alert@%n.service
 [Service]
 Type=oneshot
 User=ubuntu
+EnvironmentFile=/opt/investright/.env
 WorkingDirectory=/opt/investright
 
 # Local, verified, rotating snapshots. This works today and needs no secrets.
@@ -21,4 +22,4 @@ WorkingDirectory=/opt/investright
 # `--email` is deliberately NOT the default: with no relay configured the command
 # exits non-zero rather than quietly skipping the offsite copy, which would turn
 # this unit red every night for a backup that is, in fact, being taken.
-ExecStart=/opt/investright/.venv/bin/python manage.py backup --apply --keep 14
+ExecStart=/opt/investright/.venv/bin/python manage.py backup --apply --keep 14 --email arkap.chaudhuri@gmail.com
