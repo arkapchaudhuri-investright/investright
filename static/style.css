@@ -844,6 +844,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 #bk-groww:checked ~ .broker-pick .bk-pill[for="bk-groww"],
 #bk-robinhood:checked ~ .broker-pick .bk-pill[for="bk-robinhood"],
 #bk-fidelity:checked ~ .broker-pick .bk-pill[for="bk-fidelity"],
+#bk-schwab:checked ~ .broker-pick .bk-pill[for="bk-schwab"],
 #bk-generic:checked ~ .broker-pick .bk-pill[for="bk-generic"] {
   background: var(--accent-deep); border-color: var(--accent-deep); color: #fff;
 }
@@ -851,6 +852,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 #bk-groww:focus-visible ~ .broker-pick .bk-pill[for="bk-groww"],
 #bk-robinhood:focus-visible ~ .broker-pick .bk-pill[for="bk-robinhood"],
 #bk-fidelity:focus-visible ~ .broker-pick .bk-pill[for="bk-fidelity"],
+#bk-schwab:focus-visible ~ .broker-pick .bk-pill[for="bk-schwab"],
 #bk-generic:focus-visible ~ .broker-pick .bk-pill[for="bk-generic"] {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
@@ -859,6 +861,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 #bk-groww:checked ~ .bk-guides .g-groww,
 #bk-robinhood:checked ~ .bk-guides .g-robinhood,
 #bk-fidelity:checked ~ .bk-guides .g-fidelity,
+#bk-schwab:checked ~ .bk-guides .g-schwab,
 #bk-generic:checked ~ .bk-guides .g-generic { display: block; }
 .bk-guides > .bk-guide {
   padding: 12px 14px; border: 1px solid var(--hairline);
@@ -2176,3 +2179,36 @@ footer .foot-legal a:hover { color: var(--accent); }
   .hd-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hd-snow { width: 54px; height: 54px; }
 }
+
+/* --- Import confirm screen: what each row would do, and what's missing --- */
+/* Six columns of inputs outgrow the card on a narrow desktop — scroll inside
+   the card rather than painting outside it. */
+.import-table { width: 100%; border-collapse: collapse; }
+.import-table th {
+  text-align: left; font-size: var(--fs-xs); color: var(--muted);
+  font-weight: 600; padding: 0 var(--space-2) var(--space-2);
+}
+.import-table td { padding: var(--space-1) var(--space-2); border-top: 1px solid var(--hairline); }
+.import-table input { max-width: 130px; }
+.imp-tag {
+  display: inline-block; font-size: var(--fs-xs); white-space: nowrap;
+  border: 1px solid var(--hairline); border-radius: 999px; padding: 1px 8px;
+  color: var(--muted);
+}
+.imp-add { color: var(--accent); border-color: rgba(29, 158, 117, .45); }
+.imp-upd { color: var(--text); border-color: var(--edge); }
+/* "from cost basis" explains a derived number, so it should read as a note
+   rather than compete with the new/updates verdict beside it. */
+.imp-calc { font-style: italic; }
+.imp-missing {
+  margin-top: var(--space-5); border-top: 1px solid var(--hairline);
+  padding-top: var(--space-4);
+}
+.imp-missing h3 { margin: 0 0 var(--space-1); font-size: var(--fs-md); }
+.imp-missing-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; }
+.imp-missing-list li { padding: var(--space-1) 0; }
+.imp-missing-list label {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  font-size: var(--fs-body); cursor: pointer;
+}
+.imp-missing-list input { accent-color: var(--down); flex: none; }

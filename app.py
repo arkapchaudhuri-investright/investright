@@ -894,6 +894,15 @@ def portfolio_detail(ticker):
 
 
 
+def _close(a, b):
+    """Whether two imported numbers mean the same holding. Brokers round to two
+    or three places, so an exact != would report every row as changed on a
+    re-import of an unchanged book."""
+    if a is None or b is None:
+        return a == b
+    return abs(a - b) <= max(abs(a), abs(b)) * 1e-4
+
+
 _IMPORT_MAX_BYTES = 1_000_000            # ~1 MB cap on uploads (honest reject)
 _IMPORT_MAX_ROWS = 500                   # sanity cap so one paste can't blow up
 
@@ -972,18 +981,45 @@ def portfolio_import_preview():
         return dest
     rows = rows[:_IMPORT_MAX_ROWS]
 
+    # What's already in the book, so the confirm screen can say which rows are
+    # new, which ones move, and — the bit that let four US holdings sit
+    # unnoticed beside the Indian book — which holdings this file doesn't mention.
+    user = current_user()
+    with get_conn() as conn:
+        held = {r["ticker"]: dict(r) for r in conn.execute(
+            "SELECT h.ticker, h.qty, h.avg_price, s.name, s.currency "
+            "FROM holdings h JOIN stocks s ON s.ticker = h.ticker "
+            "WHERE h.user_id=?", (user["id"],))}
+
     resolved = []
     for r in rows:
         ticker, matched = _resolve_import_symbol(r["raw_symbol"], r.get("isin", ""))
         bad = not (r.get("qty") and r.get("qty") > 0
                    and r.get("avg_price") and r.get("avg_price") > 0)
+        prev = held.get(ticker)
+        # "same" vs "update" is compared loosely: brokers round, and re-importing
+        # an unchanged book shouldn't light up every row as a change.
+        if prev is None:
+            change = "add"
+        elif (_close(prev["qty"], r.get("qty"))
+              and _close(prev["avg_price"], r.get("avg_price"))):
+            change = "same"
+        else:
+            change = "update"
         resolved.append({"raw_symbol": r["raw_symbol"], "ticker": ticker,
                          "qty": r.get("qty"), "avg_price": r.get("avg_price"),
-                         "matched": matched, "bad": bad})
+                         "derived_avg": r.get("derived_avg"),
+                         "matched": matched, "bad": bad, "change": change,
+                         "prev": prev})
     ok = sum(1 for r in resolved if r["matched"] and not r["bad"])
+    seen = {r["ticker"] for r in resolved}
+    missing = [v for k, v in held.items() if k not in seen]
     _log("hold_import_preview")
     return render_template("portfolio_import_confirm.html",
-                           rows=resolved, ok=ok, **_fx_ctx())
+                           rows=resolved, ok=ok, missing=missing,
+                           adds=sum(1 for r in resolved if r["change"] == "add"),
+                           updates=sum(1 for r in resolved if r["change"] == "update"),
+                           **_fx_ctx())
 
 
 @app.post("/portfolio/import/confirm")
@@ -1021,10 +1057,27 @@ def portfolio_import_confirm():
         with get_conn() as conn:
             upsert_holding(conn, user["id"], tk, qty, avg)
         added += 1
+    # Holdings the file didn't mention, ticked on the confirm screen. Opt-in:
+    # a partial export (one account of several) must never silently empty the
+    # rest of the book, so nothing is dropped unless it was ticked.
+    dropped = 0
+    for tk in {(t or "").upper().strip() for t in request.form.getlist("drop")}:
+        if not tk:
+            continue
+        with get_conn() as conn:
+            remove_holding(conn, user["id"], tk)
+        dropped += 1
+
     _log("hold_import")
-    if added:
-        flash(f"Added {added} holding{'s' if added != 1 else ''}"
-              + (f" ({skipped} skipped)." if skipped else "."), "ok")
+    if added or dropped:
+        bits = []
+        if added:
+            bits.append(f"Saved {added} holding{'s' if added != 1 else ''}")
+        if dropped:
+            bits.append(f"removed {dropped} no longer in the file")
+        if skipped:
+            bits.append(f"{skipped} skipped")
+        flash(", ".join(bits) + ".", "ok")
     else:
         flash("Nothing imported — every row was missing a ticker or numbers.", "error")
     return redirect(url_for("portfolio_page"))
