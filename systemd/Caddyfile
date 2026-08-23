@@ -1,9 +1,8 @@
-investright.us {
-	reverse_proxy 127.0.0.1:8700 {
-		header_up X-Forwarded-Proto https
-	}
-}
-
-www.investright.us {
-	redir https://investright.us{uri} permanent
-}
+# Front door for every site on this host.
+#
+# This file stays generic on purpose: one .caddy file per site lives in
+# sites/, and adding or removing a site is a matter of dropping a file in
+# and reloading — no edits here, so a mistake can never take down the
+# other sites. Caddy obtains and renews a certificate per hostname
+# automatically; nothing here needs to know about TLS.
+import /etc/investright/sites/*.caddy

@@ -60,8 +60,11 @@ install -m 644 "$APP"/systemd/investright*.service "$APP"/systemd/investright*.t
 mkdir -p /etc/systemd/system/investright-refresh.service.d
 install -m 644 "$APP/systemd/refresh-onfailure.conf" \
     /etc/systemd/system/investright-refresh.service.d/onfailure.conf
-mkdir -p /etc/investright
+# Multi-site layout: the Caddyfile only imports sites/, so a second site is a
+# new file rather than an edit to the config the first site depends on.
+mkdir -p /etc/investright/sites
 install -m 644 "$APP/systemd/Caddyfile" /etc/investright/Caddyfile
+install -m 644 "$APP"/systemd/sites/*.caddy /etc/investright/sites/
 systemctl daemon-reload
 
 say "Firewall (Oracle images default to DROP on everything but 22)"
@@ -96,4 +99,15 @@ $(say "Provisioned. Two things must still come from the old host:")
   re-downloads them on its first nightly run.
 
   DNS last, once the new host answers on its own IP.
+
+$(say "Hosting a second site later")
+
+  This host is laid out for more than one site. To add one:
+    • give the app its own port and /opt/<app> directory
+    • drop a <domain>.caddy file in /etc/investright/sites/
+      (see $APP/systemd/sites/README.md for the template and port list)
+    • point DNS at this host FIRST, then: sudo systemctl reload caddy
+
+  Certificates are automatic per hostname. Apps bind 127.0.0.1 only — Caddy is
+  the sole process facing the internet, which is why just 80 and 443 are open.
 EOS
