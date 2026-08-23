@@ -44,13 +44,42 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
-def provider():
-    """('gemini'|'groq', key) for whichever free API has a key, else None."""
+def providers():
+    """Every configured free API, in preference order: [('gemini', key), …].
+
+    A list rather than a single choice so callers can fail over. Gemini returned
+    503 on 2 of 14 nightly runs in August and the digest simply skipped, leaving
+    /today showing a days-old note — a second provider turns an outage into a
+    retry. Empty when neither key is set."""
+    out = []
     if os.environ.get("GEMINI_API_KEY"):
-        return "gemini", os.environ["GEMINI_API_KEY"]
+        out.append(("gemini", os.environ["GEMINI_API_KEY"]))
     if os.environ.get("GROQ_API_KEY"):
-        return "groq", os.environ["GROQ_API_KEY"]
-    return None
+        out.append(("groq", os.environ["GROQ_API_KEY"]))
+    return out
+
+
+def provider():
+    """First configured provider, or None. Kept for callers that only need to
+    know whether AI is available at all."""
+    p = providers()
+    return p[0] if p else None
+
+
+def _run(prompt):
+    """Send `prompt` to each provider in turn, returning the first success.
+    Raises with every provider's error attached if they all fail, so the log
+    says what actually went wrong rather than just naming the last one."""
+    provs = providers()
+    if not provs:
+        raise RuntimeError("no GEMINI_API_KEY or GROQ_API_KEY in .env or environment")
+    errors = []
+    for name, key in provs:
+        try:
+            return _gemini(prompt, key) if name == "gemini" else _groq(prompt, key)
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+    raise RuntimeError("every AI provider failed — " + " | ".join(errors))
 
 
 def build_prompt(picks, today_label):
@@ -87,12 +116,7 @@ Write the note for {today_label}:
 def generate(picks, today_label):
     """(body, model) from whichever free API has a key. Raises on any failure —
     missing key, quota, network, empty answer — so the caller can keep last-good."""
-    prov = provider()
-    if not prov:
-        raise RuntimeError("no GEMINI_API_KEY or GROQ_API_KEY in .env or environment")
-    name, key = prov
-    prompt = build_prompt(picks, today_label)
-    return _gemini(prompt, key) if name == "gemini" else _groq(prompt, key)
+    return _run(build_prompt(picks, today_label))
 
 
 def _ask_prompt(context, question):
@@ -132,12 +156,7 @@ def ask(context, question):
     """Answer one user question about a stock, grounded in `context`. Uses the
     same free provider as the digest (Gemini, else Groq); never Claude (§1).
     Returns the answer text. Raises on any failure so the caller can degrade."""
-    prov = provider()
-    if not prov:
-        raise RuntimeError("no GEMINI_API_KEY or GROQ_API_KEY in .env or environment")
-    name, key = prov
-    prompt = _ask_prompt(context, question)
-    body, _model = _gemini(prompt, key) if name == "gemini" else _groq(prompt, key)
+    body, _model = _run(_ask_prompt(context, question))
     return body
 
 

@@ -1284,6 +1284,9 @@ def today():
     # so it changes with the US/India/Both toggle (the AI digest below covers
     # the whole screen and is dated).
     market_read = metrics.today_market_read(picks, market)
+    # /today was the one main page never logging a view, so analytics
+    # under-counted one of the busiest routes on the site.
+    _log("view")
     resp = make_response(render_template(
         "today.html", picks=picks, digest=dig, as_of=as_of, mood=mood,
         earnings_ahead=earnings_ahead,
