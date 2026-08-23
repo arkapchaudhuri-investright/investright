@@ -209,7 +209,7 @@
     </div>
   </details>
   <details class="port-panel">
-    <summary class="port-btn"><span class="port-btn-ico">⇪</span> Import CSV</summary>
+    <summary class="port-btn"><span class="port-btn-ico">⇪</span> Import holdings</summary>
     <div class="port-panel-body card">
       {# Guided import: pick your broker → that broker's exact export steps
          appear (CSS-only — hidden radios drive both the active pill and the
@@ -240,7 +240,7 @@
             <ol class="bk-steps">
               <li>Open <b>Zerodha Console</b> and sign in.</li>
               <li>Go to <b>Portfolio → Holdings</b>.</li>
-              <li>Hit the <b>⬇ download</b> arrow (top-right of the table) and pick CSV.</li>
+              <li>Hit the <b>⬇ download</b> arrow (top-right of the table) — Excel or CSV, either works.</li>
             </ol>
             <a class="bk-open" href="https://console.zerodha.com/portfolio/holdings"
                target="_blank" rel="noopener">Open Zerodha Console ↗</a>
@@ -271,9 +271,10 @@
           </div>
           <div class="bk-guide g-generic">
             <ol class="bk-steps">
-              <li>Export holdings from your broker or spreadsheet as a <b>CSV</b>.</li>
+              <li>Export holdings from your broker or spreadsheet — <b>Excel or CSV</b>.</li>
               <li>Any layout works if it has <b>symbol</b>, <b>quantity</b> and
-                <b>average cost</b> columns — Otto guesses the columns.</li>
+                <b>average cost</b> columns — Otto finds them, and skips any
+                title or summary rows above the table.</li>
             </ol>
           </div>
           <p class="asof">Broker menus move around — if a path looks different,
@@ -285,7 +286,8 @@
           <input id="imp-file" type="file" name="file"
                  accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
           <span class="dz-ico" aria-hidden="true">⇪</span>
-          <span class="dz-text"><b>Choose your CSV</b> — or drag it into this box</span>
+          <span class="dz-text"><b>Choose your file</b> — or drag it into this box
+            <br><span class="asof">Excel (.xlsx) or CSV, straight from your broker — no need to convert it</span></span>
           <span class="dz-file asof" hidden></span>
         </label>
         <button type="submit" class="btn-analyze">Preview import →</button>
@@ -342,6 +344,10 @@
       <button type="submit" class="ghost">↻ Refresh</button>
     </form>
   </div>
+  {# Wide rows (price, today, sparkline, qty, avg, value, alloc, P&L) exceed
+     the card on narrower desktops — without this the P&L column and the ✕
+     render outside the card border instead of scrolling inside it. #}
+  <div class="port-table-wrap">
   <table class="port-table">
     <thead><tr>
       <th>Stock</th><th class="num">Price</th><th class="num">Today</th>
@@ -395,6 +401,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 
   {# Mobile: collapsible cards, same language as the watchlist. #}
   <div class="wl-cards">
