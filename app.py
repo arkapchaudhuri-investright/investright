@@ -4,6 +4,7 @@ Run: .venv/bin/python app.py  →  http://localhost:8700
 import hmac
 import json
 import os
+import re
 import secrets
 import time
 import uuid
@@ -854,13 +855,24 @@ def _resolve_import_symbol(raw_symbol, isin=""):
 
     # ISIN-implied suffixes, NSE before BSE: both list most Indian companies,
     # but Yahoo's NSE data is far more complete.
-    if (isin or "").upper().startswith("INE") and "." not in up:
-        for suffix in (".NS", ".BO"):
-            try:
-                if fetch.lookup(up + suffix):
-                    return up + suffix, True
-            except Exception:
-                pass
+    # "IN" is the country code — INE is an equity, INF an ETF or mutual fund.
+    # Matching only INE silently skipped every Indian ETF.
+    if (isin or "").upper().startswith("IN") and "." not in up:
+        # NSE appends a trading-series code that Yahoo doesn't use —
+        # LIQUIDBEES-F, SRSLTD-BZ. Left on, the lookup fails and fuzzy search
+        # takes over, which is how a holding once became the JPYBZD=X currency
+        # pair. Try the symbol as given, then without the series.
+        bases = [up]
+        stripped = re.sub(r"-[A-Z0-9]{1,2}$", "", up)
+        if stripped != up and len(stripped) > 1:
+            bases.append(stripped)
+        for base in bases:
+            for suffix in (".NS", ".BO"):
+                try:
+                    if fetch.lookup(base + suffix):
+                        return base + suffix, True
+                except Exception:
+                    pass
 
     try:
         cand = fetch.search(raw_symbol)
