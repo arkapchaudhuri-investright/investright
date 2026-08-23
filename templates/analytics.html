@@ -193,8 +193,19 @@
     <div class="an-kpi"><b>{{ dur(kpis.avg_dur|round|int) if kpis.avg_dur else '—' }}</b><span>avg time on site</span></div>
     <div class="an-kpi"><b>{{ '%.1f'|format(kpis.avg_pages or 0) }}</b><span>avg pages / visit</span></div>
     <div class="an-kpi"><b>{{ '%.0f'|format(kpis.bounce_rate) }}%</b><span>bounce (1-page)</span></div>
-    <div class="an-kpi"><b>{{ kpis.bot_sessions }}</b><span>bot sessions (filtered)</span></div>
+    <div class="an-kpi"><b>{{ kpis.bot_sessions }}</b><span>filtered out</span></div>
+    <div class="an-kpi"><b>{{ kpis.no_session_sessions }}</b><span>of those: no session</span></div>
   </div>
+  {# The filter's own limits, on the page that reports its output. Two of the
+     three levers are evidence; the third is a judgement call, and a residential
+     proxy defeats all three. #}
+  <p class="asof an-note">Filtered traffic is a visit whose user-agent or IP names
+    it a crawler, <b>or</b> that shows no evidence of a session — one page and no
+    measurable time. That last rule also catches a real person who read one page
+    and left; nothing here can tell those apart. It catches nothing at all on a
+    residential proxy — a script running through a consumer ISP looks exactly
+    like a reader, and separating them needs a paid IP-reputation feed. Treat
+    the human figure as an upper bound.</p>
 
   {% if chart %}
   <h2>Traffic over time <span class="asof">— solid = sessions · dashed = unique visitors</span></h2>
@@ -301,7 +312,7 @@
         <tr class="{{ 'bot' if s.is_bot }}">
           <td data-sort="{{ s.started_at }}">{{ s.start_local }}</td>
           <td data-sort="{{ loc }}">{{ loc }}</td>
-          <td data-sort="{{ s.name or '' }}">{{ s.name or '' }}{% if s.signed_in %} <span class="pill you">acct</span>{% elif s.is_bot %} <span class="pill">bot</span>{% endif %}</td>
+          <td data-sort="{{ s.name or '' }}">{{ s.name or '' }}{% if s.signed_in %} <span class="pill you">acct</span>{% elif s.is_bot %} <span class="pill" title="Filtered — crawler user-agent/IP, or no evidence of a session">{{ 'no session' if s.pages < 2 and s.duration_s < 10 else 'bot' }}</span>{% endif %}</td>
           <td data-sort="{{ s.pages }}">{{ s.pages }}</td>
           <td data-sort="{{ s.duration_s }}">{{ dur(s.duration_s) }}</td>
           <td class="path-cell" data-sort="{{ s.entry_path }}" title="{{ s.entry_path }} → {{ s.exit_path }}">{{ s.entry_path }} → {{ s.exit_path }}</td>
