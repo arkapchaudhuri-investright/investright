@@ -1,0 +1,76 @@
+{# Per-holding depth, injected under a /portfolio row when it's expanded.
+   A fragment, not a page: no base.html, no <html> — the portfolio's JS drops
+   it straight into the row's slot. Everything here is a read of data the
+   nightly refresh already saved, in the same voice as the deep-dive. #}
+<div class="hd">
+  <div class="hd-read">
+    {% if snow %}
+    <svg class="hd-snow" viewBox="0 0 60 60" role="img"
+         aria-label="Score radar for {{ r['ticker'] }}">
+      <polygon points="{{ snow['rings'][3] }}" fill="none"
+               stroke="var(--hairline)" stroke-width="1"/>
+      <polygon points="{{ snow['rings'][1] }}" fill="none"
+               stroke="var(--hairline)" stroke-width="1" opacity=".6"/>
+      <polygon points="{{ snow['polygon'] }}" fill="rgba(29,158,117,.25)"
+               stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+    {% endif %}
+    <div class="hd-read-txt">
+      {% if takeaway %}<p class="hd-take">{{ takeaway }}</p>{% endif %}
+      {% if scored %}
+      <div class="hd-axes">
+        {% for key, label in [('value', axis_names['value']), ('future', axis_names['future']),
+                              ('past', axis_names['past']), ('health', axis_names['health']),
+                              ('dividend', axis_names['dividend'])] %}
+        {% set d = axis_detail[key] %}
+        {% if d['applicable'] %}
+        <span class="hd-axis" title="{{ d['passed'] }} of {{ d['applicable'] }} {{ label|lower }} checks pass">
+          {{ label }} <b>{{ d['passed'] }}/{{ d['applicable'] }}</b>
+        </span>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="asof">No health checks saved for {{ r['ticker'] }} yet — Otto scores it
+        on the next nightly refresh.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# The numbers worth carrying over from the deep-dive, no scrolling required. #}
+  <div class="hd-facts">
+    <div><span>Fair value</span><b>
+      {%- if dcf and dcf['fair_value'] %}{{ dcf['fair_value']|money(ccy) }}
+        {%- if dcf['upside_pct'] is not none %}
+        <i class="{{ 'up' if dcf['upside_pct'] > 0 else 'down' if dcf['upside_pct'] < 0 else 'flat' }}"
+           >{{ '%+.0f%%'|format(dcf['upside_pct']) }}</i>{% endif %}
+      {%- else %}—{% endif %}</b></div>
+    <div><span>Market cap</span><b>{{ r['market_cap']|bigmoney(ccy) }}</b></div>
+    <div><span>P/E</span><b>{{ '%.1f'|format(r['pe']) if r['pe'] else '—' }}</b></div>
+    <div><span>Dividend</span><b>{{ '%.2f%%'|format(r['div_yield']) if r['div_yield'] else '—' }}</b></div>
+    <div><span>Next earnings</span><b>
+      {%- if earnings_days is not none %}{{ r['next_earnings'] }}
+        <i class="asof">in {{ earnings_days }}d</i>{% else %}—{% endif %}</b></div>
+  </div>
+
+  <div class="hd-news-wrap">
+    <h4>In the news</h4>
+    {% if news %}
+    <ul class="news hd-news">
+      {% for n in news %}
+      <li>
+        <a href="{{ n['url'] }}" target="_blank" rel="noopener noreferrer">{{ n['title'] }}</a>
+        <div class="news-meta">{{ n['publisher'] }}{% if n['published_at'] %} · {{ n['published_at'][:10] }}{% endif %}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="asof">No recent headlines saved for {{ r['ticker'] }}.</p>
+    {% endif %}
+  </div>
+
+  <div class="hd-foot">
+    <a class="hd-more" href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis on {{ r['ticker'] }} →</a>
+    <span class="asof">Rule-based from saved data. Not investment advice.</span>
+  </div>
+</div>

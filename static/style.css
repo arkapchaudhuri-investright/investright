@@ -2120,3 +2120,54 @@ footer .foot-legal a:hover { color: var(--accent); }
   .srow { flex-wrap: wrap; gap: 8px 12px; }
   .strat-card .card-head h2 { align-items: flex-start; }
 }
+
+/* --- Per-holding depth on /portfolio (analysis + news, fetched on expand) --- */
+.hd-btn {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: var(--space-1);
+  padding: 3px 9px; font: 600 var(--fs-xs) var(--sans); letter-spacing: .01em;
+  color: var(--muted); background: none; cursor: pointer;
+  border: 1px solid var(--hairline); border-radius: 999px;
+}
+.hd-btn:hover { color: var(--accent); border-color: rgba(29, 158, 117, .45); }
+.hd-chev { font-size: 10px; line-height: 1; transition: transform .15s ease; }
+.hd-btn[aria-expanded="true"] { color: var(--accent); border-color: rgba(29, 158, 117, .45); }
+.hd-btn[aria-expanded="true"] .hd-chev { transform: rotate(180deg); }
+/* The slot row spans the whole table, so drop the numeric alignment it would
+   otherwise inherit from .port-table's cells. */
+.hd-row > td { padding: 0 !important; text-align: left; background: var(--bg); }
+.hd { padding: var(--space-4) var(--space-4) var(--space-3); }
+.hd-read { display: flex; gap: var(--space-4); align-items: flex-start; }
+.hd-snow { width: 64px; height: 64px; flex: none; }
+.hd-read-txt { min-width: 0; }
+.hd-take { margin: 0; font-size: var(--fs-body); line-height: 1.55; }
+.hd-axes { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin-top: var(--space-2); }
+.hd-axis {
+  font-size: var(--fs-xs); color: var(--muted); white-space: nowrap;
+  border: 1px solid var(--hairline); border-radius: 999px; padding: 2px 8px;
+}
+.hd-axis b { color: var(--text); font-weight: 600; }
+.hd-facts {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3); margin-top: var(--space-4);
+  border-top: 1px solid var(--hairline); padding-top: var(--space-3);
+}
+.hd-facts span { display: block; color: var(--muted); font-size: var(--fs-xs); }
+.hd-facts b { font-size: var(--fs-body); font-weight: 600; }
+.hd-facts i { font-style: normal; font-size: var(--fs-xs); margin-left: 3px; }
+.hd-news-wrap { margin-top: var(--space-4); border-top: 1px solid var(--hairline); padding-top: var(--space-2); }
+.hd-news-wrap h4 { margin: 0; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
+.hd-news li { padding: 7px 0; }
+.hd-news a { font-size: var(--fs-body); }
+.hd-foot {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: var(--space-2); margin-top: var(--space-3);
+}
+.hd-more { font-size: var(--fs-body); font-weight: 600; color: var(--accent); text-decoration: none; }
+.hd-more:hover { text-decoration: underline; }
+/* On a mobile card the detail sits inside an already-indented panel — lose the
+   extra padding and let the five facts wrap into two columns. */
+.wl-detail .hd { padding: var(--space-3) 0 0; }
+@media (max-width: 720px) {
+  .hd-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hd-snow { width: 54px; height: 54px; }
+}
