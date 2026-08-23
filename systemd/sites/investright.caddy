@@ -1,0 +1,12 @@
+investright.us {
+	reverse_proxy 127.0.0.1:8700 {
+		# The app builds password-reset links from this. Without it Caddy
+		# talks plain HTTP to gunicorn on loopback and every emailed link
+		# comes out as http:// against an HTTPS-only site.
+		header_up X-Forwarded-Proto https
+	}
+}
+
+www.investright.us {
+	redir https://investright.us{uri} permanent
+}

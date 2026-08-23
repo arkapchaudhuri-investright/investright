@@ -11,5 +11,12 @@ Restart=always
 RestartSec=5
 Environment="PATH=/opt/investright/.venv/bin"
 
+# Shared host: cap what one site can take so a leak here cannot starve the
+# others. Two gunicorn workers idle around 250 MB; 1 GB leaves generous
+# headroom and still fits many apps in 24 GB. MemoryMax kills the process if
+# it is exceeded (systemd restarts it), MemoryHigh only throttles first.
+MemoryHigh=768M
+MemoryMax=1G
+
 [Install]
 WantedBy=multi-user.target
