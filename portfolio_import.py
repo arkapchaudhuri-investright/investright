@@ -1,7 +1,8 @@
 """Portfolio bulk-import parsers (spec 15) — pure, no network, never raise.
 
 Three input shapes normalise to the same list of
-``{"raw_symbol", "qty", "avg_price"}`` dicts, which the app then resolves to real
+``{"raw_symbol", "isin", "qty", "avg_price", "derived_avg"}`` dicts, which the
+app then resolves to real
 Yahoo tickers and shows on a confirm screen before anything is written:
 
 - **paste**   — a pasted table (one holding per line: symbol + qty + price).
@@ -29,12 +30,31 @@ BROKER_COLS = {
     "groww":     {"symbol": "Stock Name", "qty": "Quantity", "price": "Avg. buy price"},
     "robinhood": {"symbol": "Symbol", "qty": "Quantity", "price": "Average Cost"},
     "fidelity":  {"symbol": "Symbol", "qty": "Quantity", "price": "Cost Basis Per Share"},
+    # Schwab's positions export has no per-share average at all — only the
+    # position's total "Cost Basis" — so this signature names `cost` and the
+    # parser divides by quantity. Its "Price" column is the LIVE price; reading
+    # that as the average is what left four US holdings showing $0.00 P&L.
+    "schwab":    {"symbol": "Symbol", "qty": "Quantity", "cost": "Cost Basis"},
 }
 
-# Header keywords for the generic guesser, most-specific first.
+# Header keywords for the generic guesser, most-specific first — and the order
+# matters, because the guesser tries KEYWORDS in order rather than walking the
+# columns. A Schwab export puts its live "Price" column well to the left of any
+# cost figure, so column-order-wins picked the live price as the average and
+# every position showed a $0.00 gain forever.
 _SYMBOL_KEYS = ("symbol", "ticker", "scrip", "instrument", "stock")
 _QTY_KEYS = ("qty", "quantity", "shares", "units")
-_PRICE_KEYS = ("avg", "average", "price", "cost", "buy")
+# Per-share averages. Bare "price" is deliberately absent: it means the live
+# price at least as often as the buy price, so it only gets a look in via
+# _LAST_PRICE_KEYS, after a total cost basis has also failed to turn up.
+_PRICE_KEYS = ("cost basis per share", "cost per share", "average price",
+               "average cost", "avg. buy", "avg buy", "avg price", "avg cost",
+               "buy price", "buy avg", "avg", "average")
+# Whole-position cost. Divided by quantity to get the average (Schwab, and any
+# export that reports what you paid in total rather than per share).
+_COST_KEYS = ("cost basis", "total cost", "cost value", "buy value",
+              "purchase value", "invested")
+_LAST_PRICE_KEYS = ("price", "rate", "cost")
 _ISIN_KEYS = ("isin",)
 
 
@@ -77,22 +97,35 @@ def _parse_paste(raw):
         nums = re.findall(r"-?\d[\d,]*(?:\.\d+)?", rest)
         if len(nums) < 2:                 # not a holding line — skip quietly
             continue
-        out.append({"raw_symbol": sym, "isin": "",
-                    "qty": _num(nums[0]), "avg_price": _num(nums[1])})
+        out.append({"raw_symbol": sym, "isin": "", "qty": _num(nums[0]),
+                    "avg_price": _num(nums[1]), "derived_avg": False})
     return out
 
 
 def _guess_columns(headers):
-    """Best-effort {field: index} from CSV headers by keyword. Missing → absent."""
+    """Best-effort {field: index} from CSV headers by keyword. Missing → absent.
+
+    Keywords are tried in order and the first one that matches any column wins,
+    so a more telling header beats a nearer one — "Average Cost" over "Price"
+    even when Price sits three columns to its left."""
     lowered = [(h or "").strip().lower() for h in headers]
 
-    def find(keys):
-        for i, h in enumerate(lowered):
-            if any(k in h for k in keys):
-                return i
+    def find(keys, taken=()):
+        for k in keys:
+            for i, h in enumerate(lowered):
+                if k in h and i not in taken:
+                    return i
         return None
+
+    price = find(_PRICE_KEYS)
+    # A per-share average and a total cost can both be present (Fidelity ships
+    # "Cost Basis Per Share" next to "Cost Basis"); the average wins, and the
+    # column it claimed is off the table for the total.
+    cost = find(_COST_KEYS, taken=(price,) if price is not None else ())
+    if price is None and cost is None:
+        price = find(_LAST_PRICE_KEYS)
     return {"symbol": find(_SYMBOL_KEYS), "qty": find(_QTY_KEYS),
-            "price": find(_PRICE_KEYS), "isin": find(_ISIN_KEYS)}
+            "price": price, "cost": cost, "isin": find(_ISIN_KEYS)}
 
 
 def _columns_from_signature(headers, sig):
@@ -199,7 +232,8 @@ def _parse_csv(raw, kind, colmap=None):
         idx = {}
         for field, header in (("symbol", colmap.get("symbol")),
                               ("qty", colmap.get("qty")),
-                              ("price", colmap.get("price"))):
+                              ("price", colmap.get("price")),
+                              ("cost", colmap.get("cost"))):
             idx[field] = headers.index(header) if header in headers else None
     elif kind in BROKER_COLS:
         idx = _columns_from_signature(headers, BROKER_COLS[kind])
@@ -207,6 +241,13 @@ def _parse_csv(raw, kind, colmap=None):
         idx = _guess_columns(headers)
 
     si, qi, pi = idx.get("symbol"), idx.get("qty"), idx.get("price")
+    # A broker signature may name a total cost instead of a per-share average
+    # (Schwab); an explicit map may name neither, in which case fall back to
+    # whatever the keyword guesser found for this file.
+    ci = idx.get("cost")
+    if pi is None and ci is None:
+        guessed = _guess_columns(headers)
+        pi, ci = guessed.get("price"), guessed.get("cost")
     # A broker signature or an explicit column map only names the three fields
     # we ask for, so look the ISIN up separately — it's optional, and it's the
     # difference between resolving BEL to Bharat Electronics and to something
@@ -221,8 +262,19 @@ def _parse_csv(raw, kind, colmap=None):
         sym = _symbol(cell(si)) if si is not None else ""
         if not sym:
             continue
+        qty = _num(cell(qi))
+        avg = _num(cell(pi))
+        # No per-share figure, but a whole-position cost and a quantity → the
+        # average is arithmetic, not a guess. Flagged so the confirm screen can
+        # say where the number came from.
+        derived = False
+        if avg is None and ci is not None and qty:
+            total = _num(cell(ci))
+            if total is not None:
+                avg = total / qty
+                derived = True
         out.append({"raw_symbol": sym, "isin": (cell(ii) or "").strip().upper(),
-                    "qty": _num(cell(qi)), "avg_price": _num(cell(pi))})
+                    "qty": qty, "avg_price": avg, "derived_avg": derived})
     return out
 
 

@@ -230,6 +230,7 @@
         <input type="hidden" name="csrf" value="{{ csrf_token }}">
         {% for key, label in (('zerodha', 'Zerodha'), ('groww', 'Groww'),
                               ('robinhood', 'Robinhood'), ('fidelity', 'Fidelity'),
+                              ('schwab', 'Schwab'),
                               ('generic', 'Other / any CSV')) %}
         <input class="imp-radio" type="radio" name="broker" value="{{ key }}"
                id="bk-{{ key }}"{{ ' checked' if key == 'generic' }}>
@@ -239,6 +240,7 @@
         <div class="broker-pick" role="radiogroup" aria-label="Your broker">
           {% for key, label in (('zerodha', 'Zerodha'), ('groww', 'Groww'),
                                 ('robinhood', 'Robinhood'), ('fidelity', 'Fidelity'),
+                                ('schwab', 'Schwab'),
                                 ('generic', 'Other / any CSV')) %}
           <label class="bk-pill" for="bk-{{ key }}">{{ label }}</label>
           {% endfor %}
@@ -278,6 +280,16 @@
               <li>Click the <b>⬇ download</b> icon above the positions table.</li>
             </ol>
             <a class="bk-open" href="https://www.fidelity.com" target="_blank" rel="noopener">Open Fidelity ↗</a>
+          </div>
+          <div class="bk-guide g-schwab">
+            <ol class="bk-steps">
+              <li>Sign in at <b>schwab.com</b>.</li>
+              <li>Open <b>Accounts → Positions</b>.</li>
+              <li>Use <b>Export</b> (top-right of the positions table) for a CSV.</li>
+            </ol>
+            <p class="asof">Schwab's file has no per-share average — Otto works it
+              out from the position's total cost basis.</p>
+            <a class="bk-open" href="https://client.schwab.com" target="_blank" rel="noopener">Open Schwab ↗</a>
           </div>
           <div class="bk-guide g-generic">
             <ol class="bk-steps">

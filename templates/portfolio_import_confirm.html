@@ -6,8 +6,9 @@
   {% with mood = 'happy', size = 72 %}{% include "_otto.html" %}{% endwith %}
   <h1 class="serif">Confirm your import</h1>
   <p class="sub">{{ rows|length }} row{{ 's' if rows|length != 1 }} parsed ·
-    <b>{{ ok }}</b> ready to add. Fix any tickers Otto wasn't sure about, then
-    confirm — <b>nothing is saved until you do</b>.</p>
+    <b>{{ ok }}</b> ready to save{% if updates %} · <b>{{ updates }}</b> already
+    held, with different numbers{% endif %}. Fix any tickers Otto wasn't sure
+    about, then confirm — <b>nothing is saved until you do</b>.</p>
 </section>
 
 {% with msgs = get_flashed_messages(with_categories=true) %}
@@ -17,9 +18,10 @@
 <section class="card">
   <form action="{{ url_for('portfolio_import_confirm') }}" method="post">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <div class="port-table-wrap">
     <table class="import-table">
       <thead><tr>
-        <th></th><th>From file</th><th>Ticker</th>
+        <th></th><th>From file</th><th>Ticker</th><th></th>
         <th class="num">Qty</th><th class="num">Avg buy (native)</th>
       </tr></thead>
       <tbody>
@@ -36,6 +38,19 @@
                    spellcheck="false" autocapitalize="characters"
                    class="{{ '' if r['matched'] else 'needs-confirm' }}">
           </td>
+          {# What saving this row would actually do — a re-import is mostly
+             "no change", and the few rows that move are the interesting ones. #}
+          <td>
+            {% if r['change'] == 'add' %}<span class="imp-tag imp-add">new</span>
+            {% elif r['change'] == 'update' %}
+            <span class="imp-tag imp-upd"
+                  title="Now {{ '%g'|format(r['prev']['qty']) }} @ {{ r['prev']['avg_price']|money(r['prev']['currency']) }}">updates</span>
+            {% else %}<span class="imp-tag imp-same">no change</span>{% endif %}
+            {% if r['derived_avg'] %}
+            <span class="imp-tag imp-calc" title="Your file gave a total cost, not a
+                  per-share average — Otto divided it by the quantity">from cost basis</span>
+            {% endif %}
+          </td>
           <td class="num">
             <input type="number" name="qty" step="any" min="0" inputmode="decimal"
                    value="{{ '%g'|format(r['qty']) if r['qty'] else '' }}"
@@ -48,10 +63,34 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     <p class="asof">✓ matched · ⚑ check the ticker · ✕ fix the numbers. Blank or
       zero rows are skipped. Indian tickers need <code>.NS</code> / <code>.BO</code>.</p>
+
+    {% if missing %}
+    {# Holdings the file doesn't mention. Left unticked on purpose: a partial
+       export — one account of several — must not quietly empty the rest of the
+       book, which is how a Zerodha import left four Schwab positions stranded. #}
+    <div class="imp-missing">
+      <h3>Not in this file</h3>
+      <p class="asof">These are in your portfolio but absent from the file you just
+        uploaded — sold, held elsewhere, or simply not in this export. Tick any you
+        want removed; anything left unticked stays exactly as it is.</p>
+      <ul class="imp-missing-list">
+        {% for m in missing %}
+        <li>
+          <label>
+            <input type="checkbox" name="drop" value="{{ m['ticker'] }}">
+            <b>{{ m['ticker'] }}</b> <span class="asof">{{ m['name'] }}</span>
+            <span class="asof">{{ '%g'|format(m['qty']) }} @ {{ m['avg_price']|money(m['currency']) }}</span>
+          </label>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     <div class="import-actions">
-      <button type="submit" class="btn-analyze">Confirm &amp; add</button>
+      <button type="submit" class="btn-analyze">Confirm &amp; save</button>
       <a class="ghost" href="{{ url_for('portfolio_page') }}">Cancel</a>
     </div>
   </form>
