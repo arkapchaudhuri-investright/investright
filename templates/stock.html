@@ -2,6 +2,12 @@
 {% from "_explain.html" import explain %}
 {% block title %}{{ s['name'] }} · InvestRight{% endblock %}
 {% block content %}
+{# Without this, the peer add/remove and price-alert flashes this page raises
+   were set but never drawn — they stayed queued and surfaced on whatever page
+   the visitor happened to load next. #}
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+{% endwith %}
 
 {% macro check_row(c) %}
 <li class="chk chk-{{ 'pass' if c['passed'] else 'fail' if c['passed'] is false else 'na' }}">
