@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Weekly note · InvestRight{% endblock %}
+{% block content %}
+{# Reached from a link in the weekly email, so it has to read to someone who
+   isn't signed in and may not remember signing up. Same shape as the other
+   auth pages. #}
+<section class="hero auth-hero">
+  {% if done %}
+  {% with mood = 'happy' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">That's done — no more weekly notes.</h1>
+  <p class="sub">Otto won't email you again unless you turn the note back on.</p>
+  <p class="auth-note">
+    Nothing else changed: your portfolio, watchlist and notes are exactly where
+    you left them. The switch lives on your account page if you ever want it back.
+  </p>
+  <p class="auth-alt"><a href="{{ url_for('home') }}">Back to InvestRight</a></p>
+
+  {% elif already %}
+  {% with mood = 'neutral' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">You're already unsubscribed.</h1>
+  <p class="sub">The weekly note is off for {{ email }}.</p>
+  <p class="auth-note">
+    There's nothing left to turn off. If a note still arrived, it went out
+    before this took effect.
+  </p>
+  <p class="auth-alt"><a href="{{ url_for('home') }}">Back to InvestRight</a></p>
+
+  {% else %}
+  {% with mood = 'neutral' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Stop Otto's weekly note?</h1>
+  <p class="sub">This turns off the Sunday email for {{ email }}.</p>
+
+  {# The confirmation is a POST on purpose: mail clients and link scanners
+     follow URLs by themselves, and a GET that wrote would opt people out
+     before they ever clicked. #}
+  <form class="auth-form" method="post"
+        action="{{ url_for('auth.unsubscribe_confirm', token=token) }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <button type="submit" class="btn-analyze auth-go">Yes, stop the emails</button>
+  </form>
+
+  <p class="auth-note">
+    You stay signed up to InvestRight — only the email stops, and you can switch
+    it back on from your account whenever you like.
+  </p>
+  <p class="auth-alt"><a href="{{ url_for('home') }}">No, keep them coming</a></p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -146,6 +146,12 @@ def register():
                     uid = create_user(conn, email, generate_password_hash(pw),
                                       name=name,
                                       market=(request.cookies.get("ir_market") or None))
+                    # The weekly note is ticked by default on the form, so the
+                    # box's absence here is a deliberate no — not a fresh
+                    # account quietly defaulting to off, which is how the
+                    # newsletter reached its first send with nobody on it.
+                    if request.form.get("weekly_email"):
+                        conn.execute("UPDATE users SET weekly_email=1 WHERE id=?", (uid,))
                     user = dict(get_user_by_id(conn, uid))
                     _adopt_identity(conn, user)
             if not err:
@@ -154,8 +160,9 @@ def register():
                 return redirect(_safe_next(request.form.get("next")))
         flash(err, "error")
         return render_template("register.html", email=email, name=name or "",
+                               weekly=bool(request.form.get("weekly_email")),
                                next=request.form.get("next", ""))
-    return render_template("register.html", email="", name="",
+    return render_template("register.html", email="", name="", weekly=True,
                            next=request.args.get("next", ""))
 
 
@@ -399,6 +406,40 @@ def weekly_toggle():
     flash("You'll get Otto's weekly note on Sundays." if on
           else "Weekly note turned off.", "ok")
     return redirect(url_for("auth.account") + "#weekly")
+
+
+@bp.get("/unsubscribe/<token>")
+def unsubscribe(token):
+    """The way out of the weekly note for someone who isn't signed in — the
+    only audience an email link can count on. The token is an HMAC of the user
+    id (mailer), so this needs no table and no session.
+
+    A GET only *shows* the confirmation: link scanners and mail-client
+    prefetchers follow URLs, and a GET that writes would let them opt people out
+    (and would break §3 besides). The button below POSTs."""
+    from db import get_conn
+    uid = mailer.unsubscribe_user_id(token)
+    if uid is None:
+        abort(404)
+    with get_conn() as conn:
+        user = get_user_by_id(conn, uid)
+    if not user:
+        abort(404)
+    return render_template("unsubscribe.html", token=token, email=user["email"],
+                           already=not user["weekly_email"])
+
+
+@bp.post("/unsubscribe/<token>")
+def unsubscribe_confirm(token):
+    """Turn the weekly note off for the account the token names."""
+    from db import get_conn
+    uid = mailer.unsubscribe_user_id(token)
+    if uid is None:
+        abort(404)
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET weekly_email=0 WHERE id=?", (uid,))
+    g.__dict__.pop("user", None)
+    return render_template("unsubscribe.html", token=token, done=True)
 
 
 @bp.post("/account/delete")

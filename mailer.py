@@ -16,12 +16,43 @@ degradation the Gemini key gets (§8.0) — a missing key never breaks a page.
 Config is read at call time, not import time, so it doesn't matter whether
 digest._load_env() has run yet when this module is first imported.
 """
+import hashlib
+import hmac
 import os
 import smtplib
 import ssl
 from email.message import EmailMessage
 
 TIMEOUT = 20
+
+# app.py's dev-only fallback, mirrored here so a local run signs the same way.
+# Production sets SECRET_KEY in the VM .env; keep the two in step.
+DEV_SECRET = "investright-local-only"
+
+
+def secret_key():
+    """The app's signing secret — from the environment, or the dev fallback."""
+    return os.environ.get("SECRET_KEY") or DEV_SECRET
+
+
+def unsubscribe_token(user_id):
+    """A stable, unguessable opt-out token for one account.
+
+    Every weekly note carries the same link, so no table and no expiry: it's an
+    HMAC of the user id under the app's signing key, which means it survives a
+    password change (unlike a session token) and dies with the key."""
+    sig = hmac.new(secret_key().encode(), f"unsub:{user_id}".encode(),
+                   hashlib.sha256).hexdigest()[:32]
+    return f"{user_id}-{sig}"
+
+
+def unsubscribe_user_id(token):
+    """The account an unsubscribe token belongs to, or None if it doesn't verify."""
+    uid, _, sig = (token or "").partition("-")
+    if not uid.isdigit() or not sig:
+        return None
+    expected = unsubscribe_token(int(uid)).partition("-")[2]
+    return int(uid) if hmac.compare_digest(sig, expected) else None
 
 
 def _cfg():
@@ -45,10 +76,12 @@ def enabled():
     return _cfg() is not None
 
 
-def send(to, subject, body, attachment=None):
+def send(to, subject, body, attachment=None, headers=None):
     """Send one plain-text message. Returns True on success.
 
     `attachment` is an optional (filename, bytes) pair, sent as an opaque blob.
+    `headers` is an optional dict of extra headers — List-Unsubscribe on the
+    weekly note, so Gmail shows its own unsubscribe control next to the sender.
     Never raises: a dead relay must not 500 a page or, worse, tell the caller
     whether the address existed. Failures land in the gunicorn log.
     """
@@ -59,6 +92,8 @@ def send(to, subject, body, attachment=None):
     msg["From"] = cfg["sender"]
     msg["To"] = to
     msg["Subject"] = subject
+    for k, v in (headers or {}).items():
+        msg[k] = v
     msg.set_content(body)
     if attachment:
         name, blob = attachment

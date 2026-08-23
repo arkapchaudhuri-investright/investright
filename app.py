@@ -37,7 +37,7 @@ app = Flask(__name__)
 # Session signing key from .env (§10.0) — refresh→digest's loader put it in the
 # environment at import. Falls back to a dev-only constant if unset so local
 # runs still work; production MUST set SECRET_KEY in the VM .env.
-app.secret_key = os.environ.get("SECRET_KEY") or "investright-local-only"
+app.secret_key = mailer.secret_key()
 # Session cookie hardening (§10.0). Secure defaults ON (prod is HTTPS via Caddy);
 # the __main__ dev server flips it off so login works over http://localhost.
 app.config.update(
