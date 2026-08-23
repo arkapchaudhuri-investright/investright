@@ -21,7 +21,11 @@ import re
 # so a miss here just falls through to the generic keyword guesser — never an
 # error. Keys are the exact header text as of writing; values map to our fields.
 BROKER_COLS = {
-    "zerodha":   {"symbol": "Instrument", "qty": "Qty.", "price": "Avg. cost"},
+    # Zerodha's Console web table and its downloadable holdings workbook use
+    # different headers; the workbook wins here since that's what people export.
+    # A miss falls through to the keyword guesser, which catches the other one.
+    "zerodha":   {"symbol": "Symbol", "qty": "Quantity Available",
+                  "price": "Average Price"},
     "groww":     {"symbol": "Stock Name", "qty": "Quantity", "price": "Avg. buy price"},
     "robinhood": {"symbol": "Symbol", "qty": "Quantity", "price": "Average Cost"},
     "fidelity":  {"symbol": "Symbol", "qty": "Quantity", "price": "Cost Basis Per Share"},
@@ -31,6 +35,7 @@ BROKER_COLS = {
 _SYMBOL_KEYS = ("symbol", "ticker", "scrip", "instrument", "stock")
 _QTY_KEYS = ("qty", "quantity", "shares", "units")
 _PRICE_KEYS = ("avg", "average", "price", "cost", "buy")
+_ISIN_KEYS = ("isin",)
 
 
 def _num(s):
@@ -72,7 +77,7 @@ def _parse_paste(raw):
         nums = re.findall(r"-?\d[\d,]*(?:\.\d+)?", rest)
         if len(nums) < 2:                 # not a holding line — skip quietly
             continue
-        out.append({"raw_symbol": sym,
+        out.append({"raw_symbol": sym, "isin": "",
                     "qty": _num(nums[0]), "avg_price": _num(nums[1])})
     return out
 
@@ -87,7 +92,7 @@ def _guess_columns(headers):
                 return i
         return None
     return {"symbol": find(_SYMBOL_KEYS), "qty": find(_QTY_KEYS),
-            "price": find(_PRICE_KEYS)}
+            "price": find(_PRICE_KEYS), "isin": find(_ISIN_KEYS)}
 
 
 def _columns_from_signature(headers, sig):
@@ -102,18 +107,92 @@ def _columns_from_signature(headers, sig):
     return idx
 
 
-def _parse_csv(raw, kind, colmap=None):
-    """CSV text → rows. `colmap` (from the confirm-page mapper) wins; else a
-    broker signature (when `kind` names one); else keyword guessing."""
-    text = raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else (raw or "")
+def _looks_like_header(cells):
+    """True when a row names a symbol column plus a quantity or price one.
+
+    Broker exports rarely start with their header: Zerodha's puts 22 rows of
+    client id, statement title and a summary block above it. Finding the header
+    by content rather than assuming row 0 is what makes those files work."""
+    guess = _guess_columns(cells)
+    return guess.get("symbol") is not None and (
+        guess.get("qty") is not None or guess.get("price") is not None)
+
+
+def _find_header(rows, limit=40):
+    """Index of the first row that reads as a header, else 0 (assume row one)."""
+    for i, r in enumerate(rows[:limit]):
+        if _looks_like_header([(c or "").strip() for c in r]):
+            return i
+    return 0
+
+
+def _sheet_rows(data):
+    """Every sheet of an .xlsx/.xlsm workbook as (name, rows), best first.
+
+    Brokers split workbooks by asset class — Zerodha ships Equity, Mutual Funds
+    and Combined — so pick by content: sheets whose header we can actually find
+    come first, ordered by how many rows follow it. Returns [] for anything
+    openpyxl can't open, which the caller treats as "not a spreadsheet"."""
     try:
-        rows = list(csv.reader(io.StringIO(text)))
-    except csv.Error:
+        import openpyxl
+    except ImportError:
         return []
-    rows = [r for r in rows if any((c or "").strip() for c in r)]  # drop blank lines
+    try:
+        # NOT read_only: broker workbooks often carry a wrong or missing
+        # dimension record, and in read-only mode openpyxl trusts it and yields
+        # zero rows. Holdings files are tens of KB, so the full parse is cheap.
+        wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    except Exception:
+        return []
+    out = []
+    for ws in wb.worksheets:
+        rows = [["" if c is None else str(c) for c in r]
+                for r in ws.iter_rows(values_only=True)]
+        rows = [r for r in rows if any(c.strip() for c in r)]
+        if not rows:
+            continue
+        h = _find_header(rows)
+        scored = _looks_like_header([c.strip() for c in rows[h]])
+        out.append((scored, len(rows) - h, ws.title, rows))
+    wb.close()
+    out.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    return [(name, rows) for _s, _n, name, rows in out]
+
+
+def _is_xlsx(data):
+    """.xlsx/.xlsm are ZIP archives — sniff the magic bytes rather than trusting
+    a filename, since browsers report Excel MIME types inconsistently."""
+    return isinstance(data, (bytes, bytearray)) and data[:2] == b"PK"
+
+
+def _to_rows(raw):
+    """Uploaded bytes → a table (list of rows), from a spreadsheet or CSV/TSV."""
+    if _is_xlsx(raw):
+        sheets = _sheet_rows(bytes(raw))
+        return sheets[0][1] if sheets else []
+    text = raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else (raw or "")
+    # Sniff the delimiter: some brokers export tab- or semicolon-separated files
+    # with a .csv extension, which a comma-only reader turns into one long column.
+    try:
+        dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t|")
+        rows = list(csv.reader(io.StringIO(text), dialect))
+    except Exception:
+        rows = list(csv.reader(io.StringIO(text)))
+    return [r for r in rows if any((c or "").strip() for c in r)]
+
+
+def _parse_csv(raw, kind, colmap=None):
+    """A spreadsheet or CSV → rows. `colmap` (from the confirm-page mapper)
+    wins; else a broker signature (when `kind` names one); else keyword
+    guessing. The header is located by content, not assumed to be row one."""
+    try:
+        rows = _to_rows(raw)
+    except Exception:
+        return []
     if not rows:
         return []
-    headers = [h.strip() for h in rows[0]]
+    hrow = _find_header(rows)
+    headers = [(h or "").strip() for h in rows[hrow]]
 
     idx = None
     if colmap:                            # explicit header-name map from the UI
@@ -128,14 +207,21 @@ def _parse_csv(raw, kind, colmap=None):
         idx = _guess_columns(headers)
 
     si, qi, pi = idx.get("symbol"), idx.get("qty"), idx.get("price")
+    # A broker signature or an explicit column map only names the three fields
+    # we ask for, so look the ISIN up separately — it's optional, and it's the
+    # difference between resolving BEL to Bharat Electronics and to something
+    # unrelated that happens to fuzzy-match.
+    ii = idx.get("isin")
+    if ii is None:
+        ii = _guess_columns(headers).get("isin")
     out = []
-    for r in rows[1:]:
+    for r in rows[hrow + 1:]:
         def cell(i):
             return r[i] if i is not None and i < len(r) else None
         sym = _symbol(cell(si)) if si is not None else ""
         if not sym:
             continue
-        out.append({"raw_symbol": sym,
+        out.append({"raw_symbol": sym, "isin": (cell(ii) or "").strip().upper(),
                     "qty": _num(cell(qi)), "avg_price": _num(cell(pi))})
     return out
 
