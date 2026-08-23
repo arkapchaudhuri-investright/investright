@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import secrets
+import time
 import uuid
 from datetime import date, datetime, timedelta
 from urllib.parse import unquote
@@ -454,6 +455,48 @@ def watchlist_page():
     return resp
 
 
+def _register_stock_minimal(symbol):
+    """Persist just enough of a stock for something to reference it — the row in
+    `stocks`, nothing else. Returns the meta dict, or None if Yahoo doesn't
+    recognise the symbol.
+
+    For bulk paths (a 40-line portfolio import) where a full _ingest_stock per
+    ticker would take minutes and time the request out. Snapshots, fundamentals,
+    price history and the logo arrive with the next nightly refresh, which
+    already sweeps tickers that are held but unwatched."""
+    symbol = (symbol or "").upper().strip()
+    if not symbol:
+        return None
+    meta = fetch.lookup(symbol)
+    if not meta:
+        # Yahoo throttles a burst of forty lookups, and a throttled call is
+        # indistinguishable from an unknown symbol. Retry once, briefly, before
+        # concluding the ticker is bad — losing a real holding to rate limiting
+        # is far worse than the pause.
+        time.sleep(1.5)
+        meta = fetch.lookup(symbol)
+    if not meta:
+        # Still nothing. The user explicitly confirmed this ticker on the
+        # previous screen, so record it rather than discarding their holding;
+        # tonight's refresh fills in the real name and prices, and a genuinely
+        # bogus symbol simply stays empty and visible as such.
+        meta = {"ticker": symbol, "name": symbol, "exchange": "", "sector": "",
+                "industry": "", "currency": "INR" if symbol.endswith((".NS", ".BO")) else "USD",
+                "website": ""}
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO stocks (ticker, name, exchange, sector, "
+                "industry, currency, added_at) VALUES (?,?,?,?,?,?,?)",
+                (meta["ticker"], meta["name"], meta.get("exchange", "") or "",
+                 meta.get("sector", "") or "", meta.get("industry", "") or "",
+                 meta.get("currency", "USD") or "USD",
+                 datetime.now().isoformat(timespec="seconds")))
+    except Exception:
+        return None
+    return meta
+
+
 def _ingest_stock(symbol):
     """Fetch a symbol from Yahoo and persist its stock row + snapshot + peers +
     deep data (checks/DCF/news) — WITHOUT touching the watchlist. Returns the
@@ -793,16 +836,32 @@ _IMPORT_MAX_BYTES = 1_000_000            # ~1 MB cap on uploads (honest reject)
 _IMPORT_MAX_ROWS = 500                   # sanity cap so one paste can't blow up
 
 
-def _resolve_import_symbol(raw_symbol):
-    """(suggested_ticker, matched?) for a parsed import row. Known-locally or an
-    exact Yahoo-search hit auto-matches; anything else is suggested but flagged
-    for the user to confirm. Reuses the app's fetch.search resolver (spec 15)."""
+def _resolve_import_symbol(raw_symbol, isin=""):
+    """(suggested_ticker, matched?) for a parsed import row.
+
+    Tries, in order: a ticker we already track, an exchange suffix implied by
+    the row's ISIN, then Yahoo's fuzzy search. The ISIN step matters — Indian
+    brokers export bare NSE symbols, and fuzzy search resolved "BEL" (Bharat
+    Electronics) to an unrelated US listing and several others to their thin
+    .BO twins. An ISIN beginning INE says "listed in India", which makes
+    <symbol>.NS a fact to verify rather than a guess."""
     up = (raw_symbol or "").upper().strip()
     if not up:
         return "", False
     with get_conn() as conn:
         if conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (up,)).fetchone():
             return up, True
+
+    # ISIN-implied suffixes, NSE before BSE: both list most Indian companies,
+    # but Yahoo's NSE data is far more complete.
+    if (isin or "").upper().startswith("INE") and "." not in up:
+        for suffix in (".NS", ".BO"):
+            try:
+                if fetch.lookup(up + suffix):
+                    return up + suffix, True
+            except Exception:
+                pass
+
     try:
         cand = fetch.search(raw_symbol)
     except Exception:
@@ -842,7 +901,7 @@ def portfolio_import_preview():
 
     resolved = []
     for r in rows:
-        ticker, matched = _resolve_import_symbol(r["raw_symbol"])
+        ticker, matched = _resolve_import_symbol(r["raw_symbol"], r.get("isin", ""))
         bad = not (r.get("qty") and r.get("qty") > 0
                    and r.get("avg_price") and r.get("avg_price") > 0)
         resolved.append({"raw_symbol": r["raw_symbol"], "ticker": ticker,
@@ -877,7 +936,13 @@ def portfolio_import_confirm():
             continue
         with get_conn() as conn:
             known = conn.execute("SELECT 1 FROM stocks WHERE ticker=?", (tk,)).fetchone()
-        if not known and not _ingest_stock(tk):
+        # Register unknown tickers CHEAPLY. _ingest_stock() also pulls
+        # fundamentals, full price history and a logo — seconds each, so a
+        # 40-line broker export blew past gunicorn's 120s timeout and the save
+        # silently died mid-way. A holding only needs the stock to exist; the
+        # nightly refresh already covers held-but-unwatched tickers and fills
+        # in the rest by morning.
+        if not known and not _register_stock_minimal(tk):
             skipped += 1
             continue
         with get_conn() as conn:
