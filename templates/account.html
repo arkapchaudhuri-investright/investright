@@ -31,8 +31,8 @@
     signed in.
     {% if mail_enabled %}Forget it and you can
     <a href="{{ url_for('auth.forgot') }}">email yourself a reset link</a>.
-    {% else %}There's still no self-serve reset if you forget it (no email
-    infrastructure on a $0 budget), so pick something you'll keep.{% endif %}
+    {% else %}There's no self-serve reset while the server has no mail relay
+    configured, so pick something you'll keep.{% endif %}
   </p>
 
   <h2 class="acct-h2" id="weekly">Weekly note</h2>

@@ -430,6 +430,11 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
   flex-direction: row; align-items: center; gap: 9px; cursor: pointer; margin-top: -2px;
 }
 .auth-form .auth-check input { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); }
+/* A checkbox whose label runs to two lines (the weekly-note opt-in) keeps its
+   box on the first line — centring it against a wrapped label reads as drift. */
+.auth-form label.auth-check-wrap { align-items: flex-start; }
+.auth-form .auth-check-wrap input { margin-top: 2px; }
+.auth-form .auth-check-wrap span { line-height: 1.5; }
 .auth-go { width: 100%; margin-top: 4px; }
 .auth-alt { color: var(--muted); font-size: 14px; margin-top: 16px; }
 .auth-alt a { color: var(--accent); text-decoration: none; }

@@ -25,6 +25,13 @@
     <label>Confirm password
       <input type="password" name="password2" required autocomplete="new-password">
     </label>
+    {# Ticked by default, and visibly so — the note is the product's one push
+       channel, and every account before this shipped silently opted out. #}
+    <label class="auth-check auth-check-wrap">
+      <input type="checkbox" name="weekly_email" value="1" {{ 'checked' if weekly }}>
+      <span>Email me Otto's weekly note — a calm Sunday summary of your
+        portfolio and watchlist. One click to stop, any time.</span>
+    </label>
     <button type="submit" class="btn-analyze auth-go">Create account</button>
   </form>
 

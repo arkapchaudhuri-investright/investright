@@ -17,6 +17,10 @@ import mailer
 import metrics
 from db import get_conn, init_db
 
+# Links in the note are absolute — this job runs outside a request, so there's
+# no host header to read one from.
+SITE = "https://investright.us"
+
 
 def _week_move(conn, ticker, price):
     """This week's % move: latest price vs the close ~7 days ago (nearest saved
@@ -243,9 +247,15 @@ def main():
                 continue
             if not note:
                 continue
+            # One link out that needs no sign-in — the note is the only place
+            # some readers will ever meet this preference. List-Unsubscribe puts
+            # the same URL behind Gmail's own control.
+            unsub = f"{SITE}/unsubscribe/{mailer.unsubscribe_token(u['id'])}"
             ok = mailer.send(u["email"], "Otto's weekly note — InvestRight",
-                             note + "\n\nManage: https://investright.us/account"
-                             "\nNot investment advice.")
+                             note + f"\n\nManage your account: {SITE}/account"
+                             f"\nStop these emails: {unsub}"
+                             "\nNot investment advice.",
+                             headers={"List-Unsubscribe": f"<{unsub}>"})
             if ok:
                 sent += 1
     stamp = datetime.now().isoformat(timespec="seconds")
