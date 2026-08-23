@@ -833,6 +833,67 @@ def portfolio_delete(ticker):
     return redirect(url_for("portfolio_page"))
 
 
+@app.get("/portfolio/<ticker>/detail")
+@login_required
+def portfolio_detail(ticker):
+    """Depth for one holding: the same rule-based read, score radar, fair-value
+    gap and headlines the deep-dive carries, cut to what fits under a portfolio
+    row. Fetched on expand rather than rendered with the page — forty of these
+    inline would multiply /portfolio's HTML for panels most visits never open.
+    Reads only (§3), and only for a ticker the caller actually holds."""
+    ticker = ticker.upper()
+    user = current_user()
+    ctx = _fx_ctx()
+    with get_conn() as conn:
+        row = conn.execute("""
+            SELECT s.*, h.qty, h.avg_price,
+                   n.price, n.market_cap, n.pe, n.div_yield
+            FROM holdings h
+            JOIN stocks s ON s.ticker = h.ticker
+            LEFT JOIN snapshots n ON n.ticker = h.ticker
+            WHERE h.user_id = ? AND h.ticker = ?""",
+            (user["id"], ticker)).fetchone()
+        if not row:
+            abort(404)          # not a ticker this caller holds
+        checks = [dict(c) for c in conn.execute(
+            "SELECT * FROM health_checks WHERE ticker=?", (ticker,))]
+        dcf_row = conn.execute("SELECT * FROM dcf WHERE ticker=?", (ticker,)).fetchone()
+        news = [dict(n) for n in conn.execute(
+            "SELECT * FROM news WHERE ticker=? ORDER BY published_at DESC LIMIT 5",
+            (ticker,))]
+
+    r = convert_row(dict(row), ctx["ccy"], ctx["fx"])
+    factor, _ = _fx_factor(row["currency"], ctx["ccy"], ctx["fx"])
+    # Fair value is per-share money stored natively; upside_pct is a ratio, so
+    # it survives the currency change untouched.
+    dcf = dict(dcf_row) if dcf_row else None
+    if dcf and dcf.get("fair_value"):
+        dcf["fair_value"] *= factor
+
+    scores = metrics.axis_scores(checks)
+    scored = any(v is not None for v in scores.values())
+    # Same geometry as the /today and bento mini-radars — a 0..60 viewBox.
+    snow = metrics.snowflake(scores, cx=30, cy=30, R=25) if scored else None
+
+    # Next earnings, only when it's genuinely ahead of us.
+    earnings_days = None
+    if row["next_earnings"]:
+        try:
+            d = (date.fromisoformat(row["next_earnings"]) - date.today()).days
+            earnings_days = d if 0 <= d <= 120 else None
+        except (ValueError, TypeError):
+            pass
+
+    return render_template(
+        "_holding_detail.html", r=r, dcf=dcf, news=news, snow=snow,
+        scores=scores, axis_detail=metrics.axis_detail(checks),
+        axis_names=dict(metrics.AXES), scored=scored,
+        earnings_days=earnings_days,
+        takeaway=metrics.takeaway(row["name"], dcf, scores) if scored or dcf else None,
+        **ctx)
+
+
+
 _IMPORT_MAX_BYTES = 1_000_000            # ~1 MB cap on uploads (honest reject)
 _IMPORT_MAX_ROWS = 500                   # sanity cap so one paste can't blow up
 

@@ -34,6 +34,16 @@
 {% else %}<span class="asof">price n/a</span>{% endif %}
 {% endmacro %}
 
+{# "Analysis & news" expander — the depth for one holding is fetched on the
+   first open rather than shipped with the page: forty inline panels would
+   multiply the HTML for detail most visits never look at. #}
+{% macro hd_btn(r) %}
+<button type="button" class="hd-btn" aria-expanded="false"
+        data-hd-url="{{ url_for('portfolio_detail', ticker=r['ticker']) }}">
+  <span class="hd-btn-txt">Analysis &amp; news</span><span class="hd-chev" aria-hidden="true">⌄</span>
+</button>
+{% endmacro %}
+
 {# ⚑ review chip (spec 16) — compact on desktop rows (jumps to the review card),
    expandable on mobile cards. "Worth a look" nudges, never buy/sell. #}
 {% macro sig_chip(r) %}
@@ -368,6 +378,7 @@
                 {{ sig_chip(r) }}
               </span>
               <span class="name">{{ r['name'] }}</span>
+              {{ hd_btn(r) }}
             </span>
           </span>
         </td>
@@ -398,6 +409,7 @@
           </form>
         </td>
       </tr>
+      <tr class="hd-row" hidden><td colspan="10"><div class="hd-slot"></div></td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -438,6 +450,7 @@
         {% endif %}
         {{ sig_panel(r) }}
         {{ holdings_edit(r) }}
+        <div class="hd-slot" data-hd-url="{{ url_for('portfolio_detail', ticker=r['ticker']) }}"></div>
         <div class="wl-actions">
           <a href="{{ url_for('stock', ticker=r['ticker']) }}">Full analysis →</a>
           <form action="{{ url_for('portfolio_delete', ticker=r['ticker']) }}" method="post"
@@ -486,6 +499,59 @@
       input.files = e.dataTransfer.files;
       show();
     }
+  });
+})();
+</script>
+{% endif %}
+
+{% if rows %}
+<script>
+// Per-holding depth (analysis + headlines), fetched the first time a row is
+// opened and then kept in the DOM. Progressive enhancement in both directions:
+// without JS the desktop button simply does nothing and every row still links
+// to the full deep-dive, which carries all of this and more.
+(function () {
+  function load(slot) {
+    if (slot.dataset.hdLoaded) return;
+    slot.dataset.hdLoaded = '1';
+    slot.innerHTML = '<p class="asof">Loading\u2026</p>';
+    fetch(slot.dataset.hdUrl, { headers: { 'X-Requested-With': 'fetch' } })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.status);
+        return res.text();
+      })
+      .then(function (html) { slot.innerHTML = html; })
+      .catch(function () {
+        // Let a failed fetch be retried rather than leaving a dead panel.
+        delete slot.dataset.hdLoaded;
+        slot.innerHTML = '<p class="asof">Couldn\u2019t load this holding\u2019s detail. ' +
+          'Try again, or open the full analysis above.</p>';
+      });
+  }
+
+  // Desktop rows: the button toggles the slot row that follows its own row.
+  document.querySelectorAll('.port-table .hd-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var slotRow = btn.closest('tr').nextElementSibling;
+      if (!slotRow || !slotRow.classList.contains('hd-row')) return;
+      var open = slotRow.hasAttribute('hidden');
+      slotRow.toggleAttribute('hidden', !open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        var slot = slotRow.querySelector('.hd-slot');
+        // The URL lives on the button; the slot row is just the container.
+        slot.dataset.hdUrl = btn.dataset.hdUrl;
+        load(slot);
+      }
+    });
+  });
+
+  // Mobile cards already expand on their own — ride that instead of a second
+  // control, so a tap opens the position and its detail in one move.
+  document.querySelectorAll('.wl-cards .wl-card').forEach(function (card) {
+    card.addEventListener('toggle', function () {
+      if (card.open) load(card.querySelector('.hd-slot'));
+    });
   });
 })();
 </script>
