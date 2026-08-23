@@ -13,6 +13,7 @@ ever becomes a repo):
     GROQ_API_KEY=...     # free at https://console.groq.com/keys
 """
 import os
+import re
 from pathlib import Path
 
 import requests
@@ -41,7 +42,10 @@ _load_env()
 
 # Free-tier models; override via env if either provider renames them.
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# llama-3.3-70b-versatile was retired by Groq — it 404s. Groq rotates models
+# often, so if this one goes too, GET /openai/v1/models lists what is current
+# and GROQ_MODEL in .env overrides without a deploy.
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
 
 
 def providers():
@@ -181,11 +185,21 @@ def _groq(prompt, key):
     r = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": f"Bearer {key}"},
-        json={"model": GROQ_MODEL, "temperature": 0.4, "max_tokens": 1024,
+        # Reasoning models spend the budget thinking before they answer, so 1024
+        # left the reply truncated mid-<think> with nothing usable after it.
+        json={"model": GROQ_MODEL, "temperature": 0.4, "max_tokens": 3072,
               "messages": [{"role": "user", "content": prompt}]},
         timeout=TIMEOUT)
     r.raise_for_status()
     body = (r.json()["choices"][0]["message"]["content"] or "").strip()
+    # Reasoning models (Qwen, DeepSeek R1 and friends) emit their chain of
+    # thought in a <think> block ahead of the answer. Left in, Otto's nightly
+    # note would open with "Here's a thinking process:" on the live page.
+    body = re.sub(r"<think>.*?</think>", "", body, flags=re.S | re.I).strip()
+    # An unclosed block means the answer was cut off mid-reasoning — there's no
+    # usable text in it, so fail and let the caller keep the last good note.
+    if "<think>" in body.lower():
+        raise RuntimeError("Groq reply was truncated inside its reasoning block")
     if not body:
         raise RuntimeError("Groq returned an empty message")
     return body, GROQ_MODEL
