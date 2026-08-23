@@ -65,6 +65,11 @@ install -m 644 "$APP/systemd/refresh-onfailure.conf" \
 mkdir -p /etc/investright/sites
 install -m 644 "$APP/systemd/Caddyfile" /etc/investright/Caddyfile
 install -m 644 "$APP"/systemd/sites/*.caddy /etc/investright/sites/
+# Without this drop-in Caddy keeps serving its packaged welcome page and
+# every path but / returns 404 — the config above is simply never read.
+mkdir -p /etc/systemd/system/caddy.service.d
+install -m 644 "$APP/systemd/caddy/override.conf" \
+    /etc/systemd/system/caddy.service.d/override.conf
 systemctl daemon-reload
 
 say "Firewall (Oracle images default to DROP on everything but 22)"
