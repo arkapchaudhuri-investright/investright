@@ -277,23 +277,35 @@
     </div>
   </div>
 
-  <h2>Recent visits <span class="asof">— tap a row for the full journey</span></h2>
+  <h2>Recent visits <span class="asof">— click a heading to sort, a row for the full journey</span></h2>
   <div class="an-wrap">
     <table class="an-tbl">
+      {# Sortable headers. Each cell carries a data-sort value so the script
+         orders by the underlying number or timestamp, not the formatted text
+         ("2 Aug 09:15" and "5m 12s" don't sort as strings). #}
       <thead><tr>
-        <th>When</th><th>Location</th><th>Name</th><th>Pages</th><th>Time</th>
-        <th>Path in → out</th><th>Reached</th><th></th>
+        <th class="an-sort" data-type="iso" aria-sort="descending">When</th>
+        <th class="an-sort" data-type="text">Location</th>
+        <th class="an-sort" data-type="text">Name</th>
+        <th class="an-sort" data-type="num">Pages</th>
+        <th class="an-sort" data-type="num"
+            title="A visit's time is the gap between its first and last page view. A one-page visit has no second view to measure against, so it reads 0s — that's the measurement's limit, not a stopwatch saying nobody stayed.">Time</th>
+        <th class="an-sort" data-type="text">Path in → out</th>
+        <th class="an-sort" data-type="num">Reached</th><th></th>
       </tr></thead>
       <tbody>
         {% for s in sessions %}
+        {% set loc = (s.city ~ ', ' if s.city) ~ (s.country_code or s.country or '—') %}
+        {# "Reached" sorts by how far the visit got, not alphabetically. #}
+        {% set reach = 3 if s.hit_save else 2 if s.hit_deepdive else 1 if s.hit_search else 0 %}
         <tr class="{{ 'bot' if s.is_bot }}">
-          <td>{{ s.start_local }}</td>
-          <td>{{ (s.city ~ ', ' if s.city) ~ (s.country_code or s.country or '—') }}</td>
-          <td>{{ s.name or '' }}{% if s.signed_in %} <span class="pill you">acct</span>{% elif s.is_bot %} <span class="pill">bot</span>{% endif %}</td>
-          <td>{{ s.pages }}</td>
-          <td>{{ dur(s.duration_s) }}</td>
-          <td class="path-cell" title="{{ s.entry_path }} → {{ s.exit_path }}">{{ s.entry_path }} → {{ s.exit_path }}</td>
-          <td>{% if s.hit_save %}💾 saved{% elif s.hit_deepdive %}📊 deep-dive{% elif s.hit_search %}🔍 search{% else %}—{% endif %}</td>
+          <td data-sort="{{ s.started_at }}">{{ s.start_local }}</td>
+          <td data-sort="{{ loc }}">{{ loc }}</td>
+          <td data-sort="{{ s.name or '' }}">{{ s.name or '' }}{% if s.signed_in %} <span class="pill you">acct</span>{% elif s.is_bot %} <span class="pill">bot</span>{% endif %}</td>
+          <td data-sort="{{ s.pages }}">{{ s.pages }}</td>
+          <td data-sort="{{ s.duration_s }}">{{ dur(s.duration_s) }}</td>
+          <td class="path-cell" data-sort="{{ s.entry_path }}" title="{{ s.entry_path }} → {{ s.exit_path }}">{{ s.entry_path }} → {{ s.exit_path }}</td>
+          <td data-sort="{{ reach }}">{% if s.hit_save %}💾 saved{% elif s.hit_deepdive %}📊 deep-dive{% elif s.hit_search %}🔍 search{% else %}—{% endif %}</td>
           {# |urlencode is required, not cosmetic: the session id ends in a UTC
              offset ("…T02:55:43+00:00") and a bare '+' in a query string decodes
              to a space, so the lookup silently missed and fell back to the
@@ -306,6 +318,67 @@
       </tbody>
     </table>
   </div>
+  <p class="asof an-note">A visit's <b>Time</b> is the gap between its first and
+    last page view, so a one-page visit reads <b>0s</b> — there's no second view
+    to measure against. It doesn't mean nobody stayed; most of those rows are
+    bots, and the rest are people who read one page and left.</p>
   {% endif %}
 </div>
+
+{% if sessions %}
+<script>
+// Sort Recent visits by any column. Client-side on purpose: the table is a
+// bounded page of rows that's already in the DOM, so re-ordering it needs no
+// round trip and no extra query — and with JS off the table still reads,
+// newest first, exactly as the server sent it.
+(function () {
+  var table = document.querySelector('.an-tbl');
+  if (!table) return;
+  var tbody = table.tBodies[0];
+  var heads = table.querySelectorAll('th.an-sort');
+
+  // Three column types, because one comparison doesn't fit all three:
+  //   num  — Pages, Time, Reached: compare as numbers, biggest first by default.
+  //   iso  — When: ISO-8601 timestamps compare correctly as TEXT (they're all
+  //          UTC), and parseFloat would read "2026-07-12T…" as the number 2026
+  //          and collapse every row to the same key.
+  //   text — everything else, A→Z by default.
+  function key(row, i, type) {
+    var cell = row.cells[i];
+    var raw = cell ? (cell.dataset.sort !== undefined ? cell.dataset.sort : cell.textContent) : '';
+    raw = String(raw).trim();
+    if (type === 'num') {
+      var n = parseFloat(raw);
+      return isNaN(n) ? -Infinity : n;      // blanks sort to the bottom
+    }
+    return raw.toLowerCase();
+  }
+
+  heads.forEach(function (th, i) {
+    th.tabIndex = 0;
+    th.setAttribute('role', 'button');
+    function sort() {
+      // Same column again flips direction; a new column starts descending for
+      // numbers (biggest first is the interesting end) and ascending for text.
+      var type = th.dataset.type;
+      var desc = th.getAttribute('aria-sort') === 'descending'
+        ? false : (th.getAttribute('aria-sort') === 'ascending' ? true
+                   : type !== 'text');       // numbers and dates: biggest/newest first
+      heads.forEach(function (h) { h.removeAttribute('aria-sort'); });
+      th.setAttribute('aria-sort', desc ? 'descending' : 'ascending');
+      var rows = [].slice.call(tbody.rows);
+      rows.sort(function (a, b) {
+        var x = key(a, i, type), y = key(b, i, type);
+        return (x < y ? -1 : x > y ? 1 : 0) * (desc ? -1 : 1);
+      });
+      rows.forEach(function (r) { tbody.appendChild(r); });
+    }
+    th.addEventListener('click', sort);
+    th.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); }
+    });
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}
