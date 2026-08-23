@@ -35,6 +35,20 @@ RETENTION_DAYS = 400             # ~13 months: enough for year-over-year, then g
 SESSION_GAP_S = 30 * 60          # a >30-min silence starts a new visit
 DWELL_CAP_S = 30 * 60           # cap one page's counted dwell (idle tabs, lunch)
 
+# What counts as evidence that a visit was a person. Reaching a second page, or
+# staying long enough for a second event to land, is something a drive-by fetch
+# doesn't do — and it's the only signal left once the user-agent is plausible
+# and the IP's AS-organisation isn't on any datacenter list.
+#
+# This is a blunt instrument and it is meant to be: it also catches a real
+# reader who opened one page and left, and no rule here can tell those apart.
+# What it CANNOT catch is a residential proxy — traffic from a real consumer
+# ISP, driven by a script. Distinguishing that needs a commercial IP-reputation
+# feed, which the $0 budget rules out. Better to say so than to imply the
+# filter is complete.
+ENGAGED_MIN_PAGES = 2            # a second page view, or…
+ENGAGED_MIN_SECONDS = 10         # …long enough for a second event to land
+
 # Bot heuristics — coarse but effective. UA substrings + a few datacenter/crawler
 # IP prefixes we've actually seen. This only *labels*; nothing is dropped.
 BOT_UA = ("bot", "crawl", "spider", "slurp", "bingpreview", "facebookexternalhit",
@@ -336,6 +350,12 @@ def rebuild_sessions(conn):
         uid = next((e["user_id"] for e in s["events"] if e["user_id"] is not None), None)
         market = next((e["market"] for e in reversed(s["events"]) if e["market"]), None)
         is_bot = 1 if bots.get(start["ip"], 0) or _bot_reason(start["ip"], start["ua"]) else 0
+        # No UA or IP evidence, but no evidence of a session either. A signed-in
+        # visit is exempt: an account holder who loads one page is unarguably a
+        # person, whatever the numbers say.
+        if not is_bot and uid is None and (
+                len(s["events"]) < ENGAGED_MIN_PAGES and dur < ENGAGED_MIN_SECONDS):
+            is_bot = 1
         sessions.append((
             sid, s["visitor"], start["ts"], end["ts"], dur, len(s["events"]),
             start["path"], end["path"], start["ip"], name, market,
@@ -475,8 +495,16 @@ def overview(conn, include_bots=False, win=None):
     totals = conn.execute(
         f"SELECT COUNT(*) total, SUM(is_bot) bots FROM sessions s WHERE 1=1{wp}",
         pp).fetchone()
+    # How much of the filtering rests on the session-shape rule alone. It's the
+    # blunt one, so its share should be visible rather than folded into a single
+    # "bots" number the reader has to take on trust.
+    noev = conn.execute(
+        f"SELECT COUNT(*) n FROM sessions s WHERE s.is_bot = 1 "
+        f"AND s.pages < ? AND s.duration_s < ?{wp}",
+        (ENGAGED_MIN_PAGES, ENGAGED_MIN_SECONDS, *pp)).fetchone()
     d = dict(row)
     d["bot_sessions"] = totals["bots"] or 0
+    d["no_session_sessions"] = noev["n"] or 0
     d["human_sessions"] = (totals["total"] or 0) - d["bot_sessions"]
     d["bounce_rate"] = (100 * d["bounces"] / d["sessions"]) if d["sessions"] else 0
     return d
