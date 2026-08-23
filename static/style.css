@@ -2212,3 +2212,14 @@ footer .foot-legal a:hover { color: var(--accent); }
   font-size: var(--fs-body); cursor: pointer;
 }
 .imp-missing-list input { accent-color: var(--down); flex: none; }
+
+/* --- Sortable Recent-visits headers (/admin/analytics) ------------------- */
+.an-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+.an-sort:hover { color: var(--accent); }
+.an-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* The caret marks the sorted column and its direction; unsorted headers keep
+   a reserved slot so the row doesn't shift as you click between them. */
+.an-sort::after { content: "↕"; opacity: .3; margin-left: 5px; font-size: 10px; }
+.an-sort[aria-sort="ascending"]::after { content: "↑"; opacity: 1; }
+.an-sort[aria-sort="descending"]::after { content: "↓"; opacity: 1; }
+.an-note { max-width: 62ch; margin-top: var(--space-3); line-height: 1.55; }
