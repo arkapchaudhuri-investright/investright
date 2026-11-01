@@ -9,6 +9,7 @@ quality, "top 25% of payers") return `passed=None` ("n/a") rather than guess
 import json
 import math
 import re
+import statistics
 from datetime import date
 
 # Transparent benchmarks — labelled in the UI, not licensed analyst data (§1).
@@ -22,6 +23,24 @@ AXES = [("value", "Value"), ("future", "Future"), ("past", "Past"),
 DEFAULT_DISCOUNT = 0.09
 DEFAULT_TERMINAL = 0.025
 GROWTH_CAP = 0.15         # clamp historical CAGR to ±15%
+# A single year is a poor anchor for a lumpy cash-flow series. BEL's FCF ran
+# ₹40bn → −₹4.5bn → ₹5.6bn, and discounting that last figure valued the company
+# 97% below the market; BPCL came out 572% above it. Both numbers reached the
+# newsletter as prose. These three constants decide when to normalise and when
+# to admit the model has nothing useful to say.
+DCF_NORM_YEARS = 3        # years considered when judging / normalising the base
+DCF_OUTLIER_MULT = 0.5    # latest this far off the median → use the median
+# Output bounds, asymmetric and set from this book's own spread of fair/price.
+# A two-stage DCF on trailing cash flow with a 15% growth cap simply cannot
+# value a high-multiple grower: AMD, TSLA and PLTR all land near 0.08x on sound
+# data, which renders as "trading 1,100% above fair value" and reads as a
+# broken page rather than a verdict. Below the floor the model has nothing
+# useful to say, so it says nothing. Above 4x, the honest range tops out around
+# 3.6x and everything past it has traced back to a bad input.
+# A backstop, not a cure: yfinance's FCF for INFY.NS is wrong by ~70x (a 0.08%
+# FCF yield against market cap), and no amount of discounting fixes that.
+DCF_SANITY_LO = 0.15
+DCF_SANITY_HI = 4.0
 
 # Hand-curated peer map (§8.5 Tier C sub-decision): there's no free "similar
 # companies" API, so peers are hardcoded for watchlist tickers — not discovered.
@@ -454,24 +473,45 @@ def compute_dcf(funds, price, shares, growth=None, discount=None, terminal=None)
     flows = _series(funds, "fcf")
     if len(flows) < 2:
         flows, basis = _series(funds, "net_income"), "owner earnings (net income)"
-    if len(flows) < 2 or flows[-1] <= 0:
+    if len(flows) < 2:
         return None
 
+    # Pick the base flow. When the recent years broadly agree, the latest is the
+    # best forward anchor and is kept — normalising a steadily growing company
+    # would understate it. When they disagree (or any is negative), the latest
+    # is as likely to be the outlier as the trend, so take their median instead.
+    recent = flows[-DCF_NORM_YEARS:]
+    mid = statistics.median(recent)
+    lumpy = any(f <= 0 for f in recent) or (
+        mid > 0 and abs(flows[-1] - mid) > DCF_OUTLIER_MULT * mid)
+    base = mid if lumpy else flows[-1]
+    if base <= 0:
+        return None            # no positive earnings power left to discount
+
     if growth is None:
-        g = _cagr(flows[0], flows[-1], len(flows) - 1)
+        # Measured to the base we're actually discounting, so the growth rate
+        # and the starting figure describe the same series.
+        g = _cagr(flows[0], base, len(flows) - 1)
         growth = 0.0 if g is None else max(-GROWTH_CAP, min(GROWTH_CAP, g))
 
-    cash, pv = flows[-1], 0.0
+    cash, pv = base, 0.0
     for yr in range(1, 6):                          # stage 1: years 1–5 at `growth`
         cash *= (1 + growth)
         pv += cash / (1 + discount) ** yr
     terminal_val = cash * (1 + terminal) / (discount - terminal)   # Gordon tail
     pv += terminal_val / (1 + discount) ** 5
     fair = pv / shares
+    # Last guard: even normalised, a short or erratic series can produce a
+    # number that isn't a valuation. Returning None puts the page into the
+    # honest "can't value this yet" state it already renders, which beats
+    # publishing a four-digit percentage.
+    if not (DCF_SANITY_LO * price <= fair <= DCF_SANITY_HI * price):
+        return None
     upside = (fair - price) / price * 100
 
-    assumptions = {"basis": basis, "base_flow": round(flows[-1]),
-                   "years_of_history": len(flows), "shares": shares}
+    assumptions = {"basis": basis, "base_flow": round(base),
+                   "normalised": lumpy, "years_of_history": len(flows),
+                   "shares": shares}
     return {"fair_value": round(fair, 2), "upside_pct": round(upside, 1),
             "growth_used": round(growth, 4), "discount_rate": round(discount, 4),
             "terminal_growth": round(terminal, 4), "basis": basis,
@@ -569,7 +609,7 @@ def takeaway(name, dcf, scores, senti=None):
     elif up is not None:
         lead = f"{short} looks roughly fairly valued against its cash flows"
     else:
-        lead = f"There isn't enough cash-flow history to value {short} yet"
+        lead = f"There isn't enough steady cash-flow history to value {short} yet"
 
     bits = []
     fut = scores.get("future")
