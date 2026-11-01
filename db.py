@@ -320,6 +320,27 @@ CREATE TABLE IF NOT EXISTS income_flow (
 -- (analytics.py) rebuilds from `events` — web only reads them, nothing here is
 -- source-of-truth. New TABLES via CREATE IF NOT EXISTS (not columns) so the two
 -- gunicorn workers can't race on first deploy.
+-- Index constituents for the landing page's movers tiles (S&P 500 + NIFTY 50,
+-- from static/movers_universe.json via build_movers.py). Quote-only: price,
+-- day change and volume, nothing else.
+--
+-- Deliberately NOT referencing stocks(ticker). These are ~550 companies nobody
+-- here necessarily tracks; folding them into `stocks` would drag them into
+-- search, the screener, the nightly deep pass and the price-history backfill,
+-- which is minutes of work per run for data no one has asked to see. Clicking
+-- a mover runs the normal /analyze path, which ingests deep data on demand.
+CREATE TABLE IF NOT EXISTS movers (
+    ticker     TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    market     TEXT NOT NULL,          -- US | IN
+    price      REAL,
+    prev_close REAL,
+    change_pct REAL,
+    volume     REAL,                   -- REAL, not INTEGER: index volumes exceed 2^31
+    fetched_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_movers_change ON movers(change_pct);
+CREATE INDEX IF NOT EXISTS idx_movers_volume ON movers(volume);
 CREATE TABLE IF NOT EXISTS geo_cache (
     ip           TEXT PRIMARY KEY,
     city         TEXT,
@@ -563,6 +584,35 @@ def set_password(conn, user_id, password_hash):
     conn.execute("UPDATE users SET password_hash=? WHERE id=?",
                  (password_hash, user_id))
     return rotate_session_token(conn, user_id)
+
+
+def save_movers(conn, rows):
+    """Replace the movers snapshot. Rewritten wholesale each night rather than
+    upserted: a company leaving the index should leave the table too."""
+    conn.execute("DELETE FROM movers")
+    conn.executemany(
+        "INSERT INTO movers (ticker,name,market,price,prev_close,change_pct,volume,fetched_at) "
+        "VALUES (:ticker,:name,:market,:price,:prev_close,:change_pct,:volume,:fetched_at)",
+        rows)
+
+
+def top_movers(conn, kind, market=None, limit=5):
+    """Ranked slice of the movers table. `kind` is gainers | losers | actives."""
+    order = {"gainers": "change_pct DESC", "losers": "change_pct ASC",
+             "actives": "volume DESC"}[kind]
+    col = "volume" if kind == "actives" else "change_pct"
+    where = f"{col} IS NOT NULL"
+    args = []
+    if kind == "gainers":
+        where += " AND change_pct > 0"
+    elif kind == "losers":
+        where += " AND change_pct < 0"
+    if market:
+        where += " AND market = ?"
+        args.append(market)
+    args.append(limit)
+    return [dict(r) for r in conn.execute(
+        f"SELECT * FROM movers WHERE {where} ORDER BY {order} LIMIT ?", args)]
 
 
 def delete_user(conn, user_id):

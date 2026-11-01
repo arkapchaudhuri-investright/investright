@@ -282,6 +282,51 @@ def snapshot_many(symbols):
         return [s for s in ex.map(snapshot, symbols) if s]
 
 
+# --- batched quotes for the movers universe (§8.1) -------------------------
+# snapshot_many() is a thread pool over one Yahoo call per symbol, which is
+# right for the ~120 tracked tickers that each need the full ratio set. The
+# movers universe is ~550 companies that need three numbers, so it uses
+# yfinance's batched download instead: measured at ~1s per 30 symbols, versus
+# minutes of individual calls.
+QUOTE_CHUNK = 100
+
+
+def quotes_many(symbols, chunk=QUOTE_CHUNK):
+    """{symbol: {price, prev_close, change_pct, volume}} for many symbols.
+
+    Partial results are normal and fine — a delisted or renamed constituent
+    simply doesn't appear, and the caller keeps whatever it got."""
+    out = {}
+    syms = [s for s in symbols if s]
+    for i in range(0, len(syms), chunk):
+        batch = syms[i:i + chunk]
+        try:
+            df = yf.download(batch, period="5d", interval="1d", group_by="ticker",
+                             auto_adjust=False, progress=False, threads=True)
+        except Exception:
+            continue
+        for sym in batch:
+            try:
+                sub = df[sym].dropna(subset=["Close"]) if len(batch) > 1 else df.dropna(subset=["Close"])
+                if len(sub) < 2:
+                    continue
+                last, prev = sub.iloc[-1], sub.iloc[-2]
+                close, before = float(last["Close"]), float(prev["Close"])
+                if not before:
+                    continue
+                out[sym] = {
+                    "price": close,
+                    "prev_close": before,
+                    "change_pct": (close / before - 1) * 100,
+                    # Volume can be NaN on a halted day; None beats a bogus 0.
+                    "volume": (float(last["Volume"])
+                               if last["Volume"] == last["Volume"] else None),
+                }
+            except Exception:
+                continue
+    return out
+
+
 # --- deep fundamentals + ratios + news (Phase 3, §8.1) ---------------------
 # yfinance line-item aliases (Yahoo occasionally renames rows across tickers).
 _INCOME = {

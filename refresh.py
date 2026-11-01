@@ -10,8 +10,10 @@ Run manually:  .venv/bin/python refresh.py
 Installed as:  0 22 * * *  cd ~/Desktop/InvestRight && .venv/bin/python refresh.py >> data/refresh.log 2>&1
 (10 PM Central = after US close at 3 PM and India close at ~5 AM the same day.)
 """
+import json
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from pathlib import Path
 
 import digest
 import edgar
@@ -20,6 +22,7 @@ import logos
 import metrics
 import wiki
 from db import (get_conn, init_db, save_checks, save_dcf, save_digest,
+                save_movers,
                 save_executives, save_fundamentals, save_income_flow,
                 save_insiders, save_news, save_price_history, save_screener,
                 save_snapshot)
@@ -63,6 +66,36 @@ def ensure_stock(conn, ticker):
     except Exception:
         pass
     return True
+
+
+MOVERS_UNIVERSE = Path(__file__).parent / "static" / "movers_universe.json"
+
+
+def refresh_movers():
+    """Re-quote the index universe behind the landing page's movers tiles.
+
+    Separate from the main snapshot pass on purpose: these ~550 companies need
+    three numbers each, not the full ratio set, so they go through the batched
+    download — seconds, not minutes. Returns how many landed."""
+    try:
+        members = json.loads(MOVERS_UNIVERSE.read_text())
+    except Exception as e:
+        print(f"  movers universe unreadable ({e.__class__.__name__}) — skipped")
+        return 0
+    quotes = fetch.quotes_many([m[0] for m in members])
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rows = [{"ticker": sym, "name": name, "market": market,
+             "price": q["price"], "prev_close": q["prev_close"],
+             "change_pct": q["change_pct"], "volume": q["volume"],
+             "fetched_at": now}
+            for sym, name, market in members
+            if (q := quotes.get(sym))]
+    if not rows:
+        print("  movers: no quotes returned — keeping last-good")
+        return 0
+    with get_conn() as conn:
+        save_movers(conn, rows)
+    return len(rows)
 
 
 # Tickers whose sources returned nothing this run — surfaced in the summary.
@@ -373,6 +406,8 @@ def main():
         except Exception as e:
             print(f"  price history failed for {sym}: {e}")
 
+    movers_n = refresh_movers()
+
     deep_ok = 0
     NO_NEWS.clear()
     for sym in everyone:
@@ -434,6 +469,7 @@ def main():
           + (f" (failed: {', '.join(failed)})" if failed else "")
           + f" · deep {deep_ok}/{len(everyone)}"
           + f" · news {len(everyone) - len(NO_NEWS)}/{len(everyone)}"
+          + f" · movers {movers_n}"
           + (f" (none for: {', '.join(NO_NEWS[:5])}"
              + (f" +{len(NO_NEWS) - 5} more" if len(NO_NEWS) > 5 else "") + ")"
              if NO_NEWS else "")
