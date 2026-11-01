@@ -49,13 +49,16 @@ def _drop(email):
         conn.execute("DELETE FROM users WHERE email=?", (email,))
 
 
-def test_signup_opts_in_when_the_box_is_left_ticked(app_module, client):
+def test_signup_requests_the_note_but_does_not_subscribe_yet(app_module, client):
+    # Confirmed opt-in (see tests/test_signup_guard.py): ticking the box asks
+    # for the note, the emailed token starts it. Three bot signups reached the
+    # send list back when this set the flag outright.
     from db import get_conn, get_user_by_email
     email = "zz_optin@example.com"
     try:
         assert _signup(client, email, weekly=True).status_code in (302, 303)
         with get_conn() as conn:
-            assert get_user_by_email(conn, email)["weekly_email"] == 1
+            assert get_user_by_email(conn, email)["weekly_email"] == 0
     finally:
         _drop(email)
 
@@ -78,6 +81,9 @@ def test_unsubscribe_page_confirms_before_writing(app_module, client):
         _signup(client, email, weekly=True)
         with get_conn() as conn:
             uid = get_user_by_email(conn, email)["id"]
+            # Signup no longer subscribes on its own, and this test is about
+            # the way *out* — so put the account on the list directly.
+            conn.execute("UPDATE users SET weekly_email=1 WHERE id=?", (uid,))
         token = mailer.unsubscribe_token(uid)
 
         # The GET only shows the confirmation — mail scanners follow links, and

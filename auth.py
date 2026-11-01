@@ -138,6 +138,13 @@ def register():
             err = "Use a password of at least 8 characters."
         elif pw != pw2:
             err = "The two passwords don't match."
+        # Honeypot: a field that is invisible and off the tab order, so only a
+        # form-filling bot ever puts anything in it. Three signups from
+        # throwaway domains got in this way, and each one auto-joined the
+        # mailing list.
+        if request.form.get("website"):
+            err = "That didn't go through — please try again."
+        wants_note = False
         if not err:
             with get_conn() as conn:
                 if get_user_by_email(conn, email):
@@ -146,17 +153,32 @@ def register():
                     uid = create_user(conn, email, generate_password_hash(pw),
                                       name=name,
                                       market=(request.cookies.get("ir_market") or None))
-                    # The weekly note is ticked by default on the form, so the
-                    # box's absence here is a deliberate no — not a fresh
-                    # account quietly defaulting to off, which is how the
-                    # newsletter reached its first send with nobody on it.
-                    if request.form.get("weekly_email"):
-                        conn.execute("UPDATE users SET weekly_email=1 WHERE id=?", (uid,))
+                    # Confirmed opt-in: ticking the box asks for the note, it
+                    # doesn't start it. weekly_email stays 0 until the address
+                    # proves it can receive mail, so a bot signup can never
+                    # reach the send list and a typo'd address can never be
+                    # mailed. The box is ticked by default, so its absence is a
+                    # deliberate no.
+                    wants_note = bool(request.form.get("weekly_email"))
                     user = dict(get_user_by_id(conn, uid))
                     _adopt_identity(conn, user)
             if not err:
                 _start_session(user, remember=True)
-                flash("Welcome to InvestRight — your account is ready.", "ok")
+                if wants_note and mailer.enabled():
+                    link = (f"{_public_base()}"
+                            f"{url_for('auth.newsletter_confirm', token=mailer.link_token('optin', user['id']))}")
+                    mailer.send(
+                        user["email"], "Confirm Otto's weekly note",
+                        f"Hi{' ' + user['name'] if user['name'] else ''},\n\n"
+                        "You asked for Otto's weekly note when you signed up for "
+                        "InvestRight. Confirm this address and the first one "
+                        f"arrives on Sunday:\n\n    {link}\n\n"
+                        "If that wasn't you, ignore this email — nothing has been "
+                        "subscribed, and we won't write again.\n\n"
+                        "— Otto, InvestRight\n")
+                    flash("Account ready — check your email to confirm the weekly note.", "ok")
+                else:
+                    flash("Welcome to InvestRight — your account is ready.", "ok")
                 return redirect(_safe_next(request.form.get("next")))
         flash(err, "error")
         return render_template("register.html", email=email, name=name or "",
@@ -440,6 +462,38 @@ def unsubscribe_confirm(token):
         conn.execute("UPDATE users SET weekly_email=0 WHERE id=?", (uid,))
     g.__dict__.pop("user", None)
     return render_template("unsubscribe.html", token=token, done=True)
+
+
+@bp.get("/newsletter/confirm/<token>")
+def newsletter_confirm(token):
+    """Land here from the signup email. Shows the confirmation; the button
+    POSTs, because a GET that wrote would let a mail-client prefetcher
+    subscribe people on their behalf (and would break §3)."""
+    from db import get_conn
+    uid = mailer.link_user_id("optin", token)
+    if uid is None:
+        abort(404)
+    with get_conn() as conn:
+        user = get_user_by_id(conn, uid)
+    if not user:
+        abort(404)
+    return render_template("newsletter_confirm.html", token=token,
+                           email=user["email"], already=bool(user["weekly_email"]))
+
+
+@bp.post("/newsletter/confirm/<token>")
+def newsletter_confirm_save(token):
+    """Turn the weekly note on for the account the token names — the only path
+    that sets weekly_email=1 without a signed-in session, and it needs a token
+    only a deliverable address could have received."""
+    from db import get_conn
+    uid = mailer.link_user_id("optin", token)
+    if uid is None:
+        abort(404)
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET weekly_email=1 WHERE id=?", (uid,))
+    g.__dict__.pop("user", None)
+    return render_template("newsletter_confirm.html", token=token, done=True)
 
 
 @bp.post("/account/delete")

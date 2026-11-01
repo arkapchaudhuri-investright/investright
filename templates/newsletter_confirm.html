@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Weekly note · InvestRight{% endblock %}
+{% block content %}
+{# Reached from the confirmation email, so it has to read to someone who may
+   not be signed in. Same shape as unsubscribe.html, which it mirrors. #}
+<section class="hero auth-hero">
+  {% if done %}
+  {% with mood = 'happy' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">You're on the list.</h1>
+  <p class="sub">Otto's weekly note arrives on Sunday mornings.</p>
+  <p class="auth-note">
+    Every note carries a one-click unsubscribe, and the switch also lives on
+    your account page.
+  </p>
+  <p class="auth-alt"><a href="{{ url_for('home') }}">Back to InvestRight</a></p>
+
+  {% elif already %}
+  {% with mood = 'happy' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Already confirmed.</h1>
+  <p class="sub">The weekly note is on for {{ email }}.</p>
+  <p class="auth-note">There's nothing more to do — the next one goes out Sunday.</p>
+  <p class="auth-alt"><a href="{{ url_for('home') }}">Back to InvestRight</a></p>
+
+  {% else %}
+  {% with mood = 'neutral' %}{% include "_otto.html" %}{% endwith %}
+  <h1 class="serif">Start Otto's weekly note?</h1>
+  <p class="sub">This turns on the Sunday email for {{ email }}.</p>
+  {# POST on purpose: mail clients and link scanners follow URLs by themselves,
+     and a GET that wrote would subscribe people before they ever clicked. #}
+  <form class="auth-form" method="post"
+        action="{{ url_for('auth.newsletter_confirm_save', token=token) }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <button type="submit" class="btn-analyze auth-go">Yes, send me the note</button>
+  </form>
+  <p class="auth-alt"><a href="{{ url_for('home') }}">No thanks</a></p>
+  {% endif %}
+</section>
+{% endblock %}
