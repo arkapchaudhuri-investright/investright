@@ -30,6 +30,7 @@ from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 is_admin as db_is_admin,   # aliased: _require_admin owns the short name
                 log_event, recent_login_failures, remove_user_peer,
                 remove_holding, remove_user_watch, save_price_history,
+                top_movers, topic_news,
                 save_snapshot, save_user_note, upsert_holding, user_peers_for,
                 user_watches)
 
@@ -363,27 +364,73 @@ def _fx_ctx():
 
 @app.route("/")
 def home():
-    # Clean, Google-calm home: greeting, search, two actions — plus a quiet
-    # "popular right now" row of the day's biggest movers across the US + India
-    # (top gainers and top losers by day change), each a one-tap shortcut into
-    # its deep dive. Reads snapshots the nightly cron already keeps current.
+    """The landing page: a tiled board rather than a search box.
+
+    Google-calm got us a page that said nothing about what the product does,
+    so the tiles now carry both jobs — live market data worth returning for,
+    and a tour of every feature by showing it rather than describing it.
+
+    Everything here is a read of what the nightly already stores (§3), and
+    nothing is per-user except the "your stocks" news tab, so the whole board
+    renders for guests."""
     ctx = _fx_ctx()
+    user = current_user()
+    market = (request.args.get("market") or request.cookies.get("ir_market") or "BOTH").upper()
+    if market not in ("US", "IN", "BOTH"):
+        market = "BOTH"
+    mkt = None if market == "BOTH" else market
+
     with get_conn() as conn:
-        gainers = [dict(r) for r in conn.execute(
-            "SELECT s.ticker, s.name, n.change_pct FROM snapshots n "
-            "JOIN stocks s ON s.ticker = n.ticker "
-            "WHERE n.change_pct IS NOT NULL AND n.change_pct > 0 "
-            "ORDER BY n.change_pct DESC LIMIT 3")]
-        losers = [dict(r) for r in conn.execute(
-            "SELECT s.ticker, s.name, n.change_pct FROM snapshots n "
-            "JOIN stocks s ON s.ticker = n.ticker "
-            "WHERE n.change_pct IS NOT NULL AND n.change_pct < 0 "
-            "ORDER BY n.change_pct ASC LIMIT 3")]
-        trending = gainers + losers
+        movers = {kind: top_movers(conn, kind, market=mkt, limit=5)
+                  for kind in ("gainers", "losers", "actives")}
+        as_of = conn.execute("SELECT MAX(fetched_at) FROM movers").fetchone()[0]
+
+        # News carousel: the four general topics, plus a tab drawn from the
+        # stocks this visitor actually follows (their own list when signed in,
+        # the tracked union otherwise — a guest still sees real headlines).
+        news_tabs = [{"key": k, "label": fetch.NEWS_TOPICS[k][0],
+                      "items": topic_news(conn, k, limit=8)}
+                     for k in fetch.NEWS_TOPICS]
+        if user:
+            mine = [r["ticker"] for r in conn.execute(
+                "SELECT ticker FROM user_watchlist WHERE user_id=? "
+                "UNION SELECT ticker FROM holdings WHERE user_id=?",
+                (user["id"], user["id"]))]
+        else:
+            mine = [r["ticker"] for r in conn.execute("SELECT ticker FROM watchlist")]
+        yours = []
+        if mine:
+            ph = ",".join("?" * len(mine))
+            yours = [dict(r) for r in conn.execute(
+                f"SELECT n.*, s.name FROM news n JOIN stocks s ON s.ticker = n.ticker "
+                f"WHERE n.ticker IN ({ph}) ORDER BY n.published_at DESC LIMIT 8", mine)]
+        if yours:
+            news_tabs.insert(0, {"key": "yours",
+                                 "label": "Your stocks" if user else "Tracked here",
+                                 "items": yours})
+
+        # Earnings inside the next month, soonest first.
+        earnings = [dict(r) for r in conn.execute(
+            "SELECT s.ticker, s.name, s.next_earnings, n.price, n.change_pct, s.currency "
+            "FROM stocks s LEFT JOIN snapshots n ON n.ticker = s.ticker "
+            "WHERE s.next_earnings >= date('now') AND s.next_earnings <= date('now','+30 days') "
+            "ORDER BY s.next_earnings LIMIT 6")]
+
+    for e in earnings:
+        try:
+            e["days"] = (date.fromisoformat(e["next_earnings"]) - date.today()).days
+        except (TypeError, ValueError):
+            e["days"] = None
+    movers_as_of = (datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
+                    if as_of else None)
+
     resp = make_response(render_template(
-        "home.html", greeting=greeting(), trending=trending, **ctx))
+        "home.html", greeting=greeting(), movers=movers, news_tabs=news_tabs,
+        earnings=earnings, movers_as_of=movers_as_of, market=market, **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
+    if request.args.get("market"):
+        resp.set_cookie("ir_market", market, max_age=60 * 60 * 24 * 365, samesite="Lax")
     _log("view")
     return resp
 

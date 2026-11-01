@@ -57,7 +57,7 @@
        either way. #}
     {# Hidden on the homepage — the hero search IS the search there. #}
     {% if request.path != url_for('home') %}
-    <details class="navsearch" data-tour="navsearch">
+    <details class="navsearch">
       <summary class="navsearch-btn" role="button" aria-label="Search a stock" title="Search a stock">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -80,22 +80,22 @@
     {% endif %}
     <a class="navlink{{ ' nav-on' if request.path == url_for('today') }}"
        {% if request.path == url_for('today') %}aria-current="page"{% endif %}
-       href="{{ url_for('today') }}" data-tour="today">Today</a>
+       href="{{ url_for('today') }}">Today</a>
     <a class="navlink{{ ' nav-on' if request.path == url_for('strategies_page') }}"
        {% if request.path == url_for('strategies_page') %}aria-current="page"{% endif %}
-       href="{{ url_for('strategies_page') }}" data-tour="strategies">Strategies</a>
+       href="{{ url_for('strategies_page') }}">Strategies</a>
     <a class="navlink{{ ' nav-on' if request.path == url_for('portfolio_page') }}"
        {% if request.path == url_for('portfolio_page') %}aria-current="page"{% endif %}
-       href="{{ url_for('portfolio_page') }}" data-tour="portfolio">Portfolio</a>
+       href="{{ url_for('portfolio_page') }}">Portfolio</a>
     <a class="navlink nav-team{{ ' nav-on' if request.path == url_for('team') }}"
        {% if request.path == url_for('team') %}aria-current="page"{% endif %}
-       href="{{ url_for('team') }}" data-tour="team">Team</a>
-    <a class="wl-toggle" href="{{ url_for('watchlist_page') }}" data-tour="watchlist"
+       href="{{ url_for('team') }}">Team</a>
+    <a class="wl-toggle" href="{{ url_for('watchlist_page') }}"
        {% if request.path == url_for('watchlist_page') %}aria-current="page"{% endif %}>★ Watchlist{% if wl_count %}<span class="badge">{{ wl_count }}</span>{% endif %}</a>
   </nav>
     {# Settings: currency + theme + FX rate consolidated behind one menu (also
        where the future account/login lives). Native <details> = no-JS dropdown. #}
-    <details class="settings" data-tour="settings">
+    <details class="settings">
       {# Inline SVG gear (not the ⚙ emoji) — crisp, perfectly centred, and green
          via CSS fill, per the no-CDN / offline-on-VM rule. #}
       <summary class="set-btn" role="button" aria-label="Settings" title="Settings">
