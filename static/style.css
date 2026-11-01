@@ -2223,3 +2223,7 @@ footer .foot-legal a:hover { color: var(--accent); }
 .an-sort[aria-sort="ascending"]::after { content: "↑"; opacity: 1; }
 .an-sort[aria-sort="descending"]::after { content: "↓"; opacity: 1; }
 .an-note { max-width: 62ch; margin-top: var(--space-3); line-height: 1.55; }
+
+/* Honeypot on the signup form — off-screen rather than display:none, since
+   some bots skip fields they can tell are hidden. Never shown to a person. */
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

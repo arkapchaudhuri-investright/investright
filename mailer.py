@@ -35,24 +35,38 @@ def secret_key():
     return os.environ.get("SECRET_KEY") or DEV_SECRET
 
 
-def unsubscribe_token(user_id):
-    """A stable, unguessable opt-out token for one account.
+def link_token(purpose, user_id):
+    """A stable, unguessable token tying one account to one kind of link.
 
-    Every weekly note carries the same link, so no table and no expiry: it's an
-    HMAC of the user id under the app's signing key, which means it survives a
-    password change (unlike a session token) and dies with the key."""
-    sig = hmac.new(secret_key().encode(), f"unsub:{user_id}".encode(),
+    No table and no expiry: it's an HMAC of the user id under the app's signing
+    key, so the same link works in every email, survives a password change
+    (unlike a session token) and dies with the key. `purpose` is inside the
+    signature, so a token minted to unsubscribe can't be replayed to subscribe.
+
+    "unsub" deliberately keeps the exact message this signed before purposes
+    existed — unsubscribe links are already out in people's inboxes and have to
+    keep working."""
+    sig = hmac.new(secret_key().encode(), f"{purpose}:{user_id}".encode(),
                    hashlib.sha256).hexdigest()[:32]
     return f"{user_id}-{sig}"
 
 
-def unsubscribe_user_id(token):
-    """The account an unsubscribe token belongs to, or None if it doesn't verify."""
+def link_user_id(purpose, token):
+    """The account a token belongs to, or None if it doesn't verify for this
+    purpose."""
     uid, _, sig = (token or "").partition("-")
     if not uid.isdigit() or not sig:
         return None
-    expected = unsubscribe_token(int(uid)).partition("-")[2]
+    expected = link_token(purpose, int(uid)).partition("-")[2]
     return int(uid) if hmac.compare_digest(sig, expected) else None
+
+
+def unsubscribe_token(user_id):
+    return link_token("unsub", user_id)
+
+
+def unsubscribe_user_id(token):
+    return link_user_id("unsub", token)
 
 
 def _cfg():

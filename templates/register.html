@@ -25,12 +25,23 @@
     <label>Confirm password
       <input type="password" name="password2" required autocomplete="new-password">
     </label>
+    {# Honeypot. Hidden from sight, from screen readers and from the tab order,
+       so only a form-filling bot ever completes it — the cheapest defence
+       against the throwaway-domain signups that were auto-joining the list.
+       Named `website` because that's the kind of field bots expect to fill. #}
+    <div class="hp" aria-hidden="true">
+      <label>Website
+        <input type="text" name="website" tabindex="-1" autocomplete="off">
+      </label>
+    </div>
     {# Ticked by default, and visibly so — the note is the product's one push
-       channel, and every account before this shipped silently opted out. #}
+       channel, and every account before this shipped silently opted out.
+       Ticking it asks for the note; the confirmation email starts it. #}
     <label class="auth-check auth-check-wrap">
       <input type="checkbox" name="weekly_email" value="1" {{ 'checked' if weekly }}>
       <span>Email me Otto's weekly note — a calm Sunday summary of your
-        portfolio and watchlist. One click to stop, any time.</span>
+        portfolio and watchlist. We'll send one email to confirm the address.
+        One click to stop, any time.</span>
     </label>
     <button type="submit" class="btn-analyze auth-go">Create account</button>
   </form>
