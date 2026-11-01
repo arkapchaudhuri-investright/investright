@@ -20,6 +20,14 @@
 :root {
   --bg: #191917;
   --card: #21211e;
+  /* Landing-tile tints. One family, walked along the green→teal→moss axis
+     rather than picked independently, so four categories read as four shades
+     of this product and not four different brands. Each is used as a low-alpha
+     wash on the tile and at full strength on its label. */
+  --tint-movers:   #2f9e77;   /* emerald — the brand accent, for market data */
+  --tint-news:     #2f8f9e;   /* teal, one step cooler */
+  --tint-earnings: #8a9b3a;   /* moss, one step warmer */
+  --tint-explore:  #4a8f63;   /* soft forest, for the feature tiles */
   /* Floating chrome: a material, not an opaque bar (see .jumpnav). */
   --chrome: rgba(25, 25, 23, .72);
   --chrome-edge: rgba(255, 255, 255, .07);
@@ -84,6 +92,11 @@
   --chrome: rgba(250, 249, 245, .72);
   --chrome-edge: rgba(255, 255, 255, .55);
   --hairline: #e7e4db;
+  --tint-movers:   #15805f;
+  --tint-news:     #0f7284;
+  --tint-earnings: #6b7a1f;
+  --tint-explore:  #2f6b4a;
+
   --text: #2b2823;
   --muted: #726e65;
   --accent: #15805f;
@@ -103,6 +116,11 @@
     --chrome: rgba(250, 249, 245, .72);
     --chrome-edge: rgba(255, 255, 255, .55);
     --hairline: #e7e4db;
+    --tint-movers:   #15805f;
+    --tint-news:     #0f7284;
+    --tint-earnings: #6b7a1f;
+    --tint-explore:  #2f6b4a;
+
     --text: #2b2823;
     --muted: #726e65;
     --accent: #15805f;
@@ -2376,3 +2394,124 @@ h1, .page-title { letter-spacing: var(--track-xl); }
 }
 .field-err.on { display: block; }
 input.invalid, input.invalid:focus { border-color: var(--down); }
+
+/* ===== Tiled landing board =============================================== */
+/* A bento rather than a search box: the tiles carry live data worth coming
+   back for and double as the tour, showing each feature instead of
+   describing it. Extends the deep-dive's .bento-tile language. */
+.board {
+  display: grid; gap: var(--space-3); margin-top: var(--space-5);
+  grid-template-columns: repeat(6, 1fr);
+}
+.tile {
+  grid-column: span 2; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: var(--space-2);
+  background: var(--card); border: 1px solid var(--hairline);
+  border-radius: 16px; padding: var(--space-4);
+  text-decoration: none; color: inherit;
+  transition: border-color var(--t-base) var(--ease-out),
+              transform var(--t-base) var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out);
+}
+/* The category wash. A pseudo-element so the tint never tints the text, and
+   so a tile can hold its own backgrounds without fighting it. */
+.tile::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(160deg,
+    color-mix(in srgb, var(--tint, var(--accent)) 10%, transparent), transparent 62%);
+}
+.tile > * { position: relative; }
+.tile:hover { border-color: color-mix(in srgb, var(--tint, var(--accent)) 45%, var(--hairline)); }
+a.tile:hover { transform: translateY(-2px); box-shadow: 0 10px 28px var(--shadow-pop); }
+.tile-movers { --tint: var(--tint-movers); }
+.tile-news { --tint: var(--tint-news); grid-column: span 4; }
+.tile-earnings { --tint: var(--tint-earnings); grid-column: span 2; align-self: start; }
+.tile-explore { --tint: var(--tint-explore); }
+.tile-wide { grid-column: span 3; }
+
+.tile-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-2);
+}
+.tile-k {
+  font-size: var(--fs-xs); font-weight: 650; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--tint, var(--accent));
+}
+.tile-note { font-size: var(--fs-xs); color: var(--muted); }
+
+/* A mover row is a form, not a link: opening an index member we've never seen
+   ingests it, and a write can't live in a GET (§3). Styled as a row so it
+   still reads as one. */
+.mv-row { margin: 0; }
+.mv-btn {
+  width: 100%; display: flex; align-items: baseline; gap: var(--space-2);
+  background: none; border: 0; cursor: pointer; color: inherit;
+  padding: 7px 0; text-align: left; border-top: 1px solid var(--hairline);
+  font: inherit;
+}
+.mv-row:first-of-type .mv-btn { border-top: 0; }
+.mv-btn:hover .mv-tk { color: var(--tint, var(--accent)); }
+.mv-tk { font-weight: 650; font-size: var(--fs-body); }
+.mv-nm {
+  flex: 1; min-width: 0; color: var(--muted); font-size: var(--fs-xs);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mv-val { font-variant-numeric: tabular-nums; font-size: var(--fs-body); font-weight: 600; }
+
+/* News carousel — tabs over a horizontal rail. */
+.nw-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.nw-tabs::-webkit-scrollbar { display: none; }
+.nw-tab {
+  flex: none; font-size: var(--fs-xs); font-weight: 500; cursor: pointer;
+  color: var(--muted); background: none; padding: 5px 11px;
+  border: 1px solid var(--hairline); border-radius: 999px;
+  transition: color var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out);
+}
+.nw-tab[aria-selected="true"] {
+  color: #fff; background: var(--tint-news); border-color: var(--tint-news);
+}
+.nw-rail {
+  display: flex; gap: var(--space-3); overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none; padding-bottom: 2px;
+}
+.nw-rail::-webkit-scrollbar { display: none; }
+/* `display: flex` beats the UA stylesheet's [hidden] { display: none }, so
+   without this every topic's rail renders stacked instead of one at a time. */
+.nw-rail[hidden] { display: none; }
+.nw-card {
+  flex: none; width: min(240px, 72vw); scroll-snap-align: start;
+  display: flex; flex-direction: column; gap: 6px; text-decoration: none;
+  color: inherit; padding: var(--space-3);
+  border: 1px solid var(--hairline); border-radius: 12px; background: var(--bg);
+  transition: border-color var(--t-base) var(--ease-out);
+}
+.nw-card:hover { border-color: color-mix(in srgb, var(--tint-news) 50%, var(--hairline)); }
+.nw-title { font-size: var(--fs-body); line-height: 1.4; font-weight: 500; }
+.nw-meta { font-size: var(--fs-xs); color: var(--muted); margin-top: auto; }
+
+/* Earnings */
+.ern-row {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  padding: 7px 0; border-top: 1px solid var(--hairline); text-decoration: none; color: inherit;
+}
+.ern-row:first-of-type { border-top: 0; }
+.ern-row:hover .mv-tk { color: var(--tint-earnings); }
+.ern-when {
+  margin-left: auto; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--tint-earnings); white-space: nowrap;
+}
+
+/* Feature tiles — the tour, by showing rather than telling. */
+.tile-explore h3 { margin: 0; font-size: var(--fs-md); }
+.tile-explore p { margin: 0; font-size: var(--fs-body); color: var(--muted); line-height: 1.45; }
+.tile-go { margin-top: auto; font-size: var(--fs-body); font-weight: 600; color: var(--tint, var(--accent)); }
+
+@media (max-width: 900px) { .board { grid-template-columns: repeat(4, 1fr); }
+  .tile-news { grid-column: span 4; } .tile-wide { grid-column: span 4; } }
+@media (max-width: 640px) {
+  .board { grid-template-columns: 1fr; gap: var(--space-2); }
+  .tile, .tile-news, .tile-earnings, .tile-wide { grid-column: span 1; }
+}
+/* The wash is decorative; a contrast-preferring reader gets a flat surface. */
+@media (prefers-contrast: more) { .tile::before { display: none; } }

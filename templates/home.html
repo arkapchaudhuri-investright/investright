@@ -61,7 +61,7 @@
      as calm siblings. Enter still analyzes — the first submit button wins. #}
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
-    <div class="search-bar" data-tour="search">
+    <div class="search-bar">
       <input id="symbol" name="symbol" type="text" spellcheck="false"
              placeholder="Which stock are we looking at today?"
              aria-label="Which stock are we looking at today? Search a ticker to analyze">
@@ -100,24 +100,115 @@
   {# The watchlist itself lives on /watchlist now — home stays search-only. #}
 </section>
 
-{# First-run guided tour (Phase 7) — Otto in a scholar cap walks new visitors
-   through the key features with stepped coach-marks. Shown once (localStorage
-   ir_toured), skippable, works web + mobile. #}
-<div id="tour" class="tour" hidden aria-hidden="true">
-  <div class="tour-spot" id="tour-spot"></div>
-  <div class="tour-bubble" id="tour-bubble" role="dialog" aria-label="Guided tour">
-    <div class="tour-otto">{% include "_otto_scholar.html" %}</div>
-    <div class="tour-body-wrap">
-      <h3 class="tour-title serif" id="tour-title"></h3>
-      <p class="tour-text" id="tour-text"></p>
-      <div class="tour-nav">
-        <button type="button" class="tour-skip" id="tour-skip">Skip</button>
-        <span class="tour-dots" id="tour-dots" aria-hidden="true"></span>
-        <button type="button" class="tour-next" id="tour-next">Next →</button>
-      </div>
+{# ===== The board ========================================================
+   Replaces the "popular right now" chip row and the coach-mark tour. Tiles
+   carry live market data worth returning for AND show what the product does
+   by doing it, which the old search-only page never managed. Each tile is a
+   way in: movers and earnings open a deep-dive, the rest open their feature.
+   Tints come from one green family so four categories read as four shades of
+   this product rather than four brands. #}
+<section class="board" aria-label="Markets and features">
+
+  {# --- Market movers. The ranking is over S&P 500 + NIFTY 50 constituents,
+         not the handful of tickers tracked here, so "market" is honest. --- #}
+  {% for kind, label, note in [
+       ('gainers', 'Top gainers', 'biggest risers today'),
+       ('losers', 'Top losers', 'biggest fallers today'),
+       ('actives', 'Most active', 'by shares traded')] %}
+  <div class="tile tile-movers">
+    <div class="tile-head">
+      <span class="tile-k">{{ label }}</span>
+      <span class="tile-note">{{ note }}</span>
     </div>
+    {% if movers[kind] %}
+    {% for m in movers[kind] %}
+    {# A form, not a link: opening an index member we've never seen ingests it,
+       and a write can't live in a GET (§3). #}
+    <form class="mv-row" method="post" action="{{ url_for('analyze') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <input type="hidden" name="symbol" value="{{ m['ticker'] }}">
+      <button class="mv-btn" type="submit" title="{{ m['name'] }}">
+        <span class="mv-tk">{{ m['ticker'] }}</span>
+        <span class="mv-nm">{{ m['name'] }}</span>
+        {% if kind == 'actives' %}
+        <span class="mv-val">{{ '%.1fM'|format((m['volume'] or 0) / 1e6) }}</span>
+        {% else %}
+        <span class="mv-val {{ 'up' if m['change_pct'] > 0 else 'down' }}">
+          {{ '%+.2f%%'|format(m['change_pct']) }}</span>
+        {% endif %}
+      </button>
+    </form>
+    {% endfor %}
+    {% else %}
+    <p class="asof">No quotes saved yet — Otto fetches these nightly.</p>
+    {% endif %}
   </div>
-</div>
+  {% endfor %}
+
+  {# --- News carousel. Tabs are plain radio-free buttons; the rails are all
+         rendered and JS just toggles which is visible, so no-JS shows the
+         first one rather than nothing. --- #}
+  <div class="tile tile-news" id="news">
+    <div class="tile-head">
+      <span class="tile-k">In the news</span>
+      <span class="tile-note">updated nightly</span>
+    </div>
+    {% if news_tabs %}
+    <div class="nw-tabs" role="tablist" aria-label="News topics">
+      {% for t in news_tabs %}
+      <button class="nw-tab" type="button" role="tab" data-nw="{{ t['key'] }}"
+              aria-selected="{{ 'true' if loop.first else 'false' }}">{{ t['label'] }}</button>
+      {% endfor %}
+    </div>
+    {% for t in news_tabs %}
+    <div class="nw-rail" data-nw-panel="{{ t['key'] }}" {% if not loop.first %}hidden{% endif %}>
+      {% for n in t['items'] %}
+      <a class="nw-card" href="{{ n['url'] }}" target="_blank" rel="noopener noreferrer">
+        <span class="nw-title">{{ n['title']|truncate(96, True, '…') }}</span>
+        <span class="nw-meta">{{ n['publisher'] }}{% if n['published_at'] %} · {{ n['published_at'][:10] }}{% endif %}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="asof">No headlines saved yet.</p>
+    {% endif %}
+  </div>
+
+  {# --- Upcoming earnings --- #}
+  <div class="tile tile-earnings">
+    <div class="tile-head">
+      <span class="tile-k">Upcoming earnings</span>
+      <span class="tile-note">next 30 days</span>
+    </div>
+    {% if earnings %}
+    {% for e in earnings %}
+    <a class="ern-row" href="{{ url_for('stock', ticker=e['ticker']) }}" title="{{ e['name'] }}">
+      <span class="mv-tk">{{ e['ticker'] }}</span>
+      <span class="mv-nm">{{ e['name'] }}</span>
+      <span class="ern-when">{% if e['days'] == 0 %}today{% elif e['days'] == 1 %}tomorrow
+        {%- else %}in {{ e['days'] }}d{% endif %}</span>
+    </a>
+    {% endfor %}
+    {% else %}
+    <p class="asof">No reporting dates saved for the next month.</p>
+    {% endif %}
+  </div>
+
+  {# --- The tour, as tiles. Each one shows a feature by linking into it,
+         which the coach-mark overlay only described. --- #}
+  {% for href, title, blurb, cta in [
+       (url_for('today'), 'Today', "Tonight's screen of every tracked ticker, ranked by our own rules — with Otto's read of what moved and why.", 'See today →'),
+       (url_for('portfolio_page'), 'Portfolio', 'Import a broker file and track real P&L, allocation and review nudges — with per-holding analysis and news.', 'Open portfolio →'),
+       (url_for('watchlist_page'), 'Watchlist', 'Follow companies without owning them. Prices, sparklines and alerts, refreshed every night.', 'Open watchlist →'),
+       (url_for('strategies_page'), 'Strategies', 'A field guide to how people actually invest in the US and India, plus a monthly rule-based screen.', 'Read the guide →')] %}
+  <a class="tile tile-explore" href="{{ href }}">
+    <span class="tile-k">{{ title }}</span>
+    <p>{{ blurb }}</p>
+    <span class="tile-go">{{ cta }}</span>
+  </a>
+  {% endfor %}
+</section>
 
 <script>
 // Personalised greeting (no login): time-of-day from the visitor's own clock +
@@ -173,7 +264,6 @@
     closeBtn.addEventListener('click', function () {
       try { localStorage.setItem('ir_welcomed', '1'); } catch (e) {}
       dlg.close();
-      setTimeout(function () { if (window.irTour) window.irTour.start(); }, 250);
     });
   }
   function setCookie(k, val) {
@@ -200,127 +290,28 @@
       setCookie('ccy', want);
       if (want === 'INR') { location.reload(); return; }
       // No reload path: kick off the guided tour once the popup has closed.
-      setTimeout(function () { if (window.irTour) window.irTour.start(); }, 250);
     });
   }
 })();
 </script>
+
 <script>
-// First-run guided tour engine (Phase 7). Stepped coach-marks: a spotlight over
-// each feature + an Otto bubble explaining it. No dependencies. Runs once
-// (localStorage ir_toured); exposed as window.irTour so the welcome popup can
-// launch it right after onboarding.
+// News carousel tabs. Every rail is already in the DOM, so this only toggles
+// which one shows — with JS off the first topic is visible rather than none.
 (function () {
-  var steps = [
-    { sel: '.brand', title: 'The logo is home',
-      text: 'Tap InvestRight anytime, from any page, to come back here and search or analyze a new stock.' },
-    { sel: '[data-tour="search"]',   title: 'Search any stock',
-      text: 'Type a ticker — AAPL, RELIANCE.NS, TCS.BO — then Analyze for a full breakdown. There’s a magnifier in the top bar on every page too.' },
-    { sel: '[data-tour="watchlist"]', title: 'Your watchlist',
-      text: 'Stars you save get their own page — tap here anytime for live prices and the full list. Sign in to keep yours.' },
-    { sel: '[data-tour="today"]',    title: "Today's ideas",
-      text: "Otto ranks interesting stocks each night with plain-English reasons. It's a screen, not advice." },
-    { sel: '[data-tour="strategies"]', title: 'Strategies & picks',
-      text: 'A field guide to how the great investing playbooks — US and India — actually behave, plus Otto’s monthly rule-based picks with the numbers behind them.' },
-    { sel: '[data-tour="portfolio"]', title: 'Track your portfolio',
-      text: 'Add the stocks you own — by hand or a broker CSV — and Otto tracks your P&L, allocation, and weekly “worth a look” nudges. Sign in to start yours.' },
-    { sel: '[data-tour="team"]',     title: 'Meet the team',
-      text: 'Who’s behind InvestRight and why we built it. Otto’s roost is small but growing.' },
-    { sel: '[data-tour="settings"]', title: 'Settings live in the gear',
-      text: 'Currency, the live $→₹ rate, light/dark theme, and your account all live behind this gear.' }
-  ];
-  var overlay = document.getElementById('tour');
-  if (!overlay) return;
-  var spot = document.getElementById('tour-spot'),
-      bubble = document.getElementById('tour-bubble'),
-      titleEl = document.getElementById('tour-title'),
-      textEl = document.getElementById('tour-text'),
-      nextBtn = document.getElementById('tour-next'),
-      skipBtn = document.getElementById('tour-skip'),
-      dotsEl = document.getElementById('tour-dots');
-  var idx = 0, plan = [];
-
-  function done() {
-    overlay.hidden = true;
-    overlay.setAttribute('aria-hidden', 'true');
-    try { localStorage.setItem('ir_toured', '1'); } catch (e) {}
-    window.removeEventListener('resize', place);
-  }
-  // Keyboard support: the overlay swallows clicks but used to let Tab wander
-  // the page behind it. Esc skips; Tab cycles between Skip and Next.
-  overlay.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { done(); return; }
-    if (e.key !== 'Tab') return;
-    e.preventDefault();
-    (document.activeElement === nextBtn ? skipBtn : nextBtn).focus();
+  var tabs = [].slice.call(document.querySelectorAll('.nw-tab'));
+  if (!tabs.length) return;
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) { t.setAttribute('aria-selected', String(t === tab)); });
+      document.querySelectorAll('[data-nw-panel]').forEach(function (p) {
+        p.toggleAttribute('hidden', p.dataset.nwPanel !== tab.dataset.nw);
+      });
+    });
   });
-  function place() {
-    var step = plan[idx];
-    var el = document.querySelector(step.sel);
-    if (!el) { advance(); return; }
-    el.scrollIntoView({ block: 'center', inline: 'nearest' });
-    var r = el.getBoundingClientRect(), pad = 8;
-    var vw = window.innerWidth, vh = window.innerHeight;
-    // Clamp the spotlight to the viewport so the ring never runs off-screen,
-    // even for a target hugging an edge (topbar controls, wrapped rows).
-    var sl = Math.max(4, r.left - pad), st = Math.max(4, r.top - pad),
-        sr = Math.min(vw - 4, r.right + pad), sb = Math.min(vh - 4, r.bottom + pad);
-    spot.style.left = sl + 'px';
-    spot.style.top = st + 'px';
-    spot.style.width = Math.max(0, sr - sl) + 'px';
-    spot.style.height = Math.max(0, sb - st) + 'px';
-    titleEl.textContent = step.title;
-    textEl.textContent = step.text;
-    nextBtn.textContent = (idx === plan.length - 1) ? 'Got it ✓' : 'Next →';
-    dotsEl.innerHTML = plan.map(function (_, i) {
-      return '<i class="tour-dot' + (i === idx ? ' on' : '') + '"></i>'; }).join('');
-    // Bubble below the target if there's room, else above; clamped to the viewport.
-    bubble.style.left = '0px'; bubble.style.top = '0px';   // measure unclamped
-    var bw = bubble.offsetWidth, bh = bubble.offsetHeight,
-        vw = window.innerWidth, vh = window.innerHeight, gap = 14;
-    var top = r.bottom + gap;
-    if (top + bh > vh - 8) top = r.top - gap - bh;      // flip above if no room below
-    top = Math.max(8, Math.min(top, vh - bh - 8));      // …and always stay on-screen
-    var left = r.left + r.width / 2 - bw / 2;
-    left = Math.max(8, Math.min(left, vw - bw - 8));
-    bubble.style.left = left + 'px';
-    bubble.style.top = top + 'px';
-  }
-  function advance() {
-    idx++;
-    if (idx >= plan.length) return done();
-    place();
-  }
-  function start() {
-    try { if (localStorage.getItem('ir_toured')) return; } catch (e) {}
-    // Only anchor steps whose target is actually on screen: on phones the Team
-    // link is display:none (it lives in the gear instead), and a hidden element
-    // still matches querySelector but has no box — getClientRects() drops it, so
-    // the "Meet the team" step is skipped on mobile rather than misanchoring.
-    plan = steps.filter(function (s) {
-      var el = document.querySelector(s.sel);
-      return el && el.getClientRects().length; });
-    if (!plan.length) return;
-    idx = 0;
-    overlay.hidden = false;
-    overlay.setAttribute('aria-hidden', 'false');
-    place();
-    nextBtn.focus();   // keyboard users land inside the bubble, not behind it
-  }
-  nextBtn.addEventListener('click', advance);
-  skipBtn.addEventListener('click', done);
-  window.addEventListener('resize', place);
-  window.irTour = { start: start };
-
-  // Returning visitor who onboarded before the tour existed (name set, never
-  // toured) gets it now. Brand-new visitors start it from the welcome popup.
-  try {
-    if (!localStorage.getItem('ir_toured') && localStorage.getItem('ir_name')) {
-      setTimeout(start, 400);
-    }
-  } catch (e) {}
 })();
 </script>
+
 <script>
 // Home hero autocomplete — the shared engine (tickers.js + autocomplete.js are
 // loaded, deferred, from base.html; both are ready by DOMContentLoaded).
