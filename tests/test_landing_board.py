@@ -1,4 +1,5 @@
-"""The tiled landing board that replaced the search-only home page.
+"""The landing page: twelve numbered sections (the "edition"), which folded
+in the tiled board that replaced the search-only home page.
 
 The board has to render for a guest with an empty database — a new deploy has
 no movers, no topic news and no earnings until the first nightly — so the
@@ -11,9 +12,11 @@ NOW = "2026-01-01T00:00:00+00:00"
 
 def test_board_renders_for_a_guest_on_an_empty_database(client):
     html = client.get("/").get_data(as_text=True)
-    assert html.count("class=\"tile") >= 4
-    # The feature tiles are the tour now, so they must always be there.
-    for feature in ("Today", "Portfolio", "Watchlist", "Strategies"):
+    assert html.count('class="ed-sec') == 12
+    # Every section is reachable from the roman-numeral index.
+    assert html.count("data-ed-link=") == 12
+    # The sections are the tour now, so every feature must always be there.
+    for feature in ("Today", "Portfolio", "Watchlist", "Strategies", "Ask Otto"):
         assert feature in html
     # Honest empty states rather than blank tiles.
     assert "No quotes saved yet" in html or "TOP GAINERS" in html.upper()
@@ -80,3 +83,17 @@ def test_the_greeting_still_renders_without_the_popup(client):
     html = client.get("/").get_data(as_text=True)
     assert 'id="greet"' in html
     assert "Good morning" in html or "Good afternoon" in html or "Good evening" in html
+
+
+def test_analysis_plates_fall_back_to_copy_without_a_featured_company(client):
+    # An empty database has no DCF or health checks, so plates IV-VI must say
+    # so rather than draw invented numbers.
+    html = client.get("/").get_data(as_text=True)
+    assert "Scores appear once a company has been analysed" in html
+    assert "A fair value appears once a company has been analysed" in html
+
+
+def test_the_portfolio_plate_is_labelled_an_illustration(client):
+    # A guest has no book; the example donut must never pass for real data.
+    html = client.get("/").get_data(as_text=True)
+    assert "an example book, for illustration" in html
