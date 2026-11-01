@@ -22,7 +22,7 @@ import logos
 import metrics
 import wiki
 from db import (get_conn, init_db, save_checks, save_dcf, save_digest,
-                save_movers,
+                save_movers, save_topic_news,
                 save_executives, save_fundamentals, save_income_flow,
                 save_insiders, save_news, save_price_history, save_screener,
                 save_snapshot)
@@ -66,6 +66,23 @@ def ensure_stock(conn, ticker):
     except Exception:
         pass
     return True
+
+
+def refresh_topic_news():
+    """Refill the landing page's news carousel. Returns topics that landed."""
+    got = []
+    for topic in fetch.NEWS_TOPICS:
+        try:
+            items = fetch.topic_headlines(topic)
+        except Exception as e:
+            print(f"  topic news {topic} failed: {e.__class__.__name__}")
+            continue
+        if not items:          # keep last-good rather than blanking the tab
+            continue
+        with get_conn() as conn:
+            save_topic_news(conn, topic, items)
+        got.append(topic)
+    return got
 
 
 MOVERS_UNIVERSE = Path(__file__).parent / "static" / "movers_universe.json"
@@ -407,6 +424,7 @@ def main():
             print(f"  price history failed for {sym}: {e}")
 
     movers_n = refresh_movers()
+    topics_n = len(refresh_topic_news())
 
     deep_ok = 0
     NO_NEWS.clear()
@@ -470,6 +488,7 @@ def main():
           + f" · deep {deep_ok}/{len(everyone)}"
           + f" · news {len(everyone) - len(NO_NEWS)}/{len(everyone)}"
           + f" · movers {movers_n}"
+          + f" · topic news {topics_n}/{len(fetch.NEWS_TOPICS)}"
           + (f" (none for: {', '.join(NO_NEWS[:5])}"
              + (f" +{len(NO_NEWS) - 5} more" if len(NO_NEWS) > 5 else "") + ")"
              if NO_NEWS else "")

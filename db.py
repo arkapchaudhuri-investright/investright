@@ -320,6 +320,19 @@ CREATE TABLE IF NOT EXISTS income_flow (
 -- (analytics.py) rebuilds from `events` — web only reads them, nothing here is
 -- source-of-truth. New TABLES via CREATE IF NOT EXISTS (not columns) so the two
 -- gunicorn workers can't race on first deploy.
+-- Topic news for the landing page carousel. Separate from `news`, which is
+-- per-ticker and foreign-keyed to stocks: these stories belong to a subject,
+-- not a company.
+CREATE TABLE IF NOT EXISTS topic_news (
+    topic        TEXT NOT NULL,          -- see fetch.NEWS_TOPICS
+    url          TEXT NOT NULL,
+    title        TEXT,
+    publisher    TEXT,
+    published_at TEXT,
+    fetched_at   TEXT NOT NULL,
+    PRIMARY KEY (topic, url)
+);
+CREATE INDEX IF NOT EXISTS idx_topic_news_topic ON topic_news(topic, published_at DESC);
 -- Index constituents for the landing page's movers tiles (S&P 500 + NIFTY 50,
 -- from static/movers_universe.json via build_movers.py). Quote-only: price,
 -- day change and volume, nothing else.
@@ -584,6 +597,24 @@ def set_password(conn, user_id, password_hash):
     conn.execute("UPDATE users SET password_hash=? WHERE id=?",
                  (password_hash, user_id))
     return rotate_session_token(conn, user_id)
+
+
+def save_topic_news(conn, topic, items):
+    """Replace one topic's stories. Rewritten per topic rather than upserted:
+    a carousel of everything ever fetched would grow without bound, and nobody
+    scrolls back a month."""
+    conn.execute("DELETE FROM topic_news WHERE topic=?", (topic,))
+    conn.executemany(
+        "INSERT OR REPLACE INTO topic_news (topic,url,title,publisher,published_at,fetched_at) "
+        "VALUES (?,?,?,?,?,?)",
+        [(topic, n["url"], n["title"], n["publisher"], n["published_at"], _now())
+         for n in items])
+
+
+def topic_news(conn, topic, limit=8):
+    return [dict(r) for r in conn.execute(
+        "SELECT * FROM topic_news WHERE topic=? ORDER BY published_at DESC LIMIT ?",
+        (topic, limit))]
 
 
 def save_movers(conn, rows):
