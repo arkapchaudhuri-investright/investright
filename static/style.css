@@ -20,6 +20,9 @@
 :root {
   --bg: #191917;
   --card: #21211e;
+  /* Floating chrome: a material, not an opaque bar (see .jumpnav). */
+  --chrome: rgba(25, 25, 23, .72);
+  --chrome-edge: rgba(255, 255, 255, .07);
   --hairline: #34342e;
   --text: #e9e6dd;
   --muted: #9c9889;
@@ -46,6 +49,12 @@
      magic numbers; existing rules migrate opportunistically as they're touched.
      The ramp names the sizes the sheet actually uses most, so adopting a token
      is a no-op visually. Theme-independent, so they live only in :root. */
+  /* Motion. Three defensible values instead of the ten ad-hoc durations the
+     sheet had grown (.04 .08 .12 .15 .16 .18 .2 .25 .28 .3). Entrances use
+     ease-out: motion should leave quickly and settle, not accelerate at the
+     end the way the symmetric default `ease` does. */
+  --t-fast: .12s; --t-base: .18s; --t-slow: .28s;
+  --ease-out: cubic-bezier(.22, .61, .36, 1);
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 20px; --space-6: 28px;
   --fs-xs: 0.71875rem;   /* chips, fine print */
@@ -55,6 +64,9 @@
   --fs-lg: 1.0625rem;     /* takeaways, empty states */
   --fs-xl: 1.375rem;     /* page + dialog titles */
   --fs-hero: 1.875rem;   /* the home greeting */
+  /* Tracking is size-specific: display type tightens, small text opens up
+     slightly. The ramp previously set none at any size. */
+  --track-hero: -.02em; --track-xl: -.01em; --track-xs: .01em;
 }
 
 /* ---- Light theme (DESIGN.md §5: "light supported via CSS variables") ----
@@ -69,6 +81,8 @@
 :root[data-theme="light"] {
   --bg: #faf9f5;
   --card: #ffffff;
+  --chrome: rgba(250, 249, 245, .72);
+  --chrome-edge: rgba(255, 255, 255, .55);
   --hairline: #e7e4db;
   --text: #2b2823;
   --muted: #726e65;
@@ -86,6 +100,8 @@
   :root:not([data-theme]) {
     --bg: #faf9f5;
     --card: #ffffff;
+    --chrome: rgba(250, 249, 245, .72);
+    --chrome-edge: rgba(255, 255, 255, .55);
     --hairline: #e7e4db;
     --text: #2b2823;
     --muted: #726e65;
@@ -103,7 +119,7 @@
 /* Theme change eases rather than snaps — but only if the user allows motion. */
 @media (prefers-reduced-motion: no-preference) {
   body, .card, .seg, .wl-toggle, input, textarea, .peer {
-    transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+    transition: background-color var(--t-slow) var(--ease-out), border-color var(--t-slow) var(--ease-out), color var(--t-slow) var(--ease-out);
   }
 }
 
@@ -121,6 +137,9 @@ button, input, select, textarea { font-family: inherit; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 0.9375rem/1.5 var(--sans);
+  /* Fraunces and Inter are self-hosted as variable woff2 — the optical axis
+     is already in the file, so this costs nothing and was simply unused. */
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   /* Sticky footer: on short pages (empty watchlist, auth) the credit line used
      to float mid-screen — main stretches, the footer stays at the bottom. */
@@ -635,7 +654,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
   text-align: left; padding: 8px 14px;
   color: var(--text); text-decoration: none; font-variant-numeric: tabular-nums;
-  transition: border-color .15s ease, color .15s ease;
+  transition: border-color var(--t-base) var(--ease-out), color var(--t-base) var(--ease-out);
 }
 .hero-chip:hover { border-color: var(--accent); color: var(--accent); }
 .hero-chip-tick { font-weight: 600; font-size: 0.84375rem; display: flex;
@@ -794,10 +813,10 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .port-alloc { flex-direction: column; text-align: center; gap: 10px; }
 .donut-num { font-family: var(--sans); font-size: 17px; font-weight: 650; }
 .donut-cap { font-size: 9.5px; fill: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-.alloc-donut path { transition: opacity .18s ease; cursor: pointer; }
+.alloc-donut path { transition: opacity var(--t-base) var(--ease-out); cursor: pointer; }
 .alloc-donut.focus path { opacity: .22; }
 .alloc-donut.focus path.lit { opacity: 1; }
-.alloc-legend li { border-radius: 6px; padding: 2px 6px; transition: background .15s ease; }
+.alloc-legend li { border-radius: 6px; padding: 2px 6px; transition: background var(--t-base) var(--ease-out); }
 .alloc-legend li.lit { background: var(--wash); }
 
 /* add / import — real buttons that unfold their panel full-width below */
@@ -806,7 +825,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   list-style: none; padding: 9px 18px; border-radius: 999px;
   border: 1px solid var(--edge); color: var(--text); font-size: 0.875rem;
-  background: var(--card); transition: border-color .15s, background .15s;
+  background: var(--card); transition: border-color var(--t-base), background var(--t-base);
 }
 .port-panel > .port-btn::-webkit-details-marker { display: none; }
 .port-panel > .port-btn:hover { border-color: var(--accent); background: var(--wash); }
@@ -837,7 +856,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .bk-pill {
   cursor: pointer; padding: 7px 14px; border-radius: 999px;
   border: 1px solid var(--edge); font-size: 0.84375rem; color: var(--text);
-  transition: border-color .15s, background .15s, color .15s;
+  transition: border-color var(--t-base), background var(--t-base), color var(--t-base);
 }
 .bk-pill:hover { border-color: var(--accent); background: var(--wash); }
 #bk-zerodha:checked ~ .broker-pick .bk-pill[for="bk-zerodha"],
@@ -884,14 +903,14 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
   font-size: 0.8125rem; color: var(--accent); text-decoration: none;
   border: 1px solid var(--edge); border-radius: 999px; padding: 5px 14px;
-  transition: border-color .15s, background .15s;
+  transition: border-color var(--t-base), background var(--t-base);
 }
 .bk-open:hover { border-color: var(--accent); background: var(--card); }
 .drop-zone {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 22px 16px; border: 1.5px dashed var(--edge); border-radius: 12px;
   cursor: pointer; text-align: center; margin-bottom: var(--space-3);
-  transition: border-color .15s, background .15s;
+  transition: border-color var(--t-base), background var(--t-base);
 }
 .drop-zone:hover, .drop-zone.dz-over, .drop-zone:focus-within {
   border-color: var(--accent); background: var(--wash);
@@ -983,7 +1002,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 /* two classes so the tint survives .wl-metrics b's color on the mobile cards */
 .pnl-cell.up { color: var(--up); }
 .pnl-cell.down { color: var(--down); }
-.port-table tbody tr { transition: background .15s ease; }
+.port-table tbody tr { transition: background var(--t-base) var(--ease-out); }
 .wl-id-txt { display: flex; flex-direction: column; min-width: 0; }
 .wl-alloc { margin: 8px 0 2px; }
 .wl-alloc .rl { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 4px; }
@@ -1118,8 +1137,16 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   position: sticky; top: 0; z-index: 80;
   display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
   scrollbar-width: none; padding: 10px 2px; margin: 0 0 6px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--hairline);
+  /* The deep-dive's only floating chrome, so the one place a translucent
+     material belongs: content passes beneath it rather than meeting an opaque
+     bar. The bright top edge is what reads as "pane of glass". */
+  background: var(--chrome);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid var(--chrome-edge);
+  /* Scroll edge effect: a hard 1px rule under floating chrome announces the
+     bar; a short fade lets the content dissolve under it instead. */
+  box-shadow: 0 10px 12px -12px var(--shadow-pop);
 }
 .jumpnav::-webkit-scrollbar { display: none; }
 .jumpnav a {
@@ -1142,7 +1169,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   padding: 14px 16px; border-radius: 12px; text-decoration: none;
   border: 1px solid var(--hairline); background: var(--card); color: var(--text);
   position: relative; overflow: hidden;
-  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+  transition: border-color var(--t-base) var(--ease-out), transform var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease-out);
 }
 .bento-tile:hover {
   border-color: var(--accent); transform: translateY(-2px);
@@ -1186,7 +1213,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .verdict-list a {
   display: flex; align-items: baseline; gap: 12px; padding: 9px 10px;
   margin: 0 -10px; border-radius: 8px; text-decoration: none; color: var(--text);
-  transition: background .15s ease;
+  transition: background var(--t-base) var(--ease-out);
 }
 .verdict-list li + li a { border-top: 1px solid var(--hairline); border-radius: 0 0 8px 8px; }
 .verdict-list a:hover { background: var(--wash); }
@@ -1201,7 +1228,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
 }
 .verdict-text { flex: 1; font-size: 0.90625rem; }
-.verdict-go { flex: none; color: var(--muted); transition: transform .15s ease, color .15s ease; }
+.verdict-go { flex: none; color: var(--muted); transition: transform var(--t-base) var(--ease-out), color var(--t-base) var(--ease-out); }
 .verdict-list a:hover .verdict-go { color: var(--accent); transform: translateX(3px); }
 @media (max-width: 560px) {
   .verdict-label { width: auto; min-width: 58px; }
@@ -1460,7 +1487,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   transform: translateX(-50%); width: 250px; padding: 14px 16px;
   background: var(--card); border: 1px solid var(--hairline); border-radius: 12px;
   box-shadow: 0 18px 44px var(--shadow-pop); text-align: left;
-  opacity: 0; visibility: hidden; transition: opacity .12s ease;
+  opacity: 0; visibility: hidden; transition: opacity var(--t-fast) var(--ease-out);
 }
 .exec:hover .exec-card, .exec:focus-within .exec-card { opacity: 1; visibility: visible; }
 @media (prefers-reduced-motion: reduce) { .exec-card { transition: none; } }
@@ -1651,7 +1678,7 @@ a.peer:hover { border-color: var(--accent); }
   display: flex; align-items: center; gap: 14px;
   padding: 13px 10px; margin: 0 -10px; border-bottom: 1px solid var(--hairline);
   position: relative; border-radius: 8px;
-  transition: background-color .15s ease;
+  transition: background-color var(--t-base) var(--ease-out);
 }
 .scr-row:last-child { border-bottom: 0; }
 .scr-row:hover { background: var(--wash); }
@@ -1693,7 +1720,7 @@ a.peer:hover { border-color: var(--accent); }
   border: 1px solid var(--edge); background: var(--card); color: var(--text);
   font-size: 1.0625rem; box-shadow: 0 4px 14px var(--shadow);
   opacity: 0; transform: translateY(8px); pointer-events: none;
-  transition: opacity .2s ease, transform .2s ease, border-color .15s;
+  transition: opacity var(--t-base) var(--ease-out), transform var(--t-base) var(--ease-out), border-color var(--t-base);
 }
 .to-top.show { opacity: 1; transform: none; pointer-events: auto; }
 .to-top:hover { border-color: var(--accent); color: var(--accent); }
@@ -1707,7 +1734,7 @@ a.peer:hover { border-color: var(--accent); }
   font-size: 0.84375rem; color: var(--muted);
 }
 .strat-more > summary::before {
-  content: "›"; font-size: 0.9375rem; color: var(--accent); transition: transform .18s ease;
+  content: "›"; font-size: 0.9375rem; color: var(--accent); transition: transform var(--t-base) var(--ease-out);
 }
 .strat-more[open] > summary::before { transform: rotate(90deg); }
 .strat-more > summary:hover { color: var(--accent); }
@@ -1903,7 +1930,7 @@ footer .foot-legal a:hover { color: var(--accent); }
   }
   .wl-chg.up { color: var(--up); background: rgba(63, 190, 142, .16); }
   .wl-chg.down { color: var(--down); background: rgba(229, 100, 95, .16); }
-  .wl-chev { flex: none; color: var(--muted); font-size: 0.75rem; margin-left: 2px; transition: transform .2s ease; }
+  .wl-chev { flex: none; color: var(--muted); font-size: 0.75rem; margin-left: 2px; transition: transform var(--t-base) var(--ease-out); }
   .wl-card[open] .wl-chev { transform: rotate(180deg); }
   .wl-detail { padding: 2px 14px 13px; }
   .wl-metrics {
@@ -1974,7 +2001,7 @@ footer .foot-legal a:hover { color: var(--accent); }
 .tour-dots { display: inline-flex; gap: 5px; }
 .tour-dot {
   width: 6px; height: 6px; border-radius: 50%; background: var(--hairline);
-  display: inline-block; transition: background-color .2s ease;
+  display: inline-block; transition: background-color var(--t-base) var(--ease-out);
 }
 .tour-dot.on { background: var(--accent); }
 .tour-next {
@@ -1983,7 +2010,7 @@ footer .foot-legal a:hover { color: var(--accent); }
 }
 .tour-next:hover { filter: brightness(1.06); }
 @media (prefers-reduced-motion: no-preference) {
-  .tour-spot { transition: left .28s ease, top .28s ease, width .28s ease, height .28s ease; }
+  .tour-spot { transition: left var(--t-slow) var(--ease-out), top var(--t-slow) var(--ease-out), width var(--t-slow) var(--ease-out), height var(--t-slow) var(--ease-out); }
 }
 @media (max-width: 560px) {
   .tour-bubble { padding: 14px; gap: 10px; }
@@ -2137,7 +2164,7 @@ footer .foot-legal a:hover { color: var(--accent); }
   border: 1px solid var(--hairline); border-radius: 999px;
 }
 .hd-btn:hover { color: var(--accent); border-color: rgba(29, 158, 117, .45); }
-.hd-chev { font-size: 0.625rem; line-height: 1; transition: transform .15s ease; }
+.hd-chev { font-size: 0.625rem; line-height: 1; transition: transform var(--t-base) var(--ease-out); }
 .hd-btn[aria-expanded="true"] { color: var(--accent); border-color: rgba(29, 158, 117, .45); }
 .hd-btn[aria-expanded="true"] .hd-chev { transform: rotate(180deg); }
 /* The slot row spans the whole table, so drop the numeric alignment it would
@@ -2281,3 +2308,33 @@ button:disabled:active, .btn-analyze:disabled:active { transform: none; }
     transform: none; opacity: .72; transition: opacity 100ms ease-out;
   }
 }
+
+/* ===== Apple-design pass, tier 2 ========================================= */
+
+/* Display tracking. Negative at display sizes, slightly open at the smallest —
+   the ramp set none at any size, so headings read a touch loose and chips a
+   touch tight. Applied where the hero/title sizes are actually used. */
+.hero h1, .serif.hero-title { letter-spacing: var(--track-hero); line-height: 1.05; }
+h1, .page-title { letter-spacing: var(--track-xl); }
+.chip, .sig-tag, .hd-axis, .xchg { letter-spacing: var(--track-xs); }
+
+/* The jump nav is translucent, so under reduced-transparency it has to become
+   a solid bar again — and under increased contrast it needs a real edge.
+   Pairs with the tier-1 media queries. */
+@media (prefers-reduced-transparency: reduce) {
+  .jumpnav {
+    background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none;
+    border-bottom: 1px solid var(--hairline); box-shadow: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .jumpnav {
+    background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none;
+    border-bottom: 2px solid var(--hairline); box-shadow: none;
+  }
+}
+
+/* Vibrancy: text over a translucent surface loses contrast against whatever
+   scrolls beneath it. The chips get a touch more weight rather than being left
+   as flat muted grey. */
+.jumpnav a { font-weight: 500; }
