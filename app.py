@@ -362,6 +362,48 @@ def _fx_ctx():
     return dict(ccy=ccy, fx=fx, fx_stale=fx_stale, fx_on_label=fx_on_label, show_fx=True)
 
 
+# The portfolio plate on the landing page is an illustration, labelled as one:
+# a guest has no book of their own, and inventing someone's would be dishonest.
+_EXAMPLE_BOOK = [("Index fund", 40), ("Large caps", 26), ("India", 16),
+                 ("Bonds", 12), ("Cash", 6)]
+
+
+def _home_featured(conn):
+    """One tracked company the landing page's analysis plates are drawn from:
+    the most-viewed of the last fortnight that has a stored DCF and scored
+    health checks, else the largest that does. None on an empty database —
+    the plates then fall back to plain copy rather than fake numbers."""
+    row = conn.execute(
+        "SELECT s.ticker, s.name, s.currency, n.price, d.fair_value, d.upside_pct, "
+        "COALESCE(v.c, 0) AS views "
+        "FROM stocks s JOIN dcf d ON d.ticker = s.ticker "
+        "LEFT JOIN snapshots n ON n.ticker = s.ticker "
+        "LEFT JOIN (SELECT ticker, COUNT(*) AS c FROM events WHERE action = 'view' "
+        "           AND ts >= datetime('now', '-14 days') GROUP BY ticker) v "
+        "       ON v.ticker = s.ticker "
+        "WHERE d.fair_value IS NOT NULL AND n.price IS NOT NULL "
+        "AND EXISTS (SELECT 1 FROM health_checks h WHERE h.ticker = s.ticker) "
+        "ORDER BY COALESCE(v.c, 0) DESC, n.market_cap DESC LIMIT 1").fetchone()
+    if not row:
+        return None
+    f = dict(row)
+    checks = [dict(r) for r in conn.execute(
+        "SELECT axis, passed FROM health_checks WHERE ticker=?", (f["ticker"],))]
+    scores = metrics.axis_scores(checks)
+    f["snowflake"] = (metrics.snowflake(scores)
+                      if any(v is not None for v in scores.values()) else None)
+    closes = [r["close"] for r in conn.execute(
+        "SELECT close FROM price_history WHERE ticker=? ORDER BY d DESC LIMIT 90",
+        (f["ticker"],))][::-1]
+    f["spark"] = metrics.sparkline(closes, width=520, height=140, pad=6)
+    f["spark_chg"] = (round((closes[-1] / closes[0] - 1) * 100, 1)
+                      if len(closes) > 1 and closes[0] else None)
+    # Price and fair value on one scale, so the plate can draw both bars.
+    top = max(f["price"], f["fair_value"]) or 1
+    f["price_w"], f["fair_w"] = round(f["price"] / top, 3), round(f["fair_value"] / top, 3)
+    return f
+
+
 @app.route("/")
 def home():
     """The landing page: a tiled board rather than a search box.
@@ -421,12 +463,30 @@ def home():
             e["days"] = (date.fromisoformat(e["next_earnings"]) - date.today()).days
         except (TypeError, ValueError):
             e["days"] = None
+    # Movers get a bar scaled to the biggest move in their own list, so the
+    # plate can draw them in on hover without inventing a scale.
+    for kind, rows in movers.items():
+        key = "volume" if kind == "actives" else "change_pct"
+        top = max((abs(m[key] or 0) for m in rows), default=0) or 1
+        movers[kind] = [dict(m, bar=round(abs(m[key] or 0) / top, 3)) for m in rows]
+
+    with get_conn() as conn:
+        featured = _home_featured(conn)
+        tracked = conn.execute("SELECT COUNT(*) FROM stocks").fetchone()[0]
+        picks = [dict(r) for r in conn.execute(
+            "SELECT strategy, ticker, name, why FROM strategy_picks "
+            "WHERE batch_date = (SELECT MAX(batch_date) FROM strategy_picks) "
+            "AND rank = 1 ORDER BY strategy LIMIT 3")]
     movers_as_of = (datetime.fromisoformat(as_of).astimezone().strftime("%-d %b, %-I:%M %p")
                     if as_of else None)
 
     resp = make_response(render_template(
         "home.html", greeting=greeting(), movers=movers, news_tabs=news_tabs,
-        earnings=earnings, movers_as_of=movers_as_of, market=market, **ctx))
+        earnings=earnings, movers_as_of=movers_as_of, market=market,
+        featured=featured, tracked=tracked, picks=picks,
+        strategy_names={x["id"]: x["name"] for x in strategies_content.STRATEGIES},
+        example_donut=metrics.allocation_donut(_EXAMPLE_BOOK, size=140, thickness=18),
+        **ctx))
     if request.args.get("ccy"):
         resp.set_cookie("ccy", ctx["ccy"], max_age=180 * 24 * 3600)
     if request.args.get("market"):

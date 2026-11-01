@@ -2335,62 +2335,129 @@ h1, .page-title { letter-spacing: var(--track-xl); }
 .field-err.on { display: block; }
 input.invalid, input.invalid:focus { border-color: var(--down); }
 
-/* ===== Tiled landing board =============================================== */
-/* A bento rather than a search box: the tiles carry live data worth coming
-   back for and double as the tour, showing each feature instead of
-   describing it. Extends the deep-dive's .bento-tile language. */
-.board {
-  display: grid; gap: var(--space-3); margin-top: var(--space-5);
-  grid-template-columns: repeat(6, 1fr);
-}
-.tile {
-  grid-column: span 2; position: relative; overflow: hidden;
-  display: flex; flex-direction: column; gap: var(--space-2);
-  background: var(--card); border: 1px solid var(--hairline);
-  border-radius: 16px; padding: var(--space-4);
-  text-decoration: none; color: inherit;
-  transition: border-color var(--t-base) var(--ease-out),
-              transform var(--t-base) var(--ease-out),
-              box-shadow var(--t-base) var(--ease-out);
-}
-/* The category wash. A pseudo-element so the tint never tints the text, and
-   so a tile can hold its own backgrounds without fighting it. */
-.tile::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(160deg,
-    color-mix(in srgb, var(--tint, var(--accent)) 10%, transparent), transparent 62%);
-}
-.tile > * { position: relative; }
-.tile:hover { border-color: color-mix(in srgb, var(--tint, var(--accent)) 45%, var(--hairline)); }
-a.tile:hover { transform: translateY(-2px); box-shadow: 0 10px 28px var(--shadow-pop); }
-.tile-movers { --tint: var(--tint-movers); }
-.tile-news { --tint: var(--tint-news); grid-column: span 4; }
-.tile-earnings { --tint: var(--tint-earnings); grid-column: span 2; align-self: start; }
-.tile-explore { --tint: var(--tint-explore); }
-.tile-wide { grid-column: span 3; }
+/* ===== The edition (landing page) ====================================== */
+/* After Shopify Editions Winter '26 ("The Renaissance Edition"): numbered
+   full-bleed sections, one idea each, a roman-numeral index that tracks the
+   scroll, Fraunces statements with drop caps, and a framed "plate" of live
+   data beside each. Structure copied, artwork not: the plates are our own
+   numbers, and the catalogue frame round them is the classical half of the
+   collision. */
 
-.tile-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: var(--space-2);
+/* A critically damped spring (damping 1.0, response .35s) sampled for CSS:
+   x(t) = 1 − (1 + ωt)·e^(−ωt), ω = 2π/.35. No bounce — none is earned by a
+   hover. CSS transitions retarget from the value on screen, so a hover that
+   ends mid-flight eases back from where it is rather than jumping. */
+:root {
+  --spring: linear(0, .075, .227, .39, .536, .656, .75, .821, .873, .911, .938,
+                   .957, .971, .98, .986, .991, .994, .996, .997, .998, 1);
+  --t-spring: .5s;
 }
+
+/* The edition is wider than the 880px reading column the rest of the site
+   uses; the index needs a gutter and the plates need room. */
+main:has(.ed) { max-width: 1180px; }
+.ed {
+  display: grid; grid-template-columns: 170px minmax(0, 1fr);
+  gap: var(--space-6); margin-top: var(--space-6);
+}
+
+/* --- The index. Sticky inside its own grid column, so it never touches the
+       .topbar's stacking rules (which must stay sticky-free, see ~l.388). --- */
+.ed-index { position: sticky; top: 24px; align-self: start; }
+.ed-index ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--hairline); }
+.ed-index a {
+  display: flex; align-items: baseline; gap: 10px; padding: 5px 0 5px 14px;
+  margin-left: -1px; border-left: 2px solid transparent;
+  color: var(--muted); text-decoration: none; font-size: var(--fs-sm);
+  transition: color var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out);
+}
+.ed-num {
+  font-family: var(--serif); font-weight: 600; min-width: 2.4em;
+  font-variant-numeric: lining-nums; letter-spacing: .02em;
+}
+.ed-index a:hover { color: var(--text); }
+.ed-index a[aria-current="true"] { color: var(--text); border-left-color: var(--accent); }
+.ed-index a[aria-current="true"] .ed-num { color: var(--accent); }
+
+/* --- Sections. Alternate bands run full-bleed through border-image, which
+       paints outside the box without adding scroll overflow. --- */
+.ed-sec {
+  --tint: var(--tint-movers);
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: center; gap: clamp(24px, 4vw, 56px);
+  min-height: min(88vh, 760px); padding: clamp(40px, 8vh, 88px) 0;
+  scroll-margin-top: 8px; position: relative;
+}
+.ed-sec:nth-child(even) {
+  border-image: linear-gradient(var(--wash) 0 0) fill 0 / / 0 100vw;
+}
+.ed-sec:nth-child(even) .ed-copy { order: 2; }
+.tint-movers   { --tint: var(--tint-movers); }
+.tint-news     { --tint: var(--tint-news); }
+.tint-earnings { --tint: var(--tint-earnings); }
+.tint-explore  { --tint: var(--tint-explore); }
+
+.ed-kicker {
+  margin: 0 0 var(--space-3); font-size: var(--fs-xs); font-weight: 650;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--tint);
+}
+.ed-kicker span { font-family: var(--serif); font-size: 1.15em; letter-spacing: .04em; margin-right: 6px; }
+.ed-statement {
+  margin: 0 0 var(--space-4); font-family: var(--serif); font-weight: 500;
+  font-size: clamp(1.875rem, 3.6vw, 3rem); line-height: 1.06;
+  letter-spacing: var(--track-hero); font-optical-sizing: auto; text-wrap: balance;
+}
+.ed-lede { margin: 0; color: var(--muted); font-size: var(--fs-md); line-height: 1.6; max-width: 34em; }
+/* The drop cap: one rule, the strongest classical signal on the page. */
+.ed-lede::first-letter {
+  float: left; font-family: var(--serif); font-weight: 600; color: var(--tint);
+  font-size: 3.4em; line-height: .82; margin: .06em .1em 0 0;
+}
+.ed-asof { margin: var(--space-3) 0 0; font-size: var(--fs-xs); color: var(--muted); }
+.ed-go { margin: var(--space-4) 0 0; font-size: var(--fs-body); font-weight: 600; }
+.ed-go a { color: var(--tint); text-decoration: none; }
+.ed-go a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* --- The plate: a catalogue frame round live data. A double rule (border +
+       inset outline) and a caption underneath, like a plate in a folio. --- */
+.plate { margin: 0; position: relative; }
+.plate-frame {
+  position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--hairline); border-radius: 4px;
+  outline: 1px solid var(--hairline); outline-offset: 5px;
+  padding: clamp(16px, 2.4vw, 28px); min-height: 220px;
+  display: flex; flex-direction: column; gap: var(--space-2);
+  transition: transform var(--t-spring) var(--spring),
+              box-shadow var(--t-spring) var(--spring),
+              border-color var(--t-base) var(--ease-out);
+}
+/* Tint wash on a pseudo-element, so it never tints text; hover deepens it by
+   opacity alone. */
+.plate-frame::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .55;
+  background: linear-gradient(155deg,
+    color-mix(in srgb, var(--tint) 16%, transparent), transparent 64%);
+  transition: opacity var(--t-spring) var(--spring);
+}
+.plate-frame > * { position: relative; }
+.plate figcaption {
+  margin-top: 14px; font-family: var(--serif); font-style: italic;
+  font-size: var(--fs-sm); color: var(--muted); text-align: center;
+}
+.plate figcaption a { color: inherit; }
+.plate:hover .plate-frame, .plate:focus-within .plate-frame {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 44px var(--shadow-pop);
+  border-color: color-mix(in srgb, var(--tint) 45%, var(--hairline));
+}
+.plate:hover .plate-frame::before, .plate:focus-within .plate-frame::before { opacity: 1; }
+
+/* Shared label + row type, kept from the board. */
 .tile-k {
   font-size: var(--fs-xs); font-weight: 650; letter-spacing: .06em;
   text-transform: uppercase; color: var(--tint, var(--accent));
 }
 .tile-note { font-size: var(--fs-xs); color: var(--muted); }
-
-/* A mover row is a form, not a link: opening an index member we've never seen
-   ingests it, and a write can't live in a GET (§3). Styled as a row so it
-   still reads as one. */
-.mv-row { margin: 0; }
-.mv-btn {
-  width: 100%; display: flex; align-items: baseline; gap: var(--space-2);
-  background: none; border: 0; cursor: pointer; color: inherit;
-  padding: 7px 0; text-align: left; border-top: 1px solid var(--hairline);
-  font: inherit;
-}
-.mv-row:first-of-type .mv-btn { border-top: 0; }
-.mv-btn:hover .mv-tk { color: var(--tint, var(--accent)); }
 .mv-tk { font-weight: 650; font-size: var(--fs-body); }
 .mv-nm {
   flex: 1; min-width: 0; color: var(--muted); font-size: var(--fs-xs);
@@ -2398,60 +2465,218 @@ a.tile:hover { transform: translateY(-2px); box-shadow: 0 10px 28px var(--shadow
 }
 .mv-val { font-variant-numeric: tabular-nums; font-size: var(--fs-body); font-weight: 600; }
 
-/* News carousel — tabs over a horizontal rail. */
+/* I — movers: three columns, each row a form (a write can't live in a GET). */
+.plate-movers .plate-frame { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.mv-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mv-row { margin: 0; }
+.mv-btn {
+  width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: baseline;
+  column-gap: var(--space-2); row-gap: 4px;
+  background: none; border: 0; cursor: pointer; color: inherit;
+  padding: 7px 0; text-align: left; border-top: 1px solid var(--hairline); font: inherit;
+}
+.mv-row:first-of-type .mv-btn { border-top: 0; }
+.mv-btn:hover .mv-tk { color: var(--tint, var(--accent)); }
+/* A bar scaled to the biggest move in its list. Rest = the true value; a
+   replay (edition.js) grows it from nothing so the data draws itself in. */
+.mv-bar { grid-column: 1 / -1; display: block; height: 3px; border-radius: 2px; background: var(--hairline); overflow: hidden; }
+.mv-bar i {
+  display: block; height: 100%; background: var(--tint); border-radius: inherit;
+  transform: scaleX(var(--v, 0)); transform-origin: left;
+}
+.mv-bar.down i { background: var(--down); }
+
+/* II — news */
 .nw-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .nw-tabs::-webkit-scrollbar { display: none; }
 .nw-tab {
   flex: none; font-size: var(--fs-xs); font-weight: 500; cursor: pointer;
   color: var(--muted); background: none; padding: 5px 11px;
   border: 1px solid var(--hairline); border-radius: 999px;
-  transition: color var(--t-fast) var(--ease-out),
-              border-color var(--t-fast) var(--ease-out);
+  transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
-.nw-tab[aria-selected="true"] {
-  color: #fff; background: var(--tint-news); border-color: var(--tint-news);
-}
+.nw-tab[aria-selected="true"] { color: #fff; background: var(--tint-news); border-color: var(--tint-news); }
 .nw-rail {
   display: flex; gap: var(--space-3); overflow-x: auto; scroll-snap-type: x mandatory;
-  scrollbar-width: none; padding-bottom: 2px;
+  scrollbar-width: none; padding: 2px 0 4px;
 }
 .nw-rail::-webkit-scrollbar { display: none; }
 /* `display: flex` beats the UA stylesheet's [hidden] { display: none }, so
    without this every topic's rail renders stacked instead of one at a time. */
 .nw-rail[hidden] { display: none; }
 .nw-card {
-  flex: none; width: min(240px, 72vw); scroll-snap-align: start;
+  flex: none; width: min(230px, 64vw); scroll-snap-align: start;
   display: flex; flex-direction: column; gap: 6px; text-decoration: none;
-  color: inherit; padding: var(--space-3);
-  border: 1px solid var(--hairline); border-radius: 12px; background: var(--bg);
+  color: inherit; padding: var(--space-3); min-height: 120px;
+  border: 1px solid var(--hairline); border-radius: 10px; background: var(--bg);
   transition: border-color var(--t-base) var(--ease-out);
 }
 .nw-card:hover { border-color: color-mix(in srgb, var(--tint-news) 50%, var(--hairline)); }
 .nw-title { font-size: var(--fs-body); line-height: 1.4; font-weight: 500; }
 .nw-meta { font-size: var(--fs-xs); color: var(--muted); margin-top: auto; }
 
-/* Earnings */
+/* III — earnings */
 .ern-row {
-  display: flex; align-items: baseline; gap: var(--space-2);
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline;
+  column-gap: var(--space-2); row-gap: 4px;
   padding: 7px 0; border-top: 1px solid var(--hairline); text-decoration: none; color: inherit;
 }
 .ern-row:first-of-type { border-top: 0; }
 .ern-row:hover .mv-tk { color: var(--tint-earnings); }
-.ern-when {
-  margin-left: auto; font-size: var(--fs-xs); font-weight: 600;
-  color: var(--tint-earnings); white-space: nowrap;
+.ern-when { font-size: var(--fs-xs); font-weight: 600; color: var(--tint-earnings); white-space: nowrap; }
+.ern-bar { grid-column: 1 / -1; }
+
+/* IV — snowflake */
+.plate-health .plate-frame { align-items: center; justify-content: center; }
+.ed-snow { width: min(360px, 100%); height: auto; }
+.sn-ring { fill: none; stroke: var(--hairline); stroke-width: 1; }
+.sn-shape {
+  fill: color-mix(in srgb, var(--tint) 32%, transparent); stroke: var(--tint); stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.sn-pct { fill: var(--text); font-weight: 700; }
+
+/* V — fair value */
+.plate-value .plate-frame { justify-content: center; gap: var(--space-4); }
+.fv-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.fv-k { font-size: var(--fs-sm); color: var(--muted); }
+.fv-n { font-variant-numeric: tabular-nums; font-weight: 650; font-size: var(--fs-lg); }
+.fv-bar { display: block; height: 14px; border-radius: 3px; background: var(--hairline); overflow: hidden; }
+.fv-bar i {
+  display: block; height: 100%; background: var(--muted);
+  transform: scaleX(var(--v, 0)); transform-origin: left;
+}
+.fv-fair .fv-bar i { background: var(--up); }
+.fv-fair.over .fv-bar i { background: var(--amber); }
+.fv-verdict { margin: var(--space-2) 0 0; font-size: var(--fs-body); color: var(--muted); line-height: 1.55; }
+.fv-verdict b { color: var(--text); }
+
+/* VI — watchlist sparkline, revealed by a cover that slides off it */
+.wl-head { display: flex; align-items: baseline; gap: var(--space-3); }
+.wl-head .tile-note { margin-left: auto; }
+.wl-chart { position: relative; overflow: hidden; flex: 1; min-height: 150px; }
+.wl-chart svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.spark-line { fill: none; stroke-width: 2; stroke: var(--muted); stroke-linejoin: round; }
+.spark-line.up { stroke: var(--up); }
+.spark-line.down { stroke: var(--down); }
+.wl-cover {
+  position: absolute; inset: 0; background: var(--card);
+  transform: translateX(101%); pointer-events: none;
 }
 
-/* Feature tiles — the tour, by showing rather than telling. */
-.tile-explore h3 { margin: 0; font-size: var(--fs-md); }
-.tile-explore p { margin: 0; font-size: var(--fs-body); color: var(--muted); line-height: 1.45; }
-.tile-go { margin-top: auto; font-size: var(--fs-body); font-weight: 600; color: var(--tint, var(--accent)); }
+/* VII — example donut */
+.pf-frame { flex-direction: row !important; align-items: center; justify-content: center; gap: var(--space-6) !important; flex-wrap: wrap; }
+.ed-donut { width: 170px; height: 170px; }
+.ed-donut path { transform-origin: 70px 70px; }
+.pf-legend { list-style: none; margin: 0; padding: 0; min-width: 180px; }
+.pf-legend li {
+  display: flex; align-items: center; gap: 10px; padding: 6px 0;
+  border-bottom: 1px solid var(--hairline); font-size: var(--fs-body);
+}
+.pf-legend i { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.pf-legend b { margin-left: auto; font-variant-numeric: tabular-nums; }
 
-@media (max-width: 900px) { .board { grid-template-columns: repeat(4, 1fr); }
-  .tile-news { grid-column: span 4; } .tile-wide { grid-column: span 4; } }
+/* VIII — strategies */
+.plate-strategies .plate-frame { justify-content: center; }
+.st-row { display: flex; flex-direction: column; gap: 3px; padding: 10px 0; border-top: 1px solid var(--hairline); }
+.st-row:first-child { border-top: 0; }
+.st-name { font-size: var(--fs-md); }
+.st-name b { font-weight: 650; margin-right: 4px; }
+.st-why { font-size: var(--fs-sm); color: var(--muted); line-height: 1.45; }
+
+/* IX — today */
+.td-frame { align-items: center; justify-content: center; text-align: center; }
+.td-n {
+  font-family: var(--serif); font-weight: 500; line-height: 1;
+  font-size: clamp(4.5rem, 10vw, 7.5rem); color: var(--tint);
+  font-variant-numeric: lining-nums tabular-nums; letter-spacing: var(--track-hero);
+}
+.td-cap { font-size: var(--fs-body); color: var(--muted); max-width: 22em; }
+
+/* X — Otto */
+.ot-frame { flex-direction: row !important; align-items: flex-end; gap: var(--space-4) !important; justify-content: center; }
+.ot-chat { display: flex; flex-direction: column; gap: var(--space-2); max-width: 340px; }
+.ot-q, .ot-a { margin: 0; padding: 10px 14px; border-radius: 14px; font-size: var(--fs-body); line-height: 1.5; }
+.ot-q { align-self: flex-end; background: var(--accent-deep); color: #fff; border-bottom-right-radius: 4px; }
+.ot-a { background: var(--bg); border: 1px solid var(--hairline); border-bottom-left-radius: 4px; }
+
+/* XI — the weekly note */
+.wk-frame { align-items: center; justify-content: center; }
+.wk-mail {
+  width: min(340px, 100%); display: flex; flex-direction: column; gap: 8px;
+  background: var(--bg); border: 1px solid var(--hairline); border-radius: 10px;
+  padding: var(--space-4); box-shadow: 0 8px 24px var(--shadow);
+  transform: rotate(-2deg);
+  transition: transform var(--t-spring) var(--spring);
+}
+.wk-from { font-size: var(--fs-xs); color: var(--muted); }
+.wk-subj { font-family: var(--serif); font-weight: 500; font-size: var(--fs-lg); line-height: 1.3; }
+.wk-line { display: block; height: 7px; border-radius: 4px; background: var(--hairline); transform-origin: left; }
+.wk-line.short { width: 60%; }
+.plate-weekly:hover .wk-mail, .plate-weekly:focus-within .wk-mail { transform: rotate(0deg) scale(1.02); }
+
+/* XII — open book */
+.op-frame { justify-content: center; gap: 6px !important; }
+.op-frame code { font-size: var(--fs-sm); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.op-c { color: var(--muted); }
+
+/* --- Replays. edition.js adds .replay to a plate on pointer-enter/focus and
+       removes it when the last animation ends, so a quick in-and-out never
+       snaps the data back to empty. Rest states are always the true values;
+       these only draw them in. Gated on no-preference, see below. --- */
+@media (prefers-reduced-motion: no-preference) {
+  .replay .mv-bar i { animation: ed-grow var(--t-spring) var(--spring) both; animation-delay: calc(var(--i, 0) * 40ms); }
+  .replay .ern-row .mv-bar i { animation-delay: calc(var(--i, 0) * 50ms); }
+  .replay .fv-bar i { animation: ed-grow .6s var(--spring) both; }
+  .replay .fv-fair .fv-bar i { animation-delay: 90ms; }
+  .replay .sn-shape { animation: ed-bloom var(--t-spring) var(--spring) both; }
+  .replay .wl-cover { animation: ed-sweep .9s var(--ease-out) both; }
+  .replay .ed-donut path { animation: ed-bloom var(--t-spring) var(--spring) both; animation-delay: calc(var(--i, 0) * 45ms); }
+  .replay .pf-legend li, .replay .st-row, .replay .op-frame code, .replay .nw-rail:not([hidden]) .nw-card {
+    animation: ed-rise var(--t-spring) var(--spring) both; animation-delay: calc(var(--i, 0) * 50ms);
+  }
+  .replay .wk-line { animation: ed-grow var(--t-spring) var(--spring) both; animation-delay: calc(120ms + var(--i, 0) * 60ms); }
+  .replay .ot-q { animation: ed-rise var(--t-spring) var(--spring) both; }
+  .replay .ot-a { animation: ed-rise var(--t-spring) var(--spring) both; animation-delay: 160ms; }
+
+  /* Sections settle in once as they enter the viewport. Only when JS has run
+     (.ed-js), so no-JS never hides anything. */
+  .ed-js .ed-sec .ed-copy, .ed-js .ed-sec .plate {
+    transition: opacity .6s var(--ease-out), transform .6s var(--spring);
+  }
+  .ed-js .ed-sec:not(.in) .ed-copy, .ed-js .ed-sec:not(.in) .plate { opacity: 0; transform: translateY(18px); }
+  .ed-js .ed-sec .plate { transition-delay: 80ms; }
+}
+@keyframes ed-grow  { from { transform: scaleX(0); } }
+@keyframes ed-bloom { from { transform: scale(.2); opacity: 0; } }
+@keyframes ed-rise  { from { transform: translateY(10px); opacity: 0; } }
+@keyframes ed-sweep { from { transform: translateX(0); } }
+
+/* Reduced motion: no lifts, tilts or replays — hover becomes a ~200ms opacity
+   cross-fade of the tint wash, which still says "this responds". */
+@media (prefers-reduced-motion: reduce) {
+  .plate-frame, .wk-mail { transition: border-color .2s linear, box-shadow .2s linear; }
+  .plate-frame::before { transition: opacity .2s linear; }
+  .plate:hover .plate-frame, .plate:focus-within .plate-frame { transform: none; }
+  .plate-weekly:hover .wk-mail, .plate-weekly:focus-within .wk-mail { transform: rotate(-2deg); }
+}
+/* The wash is decorative; contrast-preferring readers get flat surfaces and a
+   firmer frame. */
+@media (prefers-contrast: more) {
+  .plate-frame::before { display: none; }
+  .plate-frame { border-color: var(--edge); outline-color: var(--edge); }
+  .ed-lede { color: var(--text); }
+}
+
+/* Narrow screens: the index has no gutter to live in, so it folds away (each
+   section heading still carries its numeral), and copy stacks over plate. */
+@media (max-width: 1000px) {
+  .ed { grid-template-columns: minmax(0, 1fr); }
+  .ed-index { display: none; }
+  .ed-sec { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .ed-sec:nth-child(even) .ed-copy { order: 0; }
+}
 @media (max-width: 640px) {
-  .board { grid-template-columns: 1fr; gap: var(--space-2); }
-  .tile, .tile-news, .tile-earnings, .tile-wide { grid-column: span 1; }
+  .plate-movers .plate-frame { grid-template-columns: minmax(0, 1fr); }
+  .plate-frame { outline-offset: 3px; }
 }
-/* The wash is decorative; a contrast-preferring reader gets a flat surface. */
-@media (prefers-contrast: more) { .tile::before { display: none; } }
