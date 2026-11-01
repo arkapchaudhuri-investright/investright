@@ -3,8 +3,10 @@ callers keep the last-good snapshot when a fetch fails (DESIGN.md §2).
 Shared by the web app now and the nightly cron in Phase 2.
 """
 import math
+import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import requests
 import yfinance as yf
@@ -55,6 +57,84 @@ def search(query, limit=10):
         (quote for quote in quotes if quote.get("symbol")),
         key=lambda pair: rank(quotes.index(pair), pair), reverse=True)
     return ranked[0]["symbol"].upper() if ranked else None
+
+
+# --- headlines (§8.1) ------------------------------------------------------
+# yfinance's `.news` went permanently empty around 2026-09-30 — Yahoo dropped
+# the field the library reads — and it failed *silently*: refresh's `if news:`
+# skipped the empty list, so the nightly kept reporting success while the table
+# aged out for a month. Two free sources replace it, best provenance first:
+#   1. Yahoo's own search endpoint — the same one search() already calls, which
+#      still serves stories under `newsCount`. Real publishers, clean titles.
+#   2. Google News RSS — Yahoo carries almost nothing for Indian listings
+#      (ONGC, BEL and TCS all return zero), and that is most of this book.
+_YAHOO_SEARCH = "https://query2.finance.yahoo.com/v1/finance/search"
+_GOOGLE_NEWS = "https://news.google.com/rss/search"
+# Yahoo's own quote pages come back through Google's index looking like stories.
+_NOT_A_STORY = ("stock price, news, quote", "quote & history", "quote and history")
+
+
+def _yahoo_headlines(symbol, limit):
+    r = requests.get(_YAHOO_SEARCH,
+                     params={"q": symbol, "quotesCount": 0, "newsCount": limit},
+                     headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+    r.raise_for_status()
+    out = []
+    for n in r.json().get("news", []):
+        url, title = n.get("link"), n.get("title")
+        if not (url and title):
+            continue
+        ts = n.get("providerPublishTime")
+        out.append({"title": title, "url": url,
+                    "publisher": n.get("publisher") or "",
+                    "published_at": (datetime.fromtimestamp(ts, timezone.utc).isoformat()
+                                     if ts else None)})
+    return out
+
+
+def _google_headlines(query, limit):
+    r = requests.get(_GOOGLE_NEWS,
+                     params={"q": query, "hl": "en-IN", "gl": "IN", "ceid": "IN:en"},
+                     headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+    r.raise_for_status()
+    out = []
+    # Over-read: the quote-page rejects below thin the list as we go.
+    for item in ET.fromstring(r.content).findall(".//item")[:limit * 3]:
+        title = (item.findtext("title") or "").strip()
+        url = (item.findtext("link") or "").strip()
+        if not (title and url) or any(x in title.lower() for x in _NOT_A_STORY):
+            continue
+        src = item.find("source")
+        published = None
+        try:
+            published = parsedate_to_datetime(item.findtext("pubDate")).isoformat()
+        except (TypeError, ValueError):
+            pass
+        out.append({"title": title, "url": url,
+                    "publisher": (src.text or "").strip() if src is not None else "",
+                    "published_at": published})
+    return out
+
+
+def headlines(symbol, name=None, limit=10):
+    """Recent stories for one ticker, newest first, as
+    [{title, url, publisher, published_at}]. Tries Yahoo, then Google News, and
+    takes the first source that returns anything — a ticker Yahoo has never
+    heard of is the common case here, not an error. Never raises: no news is a
+    thinner page, not a 500 (§8.0)."""
+    for source, query in ((_yahoo_headlines, symbol),
+                          (_google_headlines, f"{name or symbol} stock")):
+        try:
+            got = source(query, limit)
+        except Exception:
+            continue
+        if got:
+            # Google ranks by relevance, not date, so sort before trimming —
+            # otherwise `limit` keeps an arbitrary subset rather than the
+            # freshest one. Undated stories sort last.
+            got.sort(key=lambda n: n["published_at"] or "", reverse=True)
+            return got[:limit]
+    return []
 
 
 def _now():
@@ -356,7 +436,7 @@ def _by_year(df):
     return out
 
 
-def deep(symbol):
+def deep(symbol, name=None):
     """Everything the deep-dive needs from Yahoo, each part independently guarded.
 
     Returns {"fundamentals": [...oldest→newest], "ratios": {...}, "news": [...]}.
@@ -440,23 +520,7 @@ def deep(symbol):
     except Exception:
         officers = []
 
-    news = []
-    try:
-        for n in (t.news or [])[:10]:
-            c = n.get("content", n)
-            url = (c.get("canonicalUrl") or {}).get("url") \
-                or (c.get("clickThroughUrl") or {}).get("url") or c.get("link")
-            if not url:
-                continue
-            prov = c.get("provider") or {}
-            news.append({
-                "title": c.get("title") or "(untitled)",
-                "url": url,
-                "publisher": prov.get("displayName") or c.get("publisher") or "",
-                "published_at": c.get("pubDate") or c.get("providerPublishTime"),
-            })
-    except Exception:
-        news = []
+    news = headlines(symbol, name)
 
     return {"fundamentals": fundamentals, "ratios": ratios, "news": news,
             "officers": officers}
