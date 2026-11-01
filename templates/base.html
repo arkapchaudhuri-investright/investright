@@ -44,6 +44,7 @@
    so every attach() call below finds TICKERS + IRAutocomplete ready. #}
 <script defer src="{{ url_for('static', filename='tickers.js') }}"></script>
 <script defer src="{{ url_for('static', filename='autocomplete.js') }}"></script>
+<script defer src="{{ url_for('static', filename='forms.js') }}"></script>
 {% block head %}{% endblock %}
 </head>
 <body>
@@ -202,6 +203,26 @@
 <main>
 {% block content %}{% endblock %}
 </main>
+{# Safety net. Flashed messages are rendered per-page, so a flash() set before
+   a redirect to a page that doesn't include _flashes.html simply vanished —
+   feedback the user never saw for an action they took. get_flashed_messages()
+   drains on its first call, so this runs AFTER the content block: pages that
+   show their own flashes in context consume them here first and this stays
+   empty, and only the orphans surface, as a dismissible toast. #}
+{% with orphans = get_flashed_messages(with_categories=true) %}
+{% if orphans and not flash_state.shown %}
+<div class="flash-toast">
+  {% for cat, msg in orphans %}
+  <p class="flash flash-{{ cat }}"
+     role="{{ 'alert' if cat == 'error' else 'status' }}"
+     aria-live="{{ 'assertive' if cat == 'error' else 'polite' }}">
+    {{ msg }}
+    <button type="button" class="flash-x" aria-label="Dismiss">&times;</button>
+  </p>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
 {# Search loading state — shown by JS when a search form submits to /analyze
    (or /add). The deep-dive fetch can take a few seconds; this reassures the
    visitor something's happening instead of a dead-looking page. No-JS never

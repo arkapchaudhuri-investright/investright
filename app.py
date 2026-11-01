@@ -103,6 +103,19 @@ def _csrf_protect():
 
 
 @app.context_processor
+def inject_flash_state():
+    """Shared scratch dict for one render, so _flashes.html can tell base.html
+    that it already displayed the messages.
+
+    get_flashed_messages() does NOT drain per call — it pops the session once
+    and then caches on the request context, returning the same list to every
+    caller. So the obvious trick of letting base.html call it last and render
+    whatever is left renders everything twice instead. A flag is the honest
+    mechanism; the dict is mutable so an {% include %} can write to it."""
+    return {"flash_state": {}}
+
+
+@app.context_processor
 def inject_csrf():
     """Per-session CSRF token, minted lazily on the first render and exposed to
     every POST form as `csrf_token`."""

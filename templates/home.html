@@ -95,9 +95,7 @@
   </div>
   {% endif %}
 
-  {% with msgs = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
-  {% endwith %}
+  {% include "_flashes.html" %}
 
   {# The watchlist itself lives on /watchlist now — home stays search-only. #}
 </section>

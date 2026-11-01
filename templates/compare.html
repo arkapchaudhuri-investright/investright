@@ -5,9 +5,7 @@
 {# Without this the page's own flashes ("already in this comparison", the
    four-company limit) were set but never drawn, then surfaced on whatever
    page the visitor happened to load next. #}
-{% with msgs = get_flashed_messages(with_categories=true) %}
-  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
-{% endwith %}
+{% include "_flashes.html" %}
 
 <section class="card">
   <div class="card-head"><h2>Compare</h2>

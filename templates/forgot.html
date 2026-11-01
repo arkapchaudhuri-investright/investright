@@ -6,9 +6,7 @@
   <h1 class="serif">Forgot your password?</h1>
   <p class="sub">Tell us the address on the account and we'll email a reset link.</p>
 
-  {% with msgs = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
-  {% endwith %}
+  {% include "_flashes.html" %}
 
   {# After a send we still render the form: the flash never says whether the
      address existed, so there's nothing to "succeed" into. #}

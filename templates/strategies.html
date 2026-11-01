@@ -24,9 +24,7 @@
   </div>
 </section>
 
-{% with msgs = get_flashed_messages(with_categories=true) %}
-  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
-{% endwith %}
+{% include "_flashes.html" %}
 
 {# Jump nav (long-scroll fix) — same sticky chip row as the deep-dive, one chip
    per playbook. Plain anchors; the scroll-spy below is enhancement only. #}

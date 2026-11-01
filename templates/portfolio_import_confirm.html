@@ -11,9 +11,7 @@
     about, then confirm — <b>nothing is saved until you do</b>.</p>
 </section>
 
-{% with msgs = get_flashed_messages(with_categories=true) %}
-  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
-{% endwith %}
+{% include "_flashes.html" %}
 
 <section class="card">
   <form action="{{ url_for('portfolio_import_confirm') }}" method="post">
