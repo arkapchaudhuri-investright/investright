@@ -1,0 +1,19 @@
+{# Flashed messages, with the live-region semantics they were missing.
+
+   Errors use role="alert" (assertive): a region that already exists when the
+   page loads is only reliably announced if it's an alert, and a failed action
+   is exactly the case a screen-reader user must not miss. Everything else is
+   role="status", which is the honest semantic even where a reader stays quiet
+   on load.
+
+   Included rather than repeated: this markup was copy-pasted into 15 places,
+   so the aria fix had to land in one. #}
+{# Tell base.html's safety net that this page shows its own messages. #}
+{% set _ = flash_state.update({'shown': True}) %}
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <p class="flash flash-{{ cat }}"
+     role="{{ 'alert' if cat == 'error' else 'status' }}"
+     aria-live="{{ 'assertive' if cat == 'error' else 'polite' }}">{{ msg }}</p>
+  {% endfor %}
+{% endwith %}

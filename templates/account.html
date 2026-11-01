@@ -5,9 +5,7 @@
   <h1 class="serif">Your account</h1>
   <p class="sub">{{ user['email'] }}</p>
 
-  {% with msgs = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
-  {% endwith %}
+  {% include "_flashes.html" %}
 
   <h2 class="acct-h2" id="password">Change password</h2>
   <form class="auth-form" method="post" action="{{ url_for('auth.change_password') }}">

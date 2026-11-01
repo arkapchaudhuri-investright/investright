@@ -35,9 +35,7 @@
   </form>
 </section>
 
-{% with msgs = get_flashed_messages(with_categories=true) %}
-  {% for cat, msg in msgs %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
-{% endwith %}
+{% include "_flashes.html" %}
 
 {# Otto's read — the nightly AI digest; a summary of our own rules, labeled so (§1, §4) #}
 <section class="card">

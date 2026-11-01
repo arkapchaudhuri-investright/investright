@@ -2338,3 +2338,41 @@ h1, .page-title { letter-spacing: var(--track-xl); }
    scrolls beneath it. The chips get a touch more weight rather than being left
    as flat muted grey. */
 .jumpnav a { font-weight: 500; }
+
+/* ===== Apple-design pass, tier 3 ========================================= */
+
+/* Orphaned flash messages (see base.html). Pages that render feedback in
+   context are untouched; this only catches the ones that would otherwise be
+   invisible, so it reads as a toast rather than as part of the layout.
+   Sits under the tour (200) and alongside toasts (201). */
+.flash-toast {
+  position: fixed; z-index: 201; left: 50%; transform: translateX(-50%);
+  top: 14px; width: min(420px, calc(100vw - 32px));
+  display: flex; flex-direction: column; gap: 8px;
+}
+.flash-toast .flash {
+  margin: 0; display: flex; align-items: flex-start; gap: 10px;
+  box-shadow: 0 12px 34px var(--shadow-pop);
+  /* A floating surface, so the same material language as .jumpnav. */
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid var(--chrome-edge);
+}
+.flash-x {
+  margin-left: auto; flex: none; background: none; border: 0; cursor: pointer;
+  color: inherit; opacity: .6; font-size: 1.0625rem; line-height: 1; padding: 0 2px;
+}
+.flash-x:hover { opacity: 1; }
+@media (prefers-reduced-transparency: reduce) {
+  .flash-toast .flash { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* Inline validation. A field that's already been corrected shouldn't still be
+   showing its complaint, so the message is tied to the input's own validity
+   rather than to submit. */
+.field-err {
+  display: none; color: var(--down); font-size: var(--fs-sm);
+  margin: 4px 0 0; line-height: 1.4;
+}
+.field-err.on { display: block; }
+input.invalid, input.invalid:focus { border-color: var(--down); }
