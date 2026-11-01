@@ -282,6 +282,44 @@ def snapshot_many(symbols):
         return [s for s in ex.map(snapshot, symbols) if s]
 
 
+# --- topic headlines for the landing page's news carousel ------------------
+# Per-ticker news answers "what happened to this company". The carousel asks
+# the broader question, which no source we had could answer, so these are
+# Google News topic searches through the same parser. Honest about what it is:
+# a general financial feed, not analysis of your book.
+NEWS_TOPICS = {
+    "market": ("Market insights", "stock market outlook analysis"),
+    "stocks": ("Stocks", "stock market movers earnings results"),
+    "funds": ("Funds & ETFs", "mutual funds ETF investing"),
+    "bonds": ("Bonds", "bond market yields treasury"),
+}
+
+
+def _mostly_latin(text):
+    """Google's index reaches well beyond English; a headline our readers
+    can't read is noise, however good the source."""
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return False
+    return sum(c.isascii() for c in letters) / len(letters) > 0.7
+
+
+def topic_headlines(topic, limit=12):
+    """Recent stories for one NEWS_TOPICS key, newest first. Never raises."""
+    spec = NEWS_TOPICS.get(topic)
+    if not spec:
+        return []
+    try:
+        # when:14d keeps the carousel current — the plain query happily returns
+        # explainers from months ago.
+        items = _google_headlines(spec[1] + " when:14d", limit * 2)
+    except Exception:
+        return []
+    items = [n for n in items if _mostly_latin(n["title"])]
+    items.sort(key=lambda n: n["published_at"] or "", reverse=True)
+    return items[:limit]
+
+
 # --- batched quotes for the movers universe (§8.1) -------------------------
 # snapshot_many() is a thread pool over one Yahoo call per symbol, which is
 # right for the ~120 tracked tickers that each need the full ratio set. The
