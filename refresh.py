@@ -65,6 +65,10 @@ def ensure_stock(conn, ticker):
     return True
 
 
+# Tickers whose sources returned nothing this run — surfaced in the summary.
+NO_NEWS = []
+
+
 def save_deep(conn, ticker):
     """Fetch + persist one stock's fundamentals, news, checks and DCF.
 
@@ -75,13 +79,17 @@ def save_deep(conn, ticker):
     series (§8.5 Tier B); India (.NS/.BO) has no EDGAR equivalent and stays on
     the yfinance ~4yr path (§1, §8.0).
     """
-    data = fetch.deep(ticker)
+    # The company name feeds the Google News fallback, which needs words rather
+    # than a ticker Yahoo may never have indexed.
+    row = conn.execute("SELECT name FROM stocks WHERE ticker=?", (ticker,)).fetchone()
+    name = row["name"] if row else None
+
+    data = fetch.deep(ticker, name)
     funds, ratios, news = data["fundamentals"], data["ratios"], data["news"]
     source = "yfinance"
 
     try:  # cache the company logo (best-effort; find() short-circuits if cached)
-        row = conn.execute("SELECT name FROM stocks WHERE ticker=?", (ticker,)).fetchone()
-        logos.ensure(ticker, ratios.get("website"), row["name"] if row else None)
+        logos.ensure(ticker, ratios.get("website"), name)
     except Exception:
         pass
     if ratios.get("industry"):  # backfill stocks.industry for pre-column rows
@@ -106,6 +114,11 @@ def save_deep(conn, ticker):
         save_fundamentals(conn, ticker, funds, source=source)
     if news:
         save_news(conn, ticker, news)
+    else:
+        # Not fatal — plenty of small listings genuinely have no coverage — but
+        # it is counted, because the last time every source dried up at once it
+        # went unnoticed for a month (see fetch.headlines).
+        NO_NEWS.append(ticker)
 
     try:  # per-period income breakdowns for the Revenue & Expenses widget
         flows = fetch.income_breakdowns(ticker)
@@ -356,6 +369,7 @@ def main():
             print(f"  price history failed for {sym}: {e}")
 
     deep_ok = 0
+    NO_NEWS.clear()
     for sym in everyone:
         with get_conn() as conn:
             try:
@@ -414,6 +428,10 @@ def main():
     print(f"{stamp}  snapshots {len(snaps)}/{len(everyone)} (incl. {len(peers)} peers)"
           + (f" (failed: {', '.join(failed)})" if failed else "")
           + f" · deep {deep_ok}/{len(everyone)}"
+          + f" · news {len(everyone) - len(NO_NEWS)}/{len(everyone)}"
+          + (f" (none for: {', '.join(NO_NEWS[:5])}"
+             + (f" +{len(NO_NEWS) - 5} more" if len(NO_NEWS) > 5 else "") + ")"
+             if NO_NEWS else "")
           + f" · USDINR {rate if rate else 'fetch failed, kept last-good'}"
           + f" · screener {len(ranked)} ranked · digest {digest_status}"
           + f" · strategy picks {picks_status}")
