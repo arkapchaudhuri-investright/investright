@@ -14,45 +14,6 @@
   <p class="hero-eyebrow" id="greet">{{ greeting }}</p>
   <h1 class="hero-display">When you invest,<br>invest <span class="hero-accent">right</span>.</h1>
 
-  {# First-visit welcome popup. Two steps: (1) choose how to start — create an
-     account, continue as a guest, or sign in; (2) guests give a name + market.
-     Otto sits on top (no wave emoji). Shown only when not logged in and no guest
-     name is stored yet (see script). #}
-  <dialog id="name-dialog" class="name-dialog">
-    {# Dismiss without choosing: land on the home page as a guest (no sign-in),
-       then get the digital walkthrough. #}
-    <button type="button" class="nd-close" id="nd-close"
-            aria-label="Skip — continue to the home page">×</button>
-    <div class="nd-otto">{% with mood = 'happy', size = 74 %}{% include "_otto.html" %}{% endwith %}</div>
-
-    {# Step 1 — pick a path #}
-    <div id="nd-choice" class="nd-step">
-      <h2 class="serif" id="nd-title">Welcome to InvestRight</h2>
-      <p class="nd-sub">Calm, plain-English stock research — for the US and India.</p>
-      <div class="nd-actions">
-        <a class="name-go" href="{{ url_for('auth.register', next=url_for('home')) }}">Create an account</a>
-        <button type="button" class="nd-secondary" id="nd-guest-btn">Continue as guest</button>
-      </div>
-      <p class="nd-alt">Already have an account?
-        <a href="{{ url_for('auth.login', next=url_for('home')) }}">Sign in</a></p>
-      <p class="nd-foot">Change currency &amp; theme anytime from the ⚙ gear, top-right — switch market right on the Today &amp; Watchlist pages.</p>
-    </div>
-
-    {# Step 2 — guest: name + market (only shown after "Continue as guest") #}
-    <form id="name-form" class="nd-step" method="dialog" autocomplete="off" hidden>
-      <p class="nd-sub">What should I call you?</p>
-      <input id="name-input" type="text" maxlength="24" spellcheck="false"
-             placeholder="Your name" aria-label="Your name">
-      <p class="nd-sub nd-q">Where do you want to invest?</p>
-      <div class="seg nd-seg" role="radiogroup" aria-label="Market">
-        <label><input type="radio" name="market" value="US"><span>{{ flag('US') }}US</span></label>
-        <label><input type="radio" name="market" value="IN"><span>{{ flag('IN') }}India</span></label>
-        <label><input type="radio" name="market" value="BOTH" checked><span>Both</span></label>
-      </div>
-      <button type="submit" class="name-go">Let’s go →</button>
-      <p class="nd-foot">You can switch market anytime on the Today &amp; Watchlist pages.</p>
-    </form>
-  </dialog>
 
   {# Market is chosen by the US/India/Both segs on /today, /watchlist and
      /portfolio — it was removed from the gear, so no hero/top-bar copy either. #}
@@ -211,19 +172,20 @@
 </section>
 
 <script>
-// Personalised greeting (no login): time-of-day from the visitor's own clock +
-// a name remembered in localStorage. First-time visitors get a welcome popup.
+// Personalised greeting: time-of-day from the visitor's own clock, plus their
+// name when we know it. Signed-in visitors are greeted by their ACCOUNT name
+// (§10.5 Tier B), and their name/market seed localStorage so the autocomplete
+// and the Today filter follow the account.
+//
+// There is no longer a popup asking a guest for their name. The board below is
+// the onboarding — a modal over it would hide the thing it's introducing, and
+// a greeting is not worth interrupting a first visit for. Guests who set a
+// name before this change keep it; everyone else just gets the time of day.
 (function () {
   var h = new Date().getHours();
   var g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   var greetEl = document.getElementById('greet');
-  var dlg = document.getElementById('name-dialog');
-  var form = document.getElementById('name-form');
-  var input = document.getElementById('name-input');
-  var title = document.getElementById('nd-title');
-  // Logged-in visitors are greeted by their ACCOUNT name (§10.5 Tier B) and
-  // never see the "what's your name" popup; their account name/market also seed
-  // localStorage so the autocomplete + Today filter follow the account.
+  if (!greetEl) return;
   var ACCOUNT = {{ ({'name': (current_user['name'] or ''), 'market': (current_user['market'] or '')} if current_user else None) | tojson }};
   var name = '';
   try { name = (localStorage.getItem('ir_name') || '').trim(); } catch (e) {}
@@ -234,64 +196,7 @@
       if (ACCOUNT.market) localStorage.setItem('ir_market', ACCOUNT.market);
     } catch (e) {}
   }
-  function paint() {
-    greetEl.textContent = name ? (g + ', ' + name) : g;
-  }
-  paint();
-  // First visit (not logged in, no guest name yet): show the welcome popup on
-  // step 1 (create account / continue as guest / sign in). "Continue as guest"
-  // reveals the name + market step below.
-  var choice = document.getElementById('nd-choice');
-  var guestBtn = document.getElementById('nd-guest-btn');
-  if (guestBtn && form) {
-    guestBtn.addEventListener('click', function () {
-      if (choice) choice.hidden = true;
-      form.hidden = false;
-      setTimeout(function () { input.focus(); }, 40);
-    });
-  }
-  // Show the welcome popup only to a brand-new visitor: not logged in, no guest
-  // name, and hasn't dismissed it before (ir_welcomed).
-  var welcomed = '';
-  try { welcomed = localStorage.getItem('ir_welcomed') || ''; } catch (e) {}
-  if (!ACCOUNT && !name && !welcomed && dlg && typeof dlg.showModal === 'function') {
-    requestAnimationFrame(function () { dlg.showModal(); });
-  }
-  // × dismisses the popup: stay a guest (no sign-in), remember the dismissal so
-  // it doesn't reappear, and roll straight into the digital walkthrough.
-  var closeBtn = document.getElementById('nd-close');
-  if (closeBtn && dlg) {
-    closeBtn.addEventListener('click', function () {
-      try { localStorage.setItem('ir_welcomed', '1'); } catch (e) {}
-      dlg.close();
-    });
-  }
-  function setCookie(k, val) {
-    document.cookie = k + '=' + encodeURIComponent(val) + ';path=/;max-age=' +
-      (365 * 24 * 3600) + ';samesite=lax';
-  }
-  if (form) {
-    form.addEventListener('submit', function (e) {
-      var v = (input.value || '').trim().slice(0, 24);
-      if (!v) { e.preventDefault(); input.focus(); return; }  // require a name
-      var mkt = (form.querySelector('input[name=market]:checked') || {}).value || 'BOTH';
-      try {
-        localStorage.setItem('ir_name', v);
-        localStorage.setItem('ir_market', mkt);
-      } catch (e2) {}
-      setCookie('ir_name', v);         // mirror to cookies for server-side logging
-      setCookie('ir_market', mkt);
-      name = v;
-      paint();                         // method="dialog" closes the popup itself
-      // Default the display currency from the market. India → ₹INR needs a
-      // server render to convert, so reload; US/Both stay $USD (no reload —
-      // the greeting repaints and the autocomplete reads localStorage live).
-      var want = mkt === 'IN' ? 'INR' : 'USD';
-      setCookie('ccy', want);
-      if (want === 'INR') { location.reload(); return; }
-      // No reload path: kick off the guided tour once the popup has closed.
-    });
-  }
+  greetEl.textContent = name ? (g + ', ' + name) : g;
 })();
 </script>
 

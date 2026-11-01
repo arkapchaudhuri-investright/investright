@@ -575,67 +575,6 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   .analyzing-spin { animation: analyzing-pulse 1.4s ease-in-out infinite; }
   @keyframes analyzing-pulse { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
 }
-/* First-visit welcome popup (no login; name stored in localStorage). Native
-   <dialog> — modal, with a tinted ::backdrop dimming the home page behind it. */
-.name-dialog {
-  border: 1px solid var(--hairline); border-radius: 18px; padding: 30px 34px;
-  background: var(--card); color: var(--text); max-width: 380px;
-  width: calc(100% - 40px); box-shadow: 0 24px 64px var(--shadow-pop);
-}
-.name-dialog::backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: blur(2px); }
-.name-dialog { text-align: center; position: relative; }
-/* Dismiss the welcome popup without choosing — top-right, quiet until hovered. */
-.nd-close {
-  position: absolute; top: 10px; right: 12px; z-index: 2;
-  width: 36px; height: 36px; border: 0; border-radius: 50%;
-  background: none; color: var(--muted); font-size: 1.625rem; line-height: 1;
-  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-}
-.nd-close:hover { color: var(--text); background: var(--wash); }
-.nd-otto { display: flex; justify-content: center; margin-bottom: 4px; }
-.nd-step { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
-.nd-step[hidden] { display: none; }   /* the explicit display above would otherwise beat [hidden] */
-.name-dialog h2 { font-size: 1.375rem; margin: 2px 0 0; }
-.nd-sub { color: var(--muted); margin: 0 0 8px; font-size: 0.90625rem; }
-/* Step 1 — choose account / guest / sign in. */
-.nd-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 8px; }
-.nd-secondary {
-  width: 100%; padding: 10px 22px; border: 1px solid var(--hairline);
-  background: transparent; color: var(--text); border-radius: 999px;
-  cursor: pointer; font-size: 0.9375rem; font-family: inherit; box-sizing: border-box;
-}
-.nd-secondary:hover { border-color: var(--accent); }
-.nd-alt { color: var(--muted); font-size: 0.84375rem; margin: 4px 0 0; }
-.nd-alt a { color: var(--accent); text-decoration: none; }
-.nd-alt a:hover { text-decoration: underline; }
-.nd-foot { color: var(--muted); font-size: 0.75rem; margin: 12px 0 0; line-height: 1.5; opacity: .85; }
-.name-dialog input {
-  width: 100%; padding: 11px 16px; border: 1px solid var(--edge);
-  border-radius: 999px; background: var(--bg); color: var(--text);
-  font-size: 0.9375rem; text-align: center;
-}
-.name-dialog input:focus { border-color: var(--accent); }
-.name-go {
-  display: block; width: 100%; padding: 10px 22px; border: 1px solid var(--accent-deep);
-  background: var(--accent-deep); color: #fff; border-radius: 999px; text-decoration: none;
-  cursor: pointer; font-size: 0.9375rem; text-align: center; box-sizing: border-box;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .name-dialog[open] { animation: nd-pop .18s ease-out; }
-  @keyframes nd-pop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
-}
-/* Market chooser in the welcome popup: three-up segmented control of radios.
-   The real inputs are hidden; the sibling <span> is the pill face. */
-.nd-q { margin: 6px 0 2px; }
-.nd-seg { display: flex; width: 100%; }
-.nd-seg label { flex: 1; margin: 0; }
-.nd-seg input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.nd-seg span {
-  display: block; text-align: center; padding: 10px 6px; font-size: 0.8125rem;
-  color: var(--muted); cursor: pointer;
-}
-.nd-seg input:checked + span { background: var(--accent-deep); color: #fff; }
-.nd-seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* search */
 /* width:100% is load-bearing: .hero is a flex column, and margin:0 auto on a
@@ -654,9 +593,11 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
    like a calm landing page, not a top-weighted form. main is a flex column
    (sticky footer), so the hero centers within the space above the footer. */
 .hero-home {
-  min-height: calc(100vh - 210px);
+  /* Was pinned to calc(100vh - 210px), which was right when the page was only
+     a search box. The board below is the point now, so the hero is sized to
+     let the first tile row break the fold and invite the scroll. */
   display: flex; flex-direction: column; justify-content: center;
-  padding: 24px 0;
+  padding: 18px 0 var(--space-5);
 }
 .hero-home .otto { margin-bottom: 4px; }
 
@@ -2305,14 +2246,13 @@ button:disabled:active, .btn-analyze:disabled:active { transform: none; }
    Transparency: raise the background to solid and drop the blur. */
 @media (prefers-reduced-transparency: reduce) {
   .settings[open] .settings-scrim { backdrop-filter: none; background: rgba(0, 0, 0, .7); }
-  .name-dialog::backdrop { backdrop-filter: none; background: rgba(0, 0, 0, .75); }
   .card, .topbar, .wl-card, .port-panel { background: var(--card); }
 }
 /* Contrast: near-solid surfaces with a border that's actually defined, rather
    than the hairline that carries most of this UI's structure. */
 @media (prefers-contrast: more) {
   :root { --hairline: #8a8a82; --muted: var(--text); }
-  .card, .wl-card, .port-panel, .name-dialog { border-width: 2px; }
+  .card, .wl-card, .port-panel { border-width: 2px; }
   .btn-analyze, .ghost, .seg a, .hd-btn { border-width: 2px; }
   .asof, .sub, .empty-sub { color: var(--text); }
 }

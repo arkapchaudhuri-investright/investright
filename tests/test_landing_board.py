@@ -63,3 +63,20 @@ def test_news_tabs_render_every_topic_with_one_visible(app_module, client):
     finally:
         with get_conn() as conn:
             conn.execute("DELETE FROM topic_news")
+
+
+def test_the_welcome_popup_is_gone(client):
+    # The board is the onboarding now; a modal over it would hide the thing
+    # it's introducing.
+    html = client.get("/").get_data(as_text=True)
+    assert "name-dialog" not in html
+    assert "showModal" not in html
+    assert "ir_welcomed" not in html
+
+
+def test_the_greeting_still_renders_without_the_popup(client):
+    # The popup was the only thing that collected a guest name; the
+    # time-of-day greeting has to survive on its own.
+    html = client.get("/").get_data(as_text=True)
+    assert 'id="greet"' in html
+    assert "Good morning" in html or "Good afternoon" in html or "Good evening" in html
