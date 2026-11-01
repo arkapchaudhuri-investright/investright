@@ -570,6 +570,12 @@ def delete_user(conn, user_id):
     ON DELETE CASCADE (get_conn sets PRAGMA foreign_keys=ON). The global
     `watchlist` table is deliberately left alone — it's the union of tickers the
     nightly refresh fetches and /today screens, not personal data (§10.4)."""
+    # `sessions` is analytics-derived and has no foreign key to users, so it
+    # keeps pointing at the deleted account until the next nightly rebuild.
+    # The privacy page promises deletion, not deletion-by-tomorrow — and
+    # `events.user_id` is already ON DELETE SET NULL, so this just applies the
+    # same rule to the table built from it.
+    conn.execute("UPDATE sessions SET user_id=NULL WHERE user_id=?", (user_id,))
     conn.execute("DELETE FROM users WHERE id=?", (user_id,))
 
 
