@@ -160,6 +160,11 @@ def save_deep(conn, ticker):
     dcf = metrics.compute_dcf(funds, ratios.get("price"), ratios.get("shares"))
     if dcf:
         save_dcf(conn, ticker, dcf)
+    else:
+        # compute_dcf now declines a series it can't value honestly, so a stale
+        # row has to go — otherwise the absurd fair value it held keeps showing
+        # (and keeps feeding review signals and the weekly note) forever.
+        conn.execute("DELETE FROM dcf WHERE ticker=?", (ticker,))
     checks = metrics.compute_checks(funds, ratios, dcf or {})
     if checks:
         save_checks(conn, ticker, checks)
