@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block content %}
 {% from "_flags.html" import flag %}
 
@@ -12,7 +13,10 @@
      sans with the accent word + full stop, then a serif tagline. The brand
      name IS the sentence. #}
   <p class="hero-eyebrow" id="greet">{{ greeting }}</p>
-  <h1 class="hero-display">When you invest,<br>invest <span class="hero-accent">right</span>.</h1>
+  {# The brand line is the h1 again, at Arka's request (2026-11-06), after
+     trying category headlines ("Free stock research…", "Plain-English
+     research…"). The taste skill would call it a slogan; his call wins. #}
+  <h1 class="hero-display">When you invest,<br>do it <span class="hero-accent">right</span>.</h1>
 
 
   {# Market is chosen by the US/India/Both segs on /today, /watchlist and
@@ -23,14 +27,16 @@
   <form class="search" action="{{ url_for('analyze') }}" method="post" autocomplete="off">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <div class="search-bar">
+      <svg class="search-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input id="symbol" name="symbol" type="text" spellcheck="false"
-             placeholder="Which stock are we looking at today?"
+             placeholder="Which stock are we looking at?"
              aria-label="Which stock are we looking at today? Search a ticker to analyze">
       <ul id="suggest" class="suggest" hidden></ul>
     </div>
     <div class="search-actions">
       <button type="submit" class="btn-analyze">Analyze</button>
-      <button type="submit" class="btn-watch" formaction="{{ url_for('add') }}">☆ Add to watchlist</button>
+      <button type="submit" class="btn-watch" formaction="{{ url_for('add') }}">{{ icon('star-outline') }} Add to watchlist</button>
     </div>
   </form>
 
@@ -62,7 +68,7 @@
 </section>
 
 {# ===== The edition ======================================================
-   Twelve numbered sections, one idea each, after the Renaissance-Edition
+   Eleven numbered sections, one idea each, after the Renaissance-Edition
    layout Arka asked for (Shopify Editions Winter '26): a persistent roman-
    numeral index that tracks the scroll, a serif statement and a drop-capped
    benefit line per section, and a "plate" beside it. We copy the structure,
@@ -76,7 +82,7 @@
   ('markets', 'I', 'Markets'), ('news', 'II', 'News'), ('earnings', 'III', 'Earnings'),
   ('health', 'IV', 'Five questions'), ('value', 'V', 'Fair value'), ('watch', 'VI', 'Watchlist'),
   ('portfolio', 'VII', 'Portfolio'), ('strategies', 'VIII', 'Strategies'), ('today', 'IX', 'Today'),
-  ('otto', 'X', 'Ask Otto'), ('weekly', 'XI', 'The weekly note'), ('open', 'XII', 'Open book')] %}
+  ('otto', 'X', 'Ask Otto'), ('weekly', 'XI', 'The weekly note')] %}
 <div class="ed">
 <nav class="ed-index" aria-label="Sections">
   <ol>
@@ -93,7 +99,7 @@
 <section class="ed-sec tint-movers" id="markets" aria-labelledby="markets-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>I.</span> Markets</p>
-    <h2 class="ed-statement" id="markets-h">See what moved before your coffee cools.</h2>
+    <h2 class="ed-statement" id="markets-h">Today’s biggest market moves</h2>
     <p class="ed-lede">Five hundred and fifty-three companies across the S&amp;P&nbsp;500 and NIFTY&nbsp;50, ranked every night by how far they ran, how far they fell, and how hard they traded.</p>
     {% if movers_as_of %}<p class="ed-asof">Quotes as of {{ movers_as_of }}</p>{% endif %}
   </div>
@@ -127,16 +133,16 @@
       </div>
       {% endfor %}
     </div>
-    <figcaption>Plate I · the day's movers{% if movers_as_of %} · {{ movers_as_of }}{% endif %}</figcaption>
+    <figcaption>S&amp;P 500 and NIFTY 50{% if movers_as_of %}, as of {{ movers_as_of }}{% endif %}</figcaption>
   </figure>
 </section>
 
 {# II — News. Tabs over rails; every rail is rendered and JS only toggles
    which shows, so no-JS sees the first rather than nothing. #}
-<section class="ed-sec tint-news" id="news" aria-labelledby="news-h">
+<section class="ed-sec tint-news tile-dark" id="news" aria-labelledby="news-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>II.</span> News</p>
-    <h2 class="ed-statement" id="news-h">The headlines that matter, without the noise.</h2>
+    <h2 class="ed-statement" id="news-h">Market news from the last fortnight</h2>
     <p class="ed-lede">Markets, stocks, funds and bonds, gathered nightly from the last fortnight only — plus a tab drawn from the companies you actually follow.</p>
   </div>
   <figure class="plate plate-news" tabindex="-1">
@@ -162,7 +168,6 @@
       <p class="asof">No headlines saved yet.</p>
       {% endif %}
     </div>
-    <figcaption>Plate II · in the news · updated nightly</figcaption>
   </figure>
 </section>
 
@@ -170,7 +175,7 @@
 <section class="ed-sec tint-earnings" id="earnings" aria-labelledby="earnings-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>III.</span> Earnings</p>
-    <h2 class="ed-statement" id="earnings-h">Know who reports before the market does.</h2>
+    <h2 class="ed-statement" id="earnings-h">Earnings in the next 30 days</h2>
     <p class="ed-lede">Every reporting date in the next thirty days for the companies tracked here, soonest first, one tap from the full deep dive.</p>
   </div>
   <figure class="plate plate-earnings" tabindex="-1">
@@ -189,7 +194,6 @@
       <p class="asof">No reporting dates saved for the next month.</p>
       {% endif %}
     </div>
-    <figcaption>Plate III · upcoming earnings · next 30 days</figcaption>
   </figure>
 </section>
 
@@ -197,9 +201,9 @@
 <section class="ed-sec tint-explore" id="health" aria-labelledby="health-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>IV.</span> Five questions</p>
-    <h2 class="ed-statement" id="health-h">Five questions, answered for any company.</h2>
+    <h2 class="ed-statement" id="health-h">Five health scores for any company</h2>
     <p class="ed-lede">Is it cheap, is it growing, has it delivered, can it pay its bills, does it pay you? Each axis is a set of plain pass-or-fail checks you can read.</p>
-    <p class="ed-go"><a href="#top" data-ed-search>Search a company →</a></p>
+    <p class="ed-go"><a href="#top" data-ed-search>Search for a company</a></p>
   </div>
   <figure class="plate plate-health" tabindex="-1">
     <div class="plate-frame">
@@ -217,15 +221,15 @@
       <p class="asof">Scores appear once a company has been analysed.</p>
       {% endif %}
     </div>
-    <figcaption>Plate IV · {% if featured %}<a href="{{ url_for('stock', ticker=featured['ticker']) }}">{{ featured['name'] }}</a>{{ ', most viewed this fortnight' if featured['views'] else '' }}{% else %}the health snowflake{% endif %}</figcaption>
+    <figcaption>{% if featured %}<a href="{{ url_for('stock', ticker=featured['ticker']) }}">{{ featured['name'] }}</a>{{ ', most viewed this fortnight' if featured['views'] else '' }}{% else %}the health snowflake{% endif %}</figcaption>
   </figure>
 </section>
 
 {# V — the same company's DCF, price and fair value drawn on one scale. #}
-<section class="ed-sec tint-movers" id="value" aria-labelledby="value-h">
+<section class="ed-sec tint-movers tile-dark" id="value" aria-labelledby="value-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>V.</span> Fair value</p>
-    <h2 class="ed-statement" id="value-h">What a business might be worth, and how sure we are.</h2>
+    <h2 class="ed-statement" id="value-h">Fair value, with every assumption shown</h2>
     <p class="ed-lede">A two-stage cash-flow model with every assumption on the page — growth, discount rate, terminal rate — and sliders to argue with it.</p>
   </div>
   <figure class="plate plate-value" tabindex="-1">
@@ -237,7 +241,7 @@
         <span class="fv-bar" style="--v: {{ featured['price_w'] }}"><i></i></span>
         <span class="fv-n">{{ sym }}<span data-count="{{ '%.2f'|format(featured['price']) }}" data-dp="2">{{ '%.2f'|format(featured['price']) }}</span></span>
       </div>
-      <div class="fv-row fv-fair {{ 'over' if featured['upside_pct'] < 0 else '' }}">
+      <div class="fv-row fv-row-fair {{ 'over' if featured['upside_pct'] < 0 else '' }}">
         <span class="fv-k">Fair value</span>
         <span class="fv-bar" style="--v: {{ featured['fair_w'] }}"><i></i></span>
         <span class="fv-n">{{ sym }}<span data-count="{{ '%.2f'|format(featured['fair_value']) }}" data-dp="2">{{ '%.2f'|format(featured['fair_value']) }}</span></span>
@@ -250,17 +254,17 @@
       <p class="asof">A fair value appears once a company has been analysed.</p>
       {% endif %}
     </div>
-    <figcaption>Plate V · {% if featured %}{{ featured['name'] }}, discounted cash flow{% else %}discounted cash flow{% endif %} · not investment advice</figcaption>
+    <figcaption>{% if featured %}{{ featured['name'] }}, discounted cash flow. {% endif %}Not investment advice.</figcaption>
   </figure>
 </section>
 
 {# VI — Watchlist: the featured company's last 90 sessions. #}
-<section class="ed-sec tint-news" id="watch" aria-labelledby="watch-h">
+<section class="ed-sec tint-news tile-dark" id="watch" aria-labelledby="watch-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>VI.</span> Watchlist</p>
-    <h2 class="ed-statement" id="watch-h">Follow companies without owning them.</h2>
+    <h2 class="ed-statement" id="watch-h">A watchlist with nightly prices</h2>
     <p class="ed-lede">Prices, sparklines and alerts for everything you are keeping an eye on, refreshed every night while you sleep.</p>
-    <p class="ed-go"><a href="{{ url_for('watchlist_page') }}">Open watchlist →</a></p>
+    <p class="ed-go"><a href="{{ url_for('watchlist_page') }}">Open watchlist</a></p>
   </div>
   <figure class="plate plate-watch" tabindex="-1">
     <div class="plate-frame">
@@ -284,7 +288,7 @@
       <p class="asof">Price history appears after the first nightly run.</p>
       {% endif %}
     </div>
-    <figcaption>Plate VI · {% if featured %}{{ featured['name'] }}, closing prices{% else %}closing prices{% endif %}</figcaption>
+    {% if featured %}<figcaption>{{ featured['name'] }}, closing prices</figcaption>{% endif %}
   </figure>
 </section>
 
@@ -293,9 +297,9 @@
 <section class="ed-sec tint-explore" id="portfolio" aria-labelledby="portfolio-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>VII.</span> Portfolio</p>
-    <h2 class="ed-statement" id="portfolio-h">Your whole book, on one page.</h2>
+    <h2 class="ed-statement" id="portfolio-h">Profit, loss and allocation in one place</h2>
     <p class="ed-lede">Drop in a broker file and see real profit and loss, how your money is spread, and a gentle flag when a holding deserves a second look.</p>
-    <p class="ed-go"><a href="{{ url_for('portfolio_page') }}">Open portfolio →</a></p>
+    <p class="ed-go"><a href="{{ url_for('portfolio_page') }}">Open portfolio</a></p>
   </div>
   <figure class="plate plate-portfolio" tabindex="-1">
     <div class="plate-frame pf-frame">
@@ -308,7 +312,7 @@
         {% endfor %}
       </ul>
     </div>
-    <figcaption>Plate VII · an example book, for illustration — yours stays private</figcaption>
+    <figcaption>An example book, for illustration. Yours stays private.</figcaption>
   </figure>
 </section>
 
@@ -317,9 +321,9 @@
 <section class="ed-sec tint-earnings" id="strategies" aria-labelledby="strategies-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>VIII.</span> Strategies</p>
-    <h2 class="ed-statement" id="strategies-h">How people actually invest, in the US and in India.</h2>
+    <h2 class="ed-statement" id="strategies-h">Strategy guides for the US and India</h2>
     <p class="ed-lede">A field guide to the playbooks that work right now, and a monthly screen that names the companies fitting each one — with the numbers that put them there.</p>
-    <p class="ed-go"><a href="{{ url_for('strategies_page') }}">Read the guide →</a></p>
+    <p class="ed-go"><a href="{{ url_for('strategies_page') }}">Read the guide</a></p>
   </div>
   <figure class="plate plate-strategies" tabindex="-1">
     <div class="plate-frame">
@@ -335,34 +339,33 @@
       <p class="asof">This month's screen hasn't run yet.</p>
       {% endif %}
     </div>
-    <figcaption>Plate VIII · this month's rule-based matches · not investment advice</figcaption>
+    <figcaption>This month’s rule-based matches. Not investment advice.</figcaption>
   </figure>
 </section>
 
 {# IX — Today. #}
-<section class="ed-sec tint-movers" id="today" aria-labelledby="today-h">
+<section class="ed-sec tint-movers tile-dark" id="today" aria-labelledby="today-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>IX.</span> Today</p>
-    <h2 class="ed-statement" id="today-h">Every stock we follow, ranked by tonight's rules.</h2>
+    <h2 class="ed-statement" id="today-h">Every tracked stock, ranked nightly</h2>
     <p class="ed-lede">One screen of every tracked company, sorted by our own transparent rules, with Otto's plain-English read of what moved and why.</p>
-    <p class="ed-go"><a href="{{ url_for('today') }}">See today →</a></p>
+    <p class="ed-go"><a href="{{ url_for('today') }}">See today’s screen</a></p>
   </div>
   <figure class="plate plate-today" tabindex="-1">
     <div class="plate-frame td-frame">
       <span class="td-n" data-count="{{ tracked }}">{{ tracked }}</span>
       <span class="td-cap">companies screened tonight, across the US and India</span>
     </div>
-    <figcaption>Plate IX · the nightly screen</figcaption>
   </figure>
 </section>
 
 {# X — Ask Otto. #}
-<section class="ed-sec tint-explore" id="otto" aria-labelledby="otto-h">
+<section class="ed-sec tint-explore tile-dark" id="otto" aria-labelledby="otto-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>X.</span> Ask Otto</p>
-    <h2 class="ed-statement" id="otto-h">Ask in plain words, get an answer with its working.</h2>
+    <h2 class="ed-statement" id="otto-h">Answers about any number on the page</h2>
     <p class="ed-lede">Otto reads the same numbers you see and explains them — what a ratio means, why a score moved, which strategy a company fits.</p>
-    <p class="ed-go"><a href="{{ url_for('strategies_page') }}#ask-otto">Ask Otto →</a></p>
+    <p class="ed-go"><a href="{{ url_for('strategies_page') }}#ask-otto">Ask Otto a question</a></p>
   </div>
   <figure class="plate plate-otto" tabindex="-1">
     <div class="plate-frame ot-frame">
@@ -372,7 +375,7 @@
         <p class="ot-a">It depends on growth. Thirty times earnings is cheap for a company growing 25% a year and dear for one growing 5% — so look at the Future axis next to it.</p>
       </div>
     </div>
-    <figcaption>Plate X · an example exchange</figcaption>
+    <figcaption>An example question and answer.</figcaption>
   </figure>
 </section>
 
@@ -380,9 +383,9 @@
 <section class="ed-sec tint-news" id="weekly" aria-labelledby="weekly-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>XI.</span> The weekly note</p>
-    <h2 class="ed-statement" id="weekly-h">One email, on Sunday morning. That's all.</h2>
+    <h2 class="ed-statement" id="weekly-h">A weekly email every Sunday</h2>
     <p class="ed-lede">What changed in your stocks this week, what's coming next week, and nothing else. One click to stop it, whenever you like.</p>
-    <p class="ed-go"><a href="{{ url_for('auth.register') }}">Create a free account →</a></p>
+    <p class="ed-go"><a href="{{ url_for('auth.register') }}">Create a free account</a></p>
   </div>
   <figure class="plate plate-weekly" tabindex="-1">
     <div class="plate-frame wk-frame">
@@ -394,26 +397,6 @@
         <span class="wk-line short" style="--i: 2"></span>
       </div>
     </div>
-    <figcaption>Plate XI · the Sunday note</figcaption>
-  </figure>
-</section>
-
-{# XII — Open book. #}
-<section class="ed-sec tint-earnings" id="open" aria-labelledby="open-h">
-  <div class="ed-copy">
-    <p class="ed-kicker"><span>XII.</span> Open book</p>
-    <h2 class="ed-statement" id="open-h">Every rule is public, and it costs nothing.</h2>
-    <p class="ed-lede">No ads, no paywall, no tips. The code behind every score is on GitHub for anyone to read, question, or improve.</p>
-    <p class="ed-go"><a href="https://github.com/arkapchaudhuri-investright/investright" rel="noopener">Read the code →</a> &nbsp; <a href="{{ url_for('team') }}">Meet the team →</a></p>
-  </div>
-  <figure class="plate plate-open" tabindex="-1">
-    <div class="plate-frame op-frame">
-      <code style="--i: 0"><span class="op-c"># three of the six Health checks, from metrics.py</span></code>
-      <code style="--i: 1">(ca &gt; cl)      <span class="op-c"># short-term assets cover short-term bills</span></code>
-      <code style="--i: 2">de &lt; 40        <span class="op-c"># debt under 40% of equity</span></code>
-      <code style="--i: 3">icov &gt; 3       <span class="op-c"># interest covered 3× by profit</span></code>
-    </div>
-    <figcaption>Plate XII · the rules, in the open</figcaption>
   </figure>
 </section>
 

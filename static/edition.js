@@ -1,9 +1,9 @@
-// The edition (landing page): scroll-tracking index, section reveal, and the
-// hover replays that draw each plate's data in. Vanilla, no libraries.
+// The edition (landing page): the scroll-tracking index and the hover replays
+// that draw each plate's data in. Vanilla, no libraries.
 //
 // Everything degrades: with JS off every section and value is simply there;
-// under prefers-reduced-motion the replays and reveals never start (the CSS
-// gates them too) and hover is the stylesheet's opacity cross-fade alone.
+// under prefers-reduced-motion the replays never start (the CSS gates them
+// too) and hover is the stylesheet's opacity cross-fade alone.
 (function () {
   var ed = document.querySelector('.ed');
   if (!ed) return;
@@ -27,17 +27,6 @@
       });
     }, { rootMargin: '-38% 0px -58% 0px' });
     sections.forEach(function (s) { spy.observe(s); });
-
-    // --- Reveal: each section settles in once, the first time it's seen.
-    if (!calm.matches) {
-      ed.classList.add('ed-js');
-      var reveal = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (en.isIntersecting) { en.target.classList.add('in'); reveal.unobserve(en.target); }
-        });
-      }, { rootMargin: '0px 0px -12% 0px' });
-      sections.forEach(function (s) { reveal.observe(s); });
-    }
   }
 
   // --- Replays. Entering a plate (pointer or keyboard focus) adds .replay,

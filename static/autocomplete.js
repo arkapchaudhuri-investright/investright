@@ -57,6 +57,16 @@
     });
   }
 
+  // Bold the part of a label the query matched (first occurrence only), so the
+  // eye lands on why a row is there. Escapes before wrapping.
+  function mark(label, q) {
+    var i = label.toLowerCase().indexOf(q.toLowerCase());
+    if (!q || i < 0) return esc(label);
+    return esc(label.slice(0, i)) + '<mark>' + esc(label.slice(i, i + q.length)) +
+      '</mark>' + esc(label.slice(i + q.length));
+  }
+  var uid = 0;
+
   function attach(input, box, opts) {
     opts = opts || {};
     var onPick = opts.onPick || function () {
@@ -67,6 +77,21 @@
       else input.form.submit();
     };
     var sel = -1;
+    // Combobox semantics, so a screen reader announces the list and the row
+    // the arrow keys are on (aria-activedescendant), not just a silent popup.
+    if (!box.id) box.id = 'ac-list-' + (++uid);
+    box.setAttribute('role', 'listbox');
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-controls', box.id);
+    input.setAttribute('aria-expanded', 'false');
+    function show(on) {
+      box.hidden = !on;
+      input.setAttribute('aria-expanded', String(on));
+      if (!on) input.removeAttribute('aria-activedescendant');
+      // A container (the nav sheet) can react to "results are showing".
+      if (box.parentElement) box.parentElement.classList.toggle('has-results', on);
+    }
 
     // Warm the full universe as soon as the field is engaged.
     input.addEventListener('focus', loadFull);
@@ -75,39 +100,57 @@
       loadFull();
       var q = input.value.trim();
       sel = -1;
-      if (q.length < 1 || !DATA.length) { box.hidden = true; box.innerHTML = ''; return; }
+      if (q.length < 1 || !DATA.length) { box.innerHTML = ''; show(false); return; }
       var hits = DATA.map(function (t) { return [score(q, t[0], t[1]), t]; })
         .filter(function (p) { return p[0] > 0; })
         .sort(function (a, b) { return b[0] - a[0]; })
         .slice(0, 8).map(function (p) { return p[1]; });
-      box.innerHTML = hits.map(function (t) {
-        return '<li data-s="' + esc(t[0]) + '"><b>' + esc(t[0]) + '</b>' +
-          '<span class="xchg">' + esc(t[2]) + '</span>' +
-          '<span class="s-name">' + esc(t[1]) + '</span></li>';
+      if (!hits.length) {
+        // Nothing in the static list — but the server still resolves names
+        // and typos through Yahoo, so say so instead of showing nothing.
+        box.innerHTML = '<li class="s-empty" role="presentation">No match in our list for “' +
+          esc(q) + '”. Press Return to look it up anyway.</li>';
+        show(true);
+        return;
+      }
+      box.innerHTML = hits.map(function (t, i) {
+        return '<li role="option" aria-selected="false" id="' + box.id + '-' + i +
+          '" data-s="' + esc(t[0]) + '">' +
+          '<span class="s-av" aria-hidden="true">' + esc((t[1] || t[0]).charAt(0)) + '</span>' +
+          '<span class="s-main"><span class="s-name">' + mark(t[1] || t[0], q) + '</span>' +
+          '<span class="s-meta"><b>' + mark(t[0], q) + '</b>' +
+          '<span class="xchg">' + esc(t[2]) + '</span></span></span>' +
+          '<svg class="s-go" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" ' +
+          'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M9 6l6 6-6 6"/></svg></li>';
       }).join('');
-      box.hidden = hits.length === 0;
+      show(true);
     });
 
     box.addEventListener('mousedown', function (e) {
-      var li = e.target.closest('li');
-      if (li) { input.value = li.dataset.s; box.hidden = true; onPick(li.dataset.s); }
+      var li = e.target.closest('li[data-s]');
+      if (li) { input.value = li.dataset.s; show(false); onPick(li.dataset.s); }
     });
 
     input.addEventListener('keydown', function (e) {
-      var items = box.querySelectorAll('li');
+      var items = box.querySelectorAll('li[data-s]');
+      if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); show(false); return; }
       if (box.hidden || !items.length) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-        items.forEach(function (li, i) { li.classList.toggle('active', i === sel); });
+        items.forEach(function (li, i) {
+          li.classList.toggle('active', i === sel);
+          li.setAttribute('aria-selected', String(i === sel));
+        });
+        input.setAttribute('aria-activedescendant', items[sel].id);
+        items[sel].scrollIntoView({ block: 'nearest' });
       } else if (e.key === 'Enter' && sel >= 0) {
-        input.value = items[sel].dataset.s; box.hidden = true;
-      } else if (e.key === 'Escape') {
-        box.hidden = true;
+        input.value = items[sel].dataset.s; show(false);
       }
     });
 
-    input.addEventListener('blur', function () { setTimeout(function () { box.hidden = true; }, 150); });
+    input.addEventListener('blur', function () { setTimeout(function () { show(false); }, 150); });
   }
 
   global.IRAutocomplete = { attach: attach };

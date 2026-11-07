@@ -1,4 +1,4 @@
-"""The landing page: twelve numbered sections (the "edition"), which folded
+"""The landing page: eleven numbered sections (the "edition"), which folded
 in the tiled board that replaced the search-only home page.
 
 The board has to render for a guest with an empty database — a new deploy has
@@ -12,9 +12,9 @@ NOW = "2026-01-01T00:00:00+00:00"
 
 def test_board_renders_for_a_guest_on_an_empty_database(client):
     html = client.get("/").get_data(as_text=True)
-    assert html.count('class="ed-sec') == 12
-    # Every section is reachable from the roman-numeral index.
-    assert html.count("data-ed-link=") == 12
+    assert html.count('class="ed-sec') == 11
+    # Every section is reachable from the index.
+    assert html.count("data-ed-link=") == 11
     # The sections are the tour now, so every feature must always be there.
     for feature in ("Today", "Portfolio", "Watchlist", "Strategies", "Ask Otto"):
         assert feature in html
@@ -96,4 +96,4 @@ def test_analysis_plates_fall_back_to_copy_without_a_featured_company(client):
 def test_the_portfolio_plate_is_labelled_an_illustration(client):
     # A guest has no book; the example donut must never pass for real data.
     html = client.get("/").get_data(as_text=True)
-    assert "an example book, for illustration" in html
+    assert "An example book, for illustration" in html
