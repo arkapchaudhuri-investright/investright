@@ -13,11 +13,10 @@
      sans with the accent word + full stop, then a serif tagline. The brand
      name IS the sentence. #}
   <p class="hero-eyebrow" id="greet">{{ greeting }}</p>
-  {# taste audit (2026-11-06): the h1 names the category and the buyer; the
-     brand line "When you invest, invest right." was a slogan in the h1.
-     Arka dropped the explanatory sub-line under it, then asked for a line
-     other than "Free stock research…" (both 2026-11-06). #}
-  <h1 class="hero-display">Plain-English research on any US or Indian stock</h1>
+  {# The brand line is the h1 again, at Arka's request (2026-11-06), after
+     trying category headlines ("Free stock research…", "Plain-English
+     research…"). The taste skill would call it a slogan; his call wins. #}
+  <h1 class="hero-display">When you invest,<br>invest <span class="hero-accent">right</span>.</h1>
 
 
   {# Market is chosen by the US/India/Both segs on /today, /watchlist and
@@ -31,7 +30,7 @@
       <svg class="search-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input id="symbol" name="symbol" type="text" spellcheck="false"
-             placeholder="Which stock are we looking at today?"
+             placeholder="Which stock are we looking at?"
              aria-label="Which stock are we looking at today? Search a ticker to analyze">
       <ul id="suggest" class="suggest" hidden></ul>
     </div>
