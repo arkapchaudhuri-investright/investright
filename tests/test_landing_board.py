@@ -96,4 +96,4 @@ def test_analysis_plates_fall_back_to_copy_without_a_featured_company(client):
 def test_the_portfolio_plate_is_labelled_an_illustration(client):
     # A guest has no book; the example donut must never pass for real data.
     html = client.get("/").get_data(as_text=True)
-    assert "an example book, for illustration" in html
+    assert "An example book, for illustration" in html
