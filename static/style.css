@@ -2966,3 +2966,111 @@ main:has(.ed) { max-width: 1080px; }
    clickable (ui-animation, ui-ux-pro-max). */
 a, button, summary, [role="button"], .seg a, .nw-tab { touch-action: manipulation; }
 button, summary, [role="button"], label[for] { cursor: pointer; }
+
+/* ===== Search, Apple-style (2026-11) ====================================== */
+/* The nav search opens as a sheet from the top over a dimmed, blurred page:
+   a large field, quick links before you type, and results listed inside the
+   sheet rather than floating over content. The hero search shares the same
+   result rows. */
+/* z 145 / 142: above the gear button (135), which otherwise showed through
+   the open sheet; the gear's own panel (140) is never open at the same time. */
+.navsearch-panel {
+  --ns-w: 680px; z-index: 145;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center;
+  column-gap: 14px; row-gap: 0;
+  padding: 22px max(var(--space-5), calc((100% - var(--ns-w)) / 2)) 26px;
+  background: var(--card); border-bottom: 0;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, .14);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.navsearch-ico { color: var(--muted); }
+.navsearch-ico svg { width: 22px; height: 22px; }
+.navsearch-input {
+  font-size: 1.5rem; font-weight: 600; letter-spacing: -.015em; padding: 6px 0;
+}
+.navsearch-input::placeholder { color: var(--muted); font-weight: 500; }
+.navsearch-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; margin: 0; padding: 0; border-radius: 50%;
+}
+.navsearch-close:hover { background: var(--wash); }
+/* Results and quick links span the sheet, under the field. */
+.navsearch-panel .navsearch-suggest, .ns-quick { grid-column: 1 / -1; }
+.navsearch-panel .navsearch-suggest {
+  position: static; margin: 14px 0 0; padding: 0; border: 0; box-shadow: none;
+  background: none; max-height: min(60vh, 520px); overflow-y: auto;
+}
+.ns-quick { display: flex; flex-direction: column; margin-top: 18px; }
+.navsearch-panel.has-results .ns-quick { display: none; }
+.ns-quick-h { margin: 0 0 6px; font-size: .8125rem; color: var(--muted); }
+.ns-quick a {
+  color: var(--text); text-decoration: none; font-size: 1rem; padding: 9px 10px;
+  margin: 0 -10px; border-radius: 10px;
+}
+.ns-quick a:hover, .ns-quick a:focus-visible { background: var(--wash); color: var(--accent); }
+.navsearch-scrim { display: none; }
+.navsearch[open] .navsearch-scrim {
+  display: block; position: fixed; inset: 0; z-index: 142;
+  background: rgba(0, 0, 0, .28);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .navsearch[open] .navsearch-panel { animation: ns-in 260ms cubic-bezier(.22, 1, .36, 1); }
+  .navsearch[open] .navsearch-scrim { animation: ns-fade 200ms ease-out; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navsearch[open] .navsearch-panel, .navsearch[open] .navsearch-scrim { animation: ns-fade 200ms linear; }
+}
+@keyframes ns-in { from { transform: translateY(-16px); opacity: 0; } }
+@keyframes ns-fade { from { opacity: 0; } }
+
+/* Result rows: a monogram, the name with the matched part bolded, the
+   ticker and exchange beneath, and a chevron that appears on the row you're
+   on. Large enough to tap (≥44px). */
+.suggest { border-radius: 16px; padding: 6px; border-color: var(--hairline); }
+.suggest li {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) 16px; align-items: center;
+  column-gap: 12px; padding: 8px 10px; border-radius: 12px; min-height: 52px;
+  font-size: 1rem;
+}
+.suggest li:hover, .suggest li.active { background: var(--wash); }
+.suggest li.active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
+.s-av {
+  width: 36px; height: 36px; border-radius: 10px; display: inline-flex;
+  align-items: center; justify-content: center; font-weight: 600; font-size: 1rem;
+  background: color-mix(in srgb, var(--accent) 12%, var(--card)); color: var(--accent);
+}
+.s-main { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.suggest .s-name {
+  color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.s-meta { display: flex; align-items: center; gap: 8px; font-size: .8125rem; color: var(--muted); }
+.suggest .s-meta b { min-width: 0; font-weight: 600; color: var(--muted); }
+.suggest mark { background: none; color: inherit; font-weight: 700; }
+.suggest .s-name mark { color: var(--text); }
+.suggest .xchg {
+  border: 0; padding: 0; font-size: .75rem; color: var(--muted);
+  text-transform: none; letter-spacing: 0;
+}
+.s-go { color: var(--muted); opacity: 0; transition: opacity 120ms ease-out, transform 120ms ease-out; }
+.suggest li:hover .s-go, .suggest li.active .s-go { opacity: 1; transform: translateX(2px); }
+.s-empty { display: block !important; color: var(--muted); font-size: .9375rem; padding: 14px 12px !important; cursor: default !important; min-height: 0 !important; }
+.s-empty:hover { background: none !important; }
+
+/* The hero field: a leading magnifier, Apple's search-field shape. */
+.search-bar { position: relative; }
+.search-ico {
+  position: absolute; left: 18px; top: 26px; transform: translateY(-50%);
+  color: var(--muted); pointer-events: none; z-index: 1;
+}
+.search-bar input { padding-left: 50px; }
+.search .suggest { top: calc(100% + 8px); box-shadow: 0 20px 44px rgba(0, 0, 0, .12); }
+
+@media (max-width: 720px) {
+  .navsearch-panel { padding: 14px 16px 18px; column-gap: 10px; }
+  .navsearch-input { font-size: 1.25rem; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .navsearch[open] .navsearch-scrim { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0, 0, 0, .55); }
+}
+@media (prefers-reduced-motion: reduce) { .s-go { transition: opacity .2s linear; transform: none !important; } }
