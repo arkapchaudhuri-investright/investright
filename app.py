@@ -104,6 +104,13 @@ def _csrf_protect():
 
 
 @app.context_processor
+def inject_edition_date():
+    """The masthead's date line ("Saturday, 7 November 2026"). Server time is
+    fine: it's a dateline, not a market timestamp."""
+    return {"edition_date": date.today().strftime("%A, %-d %B %Y")}
+
+
+@app.context_processor
 def inject_flash_state():
     """Shared scratch dict for one render, so _flashes.html can tell base.html
     that it already displayed the messages.
