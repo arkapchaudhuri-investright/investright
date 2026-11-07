@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 <!doctype html>
 <html lang="en"{% if theme %} data-theme="{{ theme }}"{% endif %}>
 <head>
@@ -155,9 +156,9 @@
           <span class="set-label">Theme</span>
           <nav class="seg theme-seg" aria-label="Colour theme">
             <a href="?theme=light" data-theme="light" title="Light theme" aria-label="Light theme"
-               class="{{ 'active' if theme_choice == 'light' }}">☀</a>
+               class="{{ 'active' if theme_choice == 'light' }}">{{ icon('sun', 15) }}</a>
             <a href="?theme=dark" data-theme="dark" title="Dark theme" aria-label="Dark theme"
-               class="{{ 'active' if theme_choice == 'dark' }}">☾</a>
+               class="{{ 'active' if theme_choice == 'dark' }}">{{ icon('moon', 15) }}</a>
             <a href="?theme=system" data-theme="system" title="Match system setting" aria-label="Match system setting"
                class="{{ 'active' if theme_choice == 'system' }}">System</a>
           </nav>

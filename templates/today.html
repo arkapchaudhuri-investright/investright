@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Today · InvestRight{% endblock %}
 {% block content %}
 {% from "_flags.html" import flag %}
@@ -31,7 +32,7 @@
   <form action="{{ url_for('refresh') }}" method="post" class="refresh-form today-refresh">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <input type="hidden" name="next" value="{{ url_for('today', market=market) }}">
-    <button type="submit" class="ghost">↻ Refresh</button>
+    <button type="submit" class="ghost">{{ icon('refresh') }} Refresh</button>
   </form>
 </section>
 
@@ -145,7 +146,7 @@
           <a class="tick tick-link" href="{{ url_for('stock', ticker=p['ticker']) }}">{{ p['ticker'] }}</a>
           {# ★ is yours. "peer" means nobody tracks it — it rode along for comparison.
              A ticker someone *else* watches gets neither: is_watchlist is the global union. #}
-          {% if p['mine'] %}<span class="scr-star" title="On your watchlist">★</span>
+          {% if p['mine'] %}<span class="scr-star" title="On your watchlist">{{ icon('star', 13) }}</span>
           {% elif not p['is_watchlist'] %}<span class="xchg">peer</span>{% endif %}
           <span class="name">{{ p['name'] }}</span>
         </div>
@@ -218,7 +219,7 @@
       {{ 'NSE/BSE' if market == 'IN' else 'US' }} ticker on the home page.</span></p>
   {% else %}
   <p class="empty serif">Otto hasn't screened anything yet.<br>
-    <span class="empty-sub">Add a stock or hit ↻ on the home page — rankings appear
+    <span class="empty-sub">Add a stock or refresh on the home page — rankings appear
       once the first deep data is saved.</span></p>
   {% endif %}
 </section>

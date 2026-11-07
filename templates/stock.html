@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% from "_explain.html" import explain %}
 {% block title %}{{ s['name'] }} · InvestRight{% endblock %}
 {% block content %}
@@ -53,11 +54,11 @@
         {% endif %}
         {% if as_of %}<span class="asof">as of {{ as_of }}</span>{% endif %}
       {% else %}
-        <span class="asof">Couldn't load a live price right now — hit ↻ Refresh to retry.</span>
+        <span class="asof">Couldn't load a live price right now — select Refresh to retry.</span>
       {% endif %}
       <form action="{{ url_for('refresh_stock', ticker=s['ticker']) }}" method="post" class="refresh-form">
         <input type="hidden" name="csrf" value="{{ csrf_token }}">
-        <button type="submit" class="ghost" title="Re-fetch {{ s['ticker'] }} now">↻ Refresh</button>
+        <button type="submit" class="ghost" title="Re-fetch {{ s['ticker'] }} now">{{ icon('refresh') }} Refresh</button>
       </form>
     </div>
   </div>
@@ -65,7 +66,7 @@
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <button type="submit" class="star {{ 'on' if on_watch }}"
             aria-label="{{ 'Remove from watchlist' if on_watch else 'Add to watchlist' }}">
-      {{ '★ On watchlist' if on_watch else '☆ Add to watchlist' }}
+      {% if on_watch %}{{ icon('star') }} On watchlist{% else %}{{ icon('star-outline') }} Add to watchlist{% endif %}
     </button>
   </form>
   {% if current_user %}
@@ -406,7 +407,7 @@
   {# Only reachable when even the live fetch failed (page pulls history
      in-memory on first view) — so this is a transient network miss. #}
   <p class="asof">Couldn't load {{ s['ticker'] }}'s price history right now —
-    hit ↻ Refresh (top of the page) to retry.</p>
+    select Refresh (top of the page) to retry.</p>
   {% endif %}
 </section>
 
@@ -489,7 +490,7 @@
     <p class="senti-verdict">InvestRight readers:
       <b>{{ senti.watchers }}</b> <span class="asof">watching</span></p>
     <div class="senti-chips">
-      <span class="reason">★ on {{ senti.watchers }} watchlist{{ 's' if senti.watchers != 1 }}</span>
+      <span class="reason">On {{ senti.watchers }} watchlist{{ 's' if senti.watchers != 1 }}</span>
       <span class="reason">{{ senti.views30 }} reader visit{{ 's' if senti.views30 != 1 }} in 30 days</span>
     </div>
     <p class="asof perf-note">This site's own activity — not a broad measure. Sentiment, not advice.</p>
@@ -510,7 +511,7 @@
 {% if not has_data %}
 <section class="card">
   <p class="empty serif">Otto's still crunching {{ s['name'].split(' ')[0] }}'s numbers.<br>
-    <span class="empty-sub">Hit ↻ Refresh at the top of this page to pull the full statements now — it takes a few seconds.</span></p>
+    <span class="empty-sub">Select Refresh at the top of this page to pull the full statements now — it takes a few seconds.</span></p>
 </section>
 {% else %}
 

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block content %}
 {% from "_flags.html" import flag %}
 
@@ -33,7 +34,7 @@
     </div>
     <div class="search-actions">
       <button type="submit" class="btn-analyze">Analyze</button>
-      <button type="submit" class="btn-watch" formaction="{{ url_for('add') }}">☆ Add to watchlist</button>
+      <button type="submit" class="btn-watch" formaction="{{ url_for('add') }}">{{ icon('star-outline') }} Add to watchlist</button>
     </div>
   </form>
 
@@ -136,7 +137,7 @@
 
 {# II — News. Tabs over rails; every rail is rendered and JS only toggles
    which shows, so no-JS sees the first rather than nothing. #}
-<section class="ed-sec tint-news" id="news" aria-labelledby="news-h">
+<section class="ed-sec tint-news tile-dark" id="news" aria-labelledby="news-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>II.</span> News</p>
     <h2 class="ed-statement" id="news-h">Market news from the last fortnight</h2>
@@ -200,7 +201,7 @@
     <p class="ed-kicker"><span>IV.</span> Five questions</p>
     <h2 class="ed-statement" id="health-h">Five health scores for any company</h2>
     <p class="ed-lede">Is it cheap, is it growing, has it delivered, can it pay its bills, does it pay you? Each axis is a set of plain pass-or-fail checks you can read.</p>
-    <p class="ed-go"><a href="#top" data-ed-search>Search for a company →</a></p>
+    <p class="ed-go"><a href="#top" data-ed-search>Search for a company</a></p>
   </div>
   <figure class="plate plate-health" tabindex="-1">
     <div class="plate-frame">
@@ -223,7 +224,7 @@
 </section>
 
 {# V — the same company's DCF, price and fair value drawn on one scale. #}
-<section class="ed-sec tint-movers" id="value" aria-labelledby="value-h">
+<section class="ed-sec tint-movers tile-dark" id="value" aria-labelledby="value-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>V.</span> Fair value</p>
     <h2 class="ed-statement" id="value-h">Fair value, with every assumption shown</h2>
@@ -238,7 +239,7 @@
         <span class="fv-bar" style="--v: {{ featured['price_w'] }}"><i></i></span>
         <span class="fv-n">{{ sym }}<span data-count="{{ '%.2f'|format(featured['price']) }}" data-dp="2">{{ '%.2f'|format(featured['price']) }}</span></span>
       </div>
-      <div class="fv-row fv-fair {{ 'over' if featured['upside_pct'] < 0 else '' }}">
+      <div class="fv-row fv-row-fair {{ 'over' if featured['upside_pct'] < 0 else '' }}">
         <span class="fv-k">Fair value</span>
         <span class="fv-bar" style="--v: {{ featured['fair_w'] }}"><i></i></span>
         <span class="fv-n">{{ sym }}<span data-count="{{ '%.2f'|format(featured['fair_value']) }}" data-dp="2">{{ '%.2f'|format(featured['fair_value']) }}</span></span>
@@ -256,12 +257,12 @@
 </section>
 
 {# VI — Watchlist: the featured company's last 90 sessions. #}
-<section class="ed-sec tint-news" id="watch" aria-labelledby="watch-h">
+<section class="ed-sec tint-news tile-dark" id="watch" aria-labelledby="watch-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>VI.</span> Watchlist</p>
     <h2 class="ed-statement" id="watch-h">A watchlist with nightly prices</h2>
     <p class="ed-lede">Prices, sparklines and alerts for everything you are keeping an eye on, refreshed every night while you sleep.</p>
-    <p class="ed-go"><a href="{{ url_for('watchlist_page') }}">Open watchlist →</a></p>
+    <p class="ed-go"><a href="{{ url_for('watchlist_page') }}">Open watchlist</a></p>
   </div>
   <figure class="plate plate-watch" tabindex="-1">
     <div class="plate-frame">
@@ -296,7 +297,7 @@
     <p class="ed-kicker"><span>VII.</span> Portfolio</p>
     <h2 class="ed-statement" id="portfolio-h">Profit, loss and allocation in one place</h2>
     <p class="ed-lede">Drop in a broker file and see real profit and loss, how your money is spread, and a gentle flag when a holding deserves a second look.</p>
-    <p class="ed-go"><a href="{{ url_for('portfolio_page') }}">Open portfolio →</a></p>
+    <p class="ed-go"><a href="{{ url_for('portfolio_page') }}">Open portfolio</a></p>
   </div>
   <figure class="plate plate-portfolio" tabindex="-1">
     <div class="plate-frame pf-frame">
@@ -320,7 +321,7 @@
     <p class="ed-kicker"><span>VIII.</span> Strategies</p>
     <h2 class="ed-statement" id="strategies-h">Strategy guides for the US and India</h2>
     <p class="ed-lede">A field guide to the playbooks that work right now, and a monthly screen that names the companies fitting each one — with the numbers that put them there.</p>
-    <p class="ed-go"><a href="{{ url_for('strategies_page') }}">Read the guide →</a></p>
+    <p class="ed-go"><a href="{{ url_for('strategies_page') }}">Read the guide</a></p>
   </div>
   <figure class="plate plate-strategies" tabindex="-1">
     <div class="plate-frame">
@@ -341,12 +342,12 @@
 </section>
 
 {# IX — Today. #}
-<section class="ed-sec tint-movers" id="today" aria-labelledby="today-h">
+<section class="ed-sec tint-movers tile-dark" id="today" aria-labelledby="today-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>IX.</span> Today</p>
     <h2 class="ed-statement" id="today-h">Every tracked stock, ranked nightly</h2>
     <p class="ed-lede">One screen of every tracked company, sorted by our own transparent rules, with Otto's plain-English read of what moved and why.</p>
-    <p class="ed-go"><a href="{{ url_for('today') }}">See today’s screen →</a></p>
+    <p class="ed-go"><a href="{{ url_for('today') }}">See today’s screen</a></p>
   </div>
   <figure class="plate plate-today" tabindex="-1">
     <div class="plate-frame td-frame">
@@ -357,12 +358,12 @@
 </section>
 
 {# X — Ask Otto. #}
-<section class="ed-sec tint-explore" id="otto" aria-labelledby="otto-h">
+<section class="ed-sec tint-explore tile-dark" id="otto" aria-labelledby="otto-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>X.</span> Ask Otto</p>
     <h2 class="ed-statement" id="otto-h">Answers about any number on the page</h2>
     <p class="ed-lede">Otto reads the same numbers you see and explains them — what a ratio means, why a score moved, which strategy a company fits.</p>
-    <p class="ed-go"><a href="{{ url_for('strategies_page') }}#ask-otto">Ask Otto a question →</a></p>
+    <p class="ed-go"><a href="{{ url_for('strategies_page') }}#ask-otto">Ask Otto a question</a></p>
   </div>
   <figure class="plate plate-otto" tabindex="-1">
     <div class="plate-frame ot-frame">
@@ -382,7 +383,7 @@
     <p class="ed-kicker"><span>XI.</span> The weekly note</p>
     <h2 class="ed-statement" id="weekly-h">A weekly email every Sunday</h2>
     <p class="ed-lede">What changed in your stocks this week, what's coming next week, and nothing else. One click to stop it, whenever you like.</p>
-    <p class="ed-go"><a href="{{ url_for('auth.register') }}">Create a free account →</a></p>
+    <p class="ed-go"><a href="{{ url_for('auth.register') }}">Create a free account</a></p>
   </div>
   <figure class="plate plate-weekly" tabindex="-1">
     <div class="plate-frame wk-frame">

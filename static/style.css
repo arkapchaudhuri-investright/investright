@@ -2569,8 +2569,10 @@ main:has(.ed) { max-width: 1440px; }
   display: block; height: 100%; background: var(--muted);
   transform: scaleX(var(--v, 0)); transform-origin: left;
 }
-.fv-fair .fv-bar i { background: var(--up); }
-.fv-fair.over .fv-bar i { background: var(--amber); }
+/* Not .fv-fair: the deep dive owns that name for its dashed marker (an
+   absolute, 0-wide rule), which collapsed this whole row to 2px. */
+.fv-row-fair .fv-bar i { background: var(--up); }
+.fv-row-fair.over .fv-bar i { background: var(--amber); }
 .fv-verdict { margin: var(--space-2) 0 0; font-size: var(--fs-body); color: var(--muted); line-height: 1.55; }
 .fv-verdict b { color: var(--text); }
 
@@ -2647,7 +2649,7 @@ main:has(.ed) { max-width: 1440px; }
   .replay .mv-bar i { animation: ed-grow var(--t-spring) var(--spring) both; animation-delay: calc(var(--i, 0) * 40ms); }
   .replay .ern-row .mv-bar i { animation-delay: calc(var(--i, 0) * 50ms); }
   .replay .fv-bar i { animation: ed-grow .6s var(--spring) both; }
-  .replay .fv-fair .fv-bar i { animation-delay: 90ms; }
+  .replay .fv-row-fair .fv-bar i { animation-delay: 90ms; }
   .replay .sn-shape { animation: ed-bloom var(--t-spring) var(--spring) both; }
   .replay .wl-cover { animation: ed-sweep .9s var(--ease-out) both; }
   .replay .ed-donut path { animation: ed-bloom var(--t-spring) var(--spring) both; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -2704,12 +2706,31 @@ body { font-size: 1rem; letter-spacing: -.003em; }
 
 /* --- Global nav: one quiet row, links centred, a full-bleed hairline under
        it (border-image paints outside the box without scroll overflow). --- */
+/* Sticky, frosted, full width — Apple's signature bar. Three things keep the
+   gear and search working inside a sticky header:
+   1. The blur lives on ::before, NOT on .gnav. backdrop-filter makes an
+      element the containing block for position:fixed descendants, which
+      would shrink the gear's scrim and the search strip to the bar's size.
+   2. z-index 150 lifts the whole bar (gear panel 140, scrim 130, search 90
+      now nest inside it) above page chrome — the deep-dive jumpnav (80),
+      Ask Otto (80), back-to-top (120) — and below the analysing overlay and
+      toasts (200/201).
+   3. The deep-dive's own sticky jumpnav docks under the bar via --gnav-h. */
+:root { --gnav-h: 52px; }
 .gnav {
+  position: sticky; top: 0; z-index: 150;
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-  max-width: 1080px; min-height: 52px; padding: 6px var(--space-5);
-  border-bottom: 1px solid transparent;
-  border-image: linear-gradient(var(--hairline) 0 0) 0 0 1 0 / 0 0 1px 0 / 0 100vw;
+  max-width: none; min-height: var(--gnav-h);
+  padding: 0 max(var(--space-5), calc((100% - 1040px) / 2));
+  border-bottom: 1px solid color-mix(in srgb, var(--hairline) 70%, transparent);
 }
+.gnav::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: var(--chrome);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.jumpnav { top: var(--gnav-h); }
 .gnav .brand {
   justify-self: start; margin: 0; font-family: var(--serif); font-weight: 600;
   font-size: 1.1875rem; letter-spacing: -.02em;
@@ -2859,6 +2880,7 @@ main:has(.ed) { max-width: 1080px; }
 }
 
 @media (max-width: 720px) {
+  :root { --gnav-h: 92px; }
   .gnav { grid-template-columns: 1fr auto; row-gap: 2px; padding: 8px 16px; }
   .gnav .brand { grid-column: 1; grid-row: 1; }
   .mast-tools { grid-column: 2; grid-row: 1; }
@@ -2872,6 +2894,7 @@ main:has(.ed) { max-width: 1080px; }
   .ed .plate-frame { padding: 20px; border-radius: 18px; }
 }
 @media (prefers-reduced-transparency: reduce) {
+  .gnav::before { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; }
   .settings-panel, .navsearch-panel { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 @media (prefers-contrast: more) {
@@ -2881,3 +2904,65 @@ main:has(.ed) { max-width: 1080px; }
 @media (prefers-reduced-motion: reduce) {
   .gnav .navlink, .navsearch-btn, .set-btn { transition: opacity .2s linear, background-color .2s linear; }
 }
+
+/* --- The landing as an apple.com-style tile grid: two full-width tiles,
+       then pairs. Each tile is the surface — copy centred at the top, the
+       live panel anchored to the bottom — and some tiles are dark even in
+       light mode, through tile-local tokens, the way apple.com mixes them.
+       Hovering a tile eases its panel up to 1.02 (taste's photo zoom) and
+       the panel's own data replay still runs (edition.js). --- */
+.ed-body {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.ed-sec {
+  min-height: 600px; border-radius: 24px; overflow: hidden;
+  background: var(--card); color: var(--text); border-image: none;
+  padding: 56px 40px 40px; gap: 28px; justify-content: flex-start;
+}
+.ed-sec:nth-child(even) { border-image: none; }
+.ed-sec:nth-child(even) .plate-frame { background: none; }
+#markets, #news { grid-column: span 2; min-height: 640px; }
+.tile-dark {
+  --card: #000000; --bg: #1c1c1e; --text: #f5f5f7; --muted: #a1a1a6;
+  --hairline: #38383a; --accent: #30d158; --accent-deep: #1f7a3a;
+  --up: #30d158; --down: #ff453a; --wash: rgba(245, 245, 247, .06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+.ed-statement { font-size: clamp(2rem, 3.4vw, 2.75rem); }
+#markets .ed-statement, #news .ed-statement { font-size: clamp(2.25rem, 4.6vw, 3.5rem); }
+.ed-lede { font-size: 1.0625rem; }
+.ed .plate { margin-top: auto; transition: transform var(--t-spring) var(--spring); }
+/* overflow visible: with no padding, a clipped frame shaved the overhang off
+   glyphs on the left edge ("Top gainers" lost half its T). The sparkline
+   keeps its own clip on .wl-chart. */
+.ed .plate-frame { background: none; padding: 0; box-shadow: none; overflow: visible; }
+.ed .plate-frame::before { display: none; }
+.plate:hover .plate-frame, .plate:focus-within .plate-frame { transform: none; box-shadow: none; }
+.ed-sec:hover .plate { transform: scale(1.02); }
+/* Panels that need a surface of their own inside the tile. */
+.nw-card, .wk-mail, .ot-a { background: var(--bg); }
+.ed-go a {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 18px;
+  border-radius: 980px; text-decoration: none; font-size: .9375rem;
+  border: 1px solid var(--accent); color: var(--accent); margin: 4px 5px;
+}
+.ed-go a::after { content: none; }
+.ed-go a:hover { text-decoration: none; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+@media (max-width: 860px) {
+  .ed-body { grid-template-columns: minmax(0, 1fr); }
+  #markets, #news { grid-column: auto; }
+  .ed-sec, #markets, #news { min-height: 0; padding: 40px 20px 28px; border-radius: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed .plate { transition: none; }
+  .ed-sec:hover .plate { transform: none; }
+}
+
+/* Inline SVG icons (templates/_icons.html) sit on the text baseline and take
+   the control's colour. */
+.ico { display: inline-block; vertical-align: -0.15em; flex: none; }
+.scr-star .ico { color: var(--amber); }
+/* Tappable controls: no double-tap-zoom delay, and a pointer cursor on every
+   clickable (ui-animation, ui-ux-pro-max). */
+a, button, summary, [role="button"], .seg a, .nw-tab { touch-action: manipulation; }
+button, summary, [role="button"], label[for] { cursor: pointer; }
