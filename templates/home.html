@@ -13,10 +13,9 @@
      name IS the sentence. #}
   <p class="hero-eyebrow" id="greet">{{ greeting }}</p>
   {# taste audit (2026-11-06): the h1 names the category and the buyer; the
-     brand line "When you invest, invest right." was a slogan in the h1. The
-     sub-line carries the first screen's one hard fact. #}
+     brand line "When you invest, invest right." was a slogan in the h1.
+     Arka dropped the explanatory sub-line under it (2026-11-06). #}
   <h1 class="hero-display">Free stock research for US and Indian investors</h1>
-  <p class="hero-sub">Health scores, a fair-value estimate and a plain-English read for any US or Indian listed company. 553 S&amp;P&nbsp;500 and NIFTY&nbsp;50 stocks ranked every night, no account needed.</p>
 
 
   {# Market is chosen by the US/India/Both segs on /today, /watchlist and
@@ -66,7 +65,7 @@
 </section>
 
 {# ===== The edition ======================================================
-   Twelve numbered sections, one idea each, after the Renaissance-Edition
+   Eleven numbered sections, one idea each, after the Renaissance-Edition
    layout Arka asked for (Shopify Editions Winter '26): a persistent roman-
    numeral index that tracks the scroll, a serif statement and a drop-capped
    benefit line per section, and a "plate" beside it. We copy the structure,
@@ -80,7 +79,7 @@
   ('markets', 'I', 'Markets'), ('news', 'II', 'News'), ('earnings', 'III', 'Earnings'),
   ('health', 'IV', 'Five questions'), ('value', 'V', 'Fair value'), ('watch', 'VI', 'Watchlist'),
   ('portfolio', 'VII', 'Portfolio'), ('strategies', 'VIII', 'Strategies'), ('today', 'IX', 'Today'),
-  ('otto', 'X', 'Ask Otto'), ('weekly', 'XI', 'The weekly note'), ('open', 'XII', 'Open book')] %}
+  ('otto', 'X', 'Ask Otto'), ('weekly', 'XI', 'The weekly note')] %}
 <div class="ed">
 <nav class="ed-index" aria-label="Sections">
   <ol>
@@ -394,24 +393,6 @@
         <span class="wk-line" style="--i: 1"></span>
         <span class="wk-line short" style="--i: 2"></span>
       </div>
-    </div>
-  </figure>
-</section>
-
-{# XII — Open book. #}
-<section class="ed-sec tint-earnings" id="open" aria-labelledby="open-h">
-  <div class="ed-copy">
-    <p class="ed-kicker"><span>XII.</span> Open book</p>
-    <h2 class="ed-statement" id="open-h">Open-source rules, free to use</h2>
-    <p class="ed-lede">No ads, no paywall, no tips. The code behind every score is on GitHub for anyone to read, question, or improve.</p>
-    <p class="ed-go"><a href="https://github.com/arkapchaudhuri-investright/investright" rel="noopener">Read the code →</a> &nbsp; <a href="{{ url_for('team') }}">Meet the team →</a></p>
-  </div>
-  <figure class="plate plate-open" tabindex="-1">
-    <div class="plate-frame op-frame">
-      <code style="--i: 0"><span class="op-c"># three of the six Health checks, from metrics.py</span></code>
-      <code style="--i: 1">(ca &gt; cl)      <span class="op-c"># short-term assets cover short-term bills</span></code>
-      <code style="--i: 2">de &lt; 40        <span class="op-c"># debt under 40% of equity</span></code>
-      <code style="--i: 3">icov &gt; 3       <span class="op-c"># interest covered 3× by profit</span></code>
     </div>
   </figure>
 </section>

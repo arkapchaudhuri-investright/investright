@@ -48,13 +48,10 @@
 {% block head %}{% endblock %}
 </head>
 <body>
-{# The Ledger masthead (2026-11 revamp): a dateline and the tools either side
-   of a centred wordmark, then the sections on a ruled row underneath — a
-   financial almanac's front page rather than an app bar. Still NOT sticky:
-   the gear panel's z-index story depends on .topbar making no stacking
-   context (see style.css). #}
-<header class="topbar masthead">
-  <p class="mast-date">{{ edition_date }}<span class="mast-ed"> · US &amp; India edition</span></p>
+{# Global nav (2026-11 Apple-style revamp): one compact row — wordmark, the
+   sections, then search and the gear. Still NOT sticky: the gear panel's
+   z-index story depends on .topbar making no stacking context (style.css). #}
+<header class="topbar gnav">
   <a class="brand" href="{{ url_for('home') }}">Invest<span class="brand-accent">Right</span></a>
   <nav class="topnav" aria-label="Sections">
     <a class="navlink{{ ' nav-on' if request.path == url_for('today') }}"

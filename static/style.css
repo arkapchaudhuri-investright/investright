@@ -1,8 +1,9 @@
-/* InvestRight — "The Ledger" (2026-11 revamp): a financial almanac. Warm
-   paper and near-black ink by day, an ink-dark night edition after hours,
-   square corners, and a heavy ink rule heading every card the way a ledger
-   heads its columns. Fraunces is the editorial voice, Inter the figures.
-   Earlier identity: "Claude-calm meets SWS-visual" (DESIGN.md §5). */
+/* InvestRight — Apple-style (2026-11 revamp, after the apple-design and
+   taste skills): the system font, near-white grey ground with white cards by
+   day and true black with #1c1c1e cards by night, generous radii, pill
+   buttons, iOS-style segmented controls, a quiet compact nav, and big tight
+   bold headlines. Earlier identities: "The Ledger" (draft, never shipped) and
+   "Claude-calm meets SWS-visual" (DESIGN.md §5). */
 
 /* Brand type: Fraunces (serif voice — greeting, takeaways, page titles) +
    Inter (data/UI). Self-hosted variable woff2, latin subset (~115 KB total),
@@ -21,8 +22,8 @@
 }
 
 :root {
-  --bg: #11130f;
-  --card: #181a16;
+  --bg: #000000;
+  --card: #1c1c1e;
   /* Landing-tile tints. One family, walked along the green→teal→moss axis
      rather than picked independently, so four categories read as four shades
      of this product and not four different brands. Each is used as a low-alpha
@@ -32,30 +33,32 @@
   --tint-earnings: #8a9b3a;   /* moss, one step warmer */
   --tint-explore:  #4a8f63;   /* soft forest, for the feature tiles */
   /* Floating chrome: a material, not an opaque bar (see .jumpnav). */
-  --chrome: rgba(17, 19, 15, .76);
+  --chrome: rgba(22, 22, 23, .8);
   --chrome-edge: rgba(255, 255, 255, .07);
-  --hairline: #2c2f29;
-  --text: #ece8dd;
-  --muted: #9d998c;
-  --accent: #3db389;
-  --up: #45c191;
-  --down: #ea735f;
-  --amber: #d9a03d;
+  --hairline: #38383a;
+  --text: #f5f5f7;
+  --muted: #a1a1a6;
+  --accent: #30d158;
+  --up: #30d158;
+  --down: #ff453a;
+  --amber: #ff9f0a;
   /* Brand green is 3.4:1 under white — fine for the large CTAs, not for small
      text. Small white-on-green pills (active segments, badges, chat bubbles)
      sit on this deeper shade instead: 4.9:1 with white, same hue family. */
-  --accent-deep: #13805b;
-  --edge: #6f6d63;           /* form-field borders: ≥3:1 vs bg/card (WCAG 1.4.11) */
-  --radius: 2px;
-  /* Inter leads for all data/UI; system sans covers the font-swap window and
-     any glyph outside the latin subset. */
-  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  /* Fraunces is the brand's serif voice — greeting, card takeaways, page
-     titles (.serif). Georgia is the closest system fallback during swap. */
-  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --accent-deep: #1f7a3a;
+  --edge: #6e6e73;           /* form-field borders: ≥3:1 vs bg/card (WCAG 1.4.11) */
+  --radius: 18px;
+  --seg-on: #636366;   /* iOS segmented control: the selected segment */
+  /* The system font first (SF Pro on Apple devices, per apple-design §15);
+     self-hosted Inter covers everything else. */
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Display face: SF Pro Display on Apple devices, Inter elsewhere. The
+     name --serif survives from the Fraunces era so every rule that used it
+     follows without a rename; Fraunces is no longer requested. */
+  --serif: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --shadow: rgba(0, 0, 0, .4);
   --shadow-pop: rgba(0, 0, 0, .5);   /* floating surfaces: menus, dialogs, chat */
-  --wash: rgba(236, 232, 221, .05);  /* row-hover tint — theme-aware, unlike a hardcoded rgba */
+  --wash: rgba(245, 245, 247, .06);  /* row-hover tint — theme-aware, unlike a hardcoded rgba */
   /* Spacing rhythm + type ramp (phase 1). New rules reach for these instead of
      magic numbers; existing rules migrate opportunistically as they're touched.
      The ramp names the sizes the sheet actually uses most, so adopting a token
@@ -90,51 +93,53 @@
    contrast as *text* on the pale background; the low-opacity rgba tints reused
    as backgrounds stay soft washes in both themes. */
 :root[data-theme="light"] {
-  --bg: #f3efe6;
-  --card: #faf8f3;
-  --chrome: rgba(243, 239, 230, .78);
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --chrome: rgba(255, 255, 255, .72);
   --chrome-edge: rgba(255, 255, 255, .55);
-  --hairline: #dcd5c6;
+  --hairline: #d2d2d7;
   --tint-movers:   #15805f;
   --tint-news:     #0f7284;
   --tint-earnings: #6b7a1f;
   --tint-explore:  #2f6b4a;
 
-  --text: #1c1a16;
-  --muted: #67635a;
-  --accent: #0e6b4e;
-  --up: #0f7a52;
-  --down: #b23f2d;
-  --amber: #8a6114;
-  --accent-deep: #0e6b4e;
-  --edge: #938d7f;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --accent: #1d7a3e;
+  --up: #1d7a3e;
+  --down: #d70015;
+  --amber: #a35200;
+  --accent-deep: #1d7a3e;
+  --edge: #86868b;
   --shadow: rgba(0, 0, 0, .12);
   --shadow-pop: rgba(0, 0, 0, .16);
-  --wash: rgba(28, 26, 22, .05);
+  --wash: rgba(0, 0, 0, .04);
+  --seg-on: #ffffff;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
-    --bg: #f3efe6;
-    --card: #faf8f3;
-    --chrome: rgba(243, 239, 230, .78);
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --chrome: rgba(255, 255, 255, .72);
     --chrome-edge: rgba(255, 255, 255, .55);
-    --hairline: #dcd5c6;
+    --hairline: #d2d2d7;
     --tint-movers:   #15805f;
     --tint-news:     #0f7284;
     --tint-earnings: #6b7a1f;
     --tint-explore:  #2f6b4a;
 
-    --text: #1c1a16;
-    --muted: #67635a;
-    --accent: #0e6b4e;
-    --up: #0f7a52;
-    --down: #b23f2d;
-    --amber: #8a6114;
-    --accent-deep: #0e6b4e;
-    --edge: #938d7f;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --accent: #1d7a3e;
+    --up: #1d7a3e;
+    --down: #d70015;
+    --amber: #a35200;
+    --accent-deep: #1d7a3e;
+    --edge: #86868b;
     --shadow: rgba(0, 0, 0, .12);
     --shadow-pop: rgba(0, 0, 0, .16);
-    --wash: rgba(28, 26, 22, .05);
+    --wash: rgba(0, 0, 0, .04);
+    --seg-on: #ffffff;
   }
 }
 /* Theme change eases rather than snaps — but only if the user allows motion. */
@@ -532,11 +537,6 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   font-family: var(--sans); font-weight: 800; letter-spacing: -.022em;
   font-size: clamp(2rem, 4.4vw, 3.5rem); line-height: 1.05; text-wrap: balance;
   max-width: 16em; margin: 0 auto 16px; color: var(--text);
-}
-/* The first screen's one hard fact (taste audit). */
-.hero-sub {
-  max-width: 36em; margin: 0 auto 28px; color: var(--muted);
-  font-size: 1rem; line-height: 1.6; text-wrap: pretty;
 }
 .hero-accent { color: var(--accent); }
 .sub { color: var(--muted); margin: 0 0 26px; }
@@ -2638,10 +2638,6 @@ main:has(.ed) { max-width: 1440px; }
 .wk-line { display: block; height: 7px; border-radius: 4px; background: var(--hairline); transform-origin: left; }
 .wk-line.short { width: 60%; }
 
-/* XII — open book */
-.op-frame { justify-content: center; gap: 6px !important; }
-.op-frame code { font-size: .8125rem; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
-.op-c { color: var(--muted); }
 
 /* --- Replays. edition.js adds .replay to a plate on pointer-enter/focus and
        removes it when the last animation ends, so a quick in-and-out never
@@ -2655,7 +2651,7 @@ main:has(.ed) { max-width: 1440px; }
   .replay .sn-shape { animation: ed-bloom var(--t-spring) var(--spring) both; }
   .replay .wl-cover { animation: ed-sweep .9s var(--ease-out) both; }
   .replay .ed-donut path { animation: ed-bloom var(--t-spring) var(--spring) both; animation-delay: calc(var(--i, 0) * 45ms); }
-  .replay .pf-legend li, .replay .st-row, .replay .op-frame code, .replay .nw-rail:not([hidden]) .nw-card {
+  .replay .pf-legend li, .replay .st-row, .replay .nw-rail:not([hidden]) .nw-card {
     animation: ed-rise var(--t-spring) var(--spring) both; animation-delay: calc(var(--i, 0) * 50ms);
   }
   .replay .wk-line { animation: ed-grow var(--t-spring) var(--spring) both; animation-delay: calc(120ms + var(--i, 0) * 60ms); }
@@ -2698,106 +2694,110 @@ main:has(.ed) { max-width: 1440px; }
   .plate-frame { outline-offset: 3px; }
 }
 
-/* ===== The Ledger (2026-11 revamp) ======================================= */
-/* One layer, last in the sheet, so every page takes the new identity from the
-   same place: the masthead, square controls, ruled cards, sentence-case table
-   heads and a colophon footer. Earlier rules stay underneath for geometry;
-   this layer only restyles them. */
+/* ===== Apple-style layer (2026-11 revamp) ================================ */
+/* Last in the sheet so every page takes it from one place. Built from the
+   apple-design skill (system font, size-specific tracking, materials only on
+   floating surfaces, springs, all three accessibility preferences) and the
+   taste skill (one button pair, one radius family, sentence case, 13px floor). */
 
-/* --- Masthead. Row 1: dateline · wordmark · tools. Row 2: the sections on a
-       double rule. Grid, not sticky (no stacking context, see the gear). --- */
-.masthead {
+body { font-size: 1rem; letter-spacing: -.003em; }
+
+/* --- Global nav: one quiet row, links centred, a full-bleed hairline under
+       it (border-image paints outside the box without scroll overflow). --- */
+.gnav {
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-  /* 1440, the edition's width, so the masthead rules and the landing's
-     contents index share one left and right edge. */
-  max-width: 1440px; padding: 22px var(--space-5) 0; gap: 0 var(--space-4);
+  max-width: 1080px; min-height: 52px; padding: 6px var(--space-5);
+  border-bottom: 1px solid transparent;
+  border-image: linear-gradient(var(--hairline) 0 0) 0 0 1 0 / 0 0 1px 0 / 0 100vw;
 }
-.mast-date {
-  margin: 0; justify-self: start; font-size: .8125rem; color: var(--muted);
-  font-variant-numeric: lining-nums;
+.gnav .brand {
+  justify-self: start; margin: 0; font-family: var(--serif); font-weight: 600;
+  font-size: 1.1875rem; letter-spacing: -.02em;
 }
-.masthead .brand {
-  justify-self: center; margin: 0; font-family: var(--serif); font-weight: 500;
-  font-size: clamp(1.75rem, 3.2vw, 2.5rem); letter-spacing: -.015em; line-height: 1;
+.gnav .topnav { justify-self: center; gap: 28px; }
+.gnav .navlink {
+  color: var(--text); opacity: .8; font-size: .875rem; padding: 10px 0;
+  transition: opacity 140ms var(--ease-out);
 }
-.masthead .brand-accent { color: var(--accent); }
-.mast-tools {
-  grid-column: 3; grid-row: 1; justify-self: end;
-  display: flex; align-items: center; gap: var(--space-2);
+.gnav .navlink:hover { opacity: 1; }
+.gnav .navlink.nav-on { opacity: 1; font-weight: 600; }
+.gnav .badge {
+  background: var(--wash); color: var(--muted); font-size: .75rem;
+  padding: 1px 6px; margin-left: 5px; border-radius: 980px;
 }
-.mast-date { grid-column: 1; grid-row: 1; }
-.masthead .brand { grid-column: 2; grid-row: 1; }
-.masthead .topnav {
-  grid-column: 1 / -1; grid-row: 2; justify-content: center; gap: clamp(16px, 3vw, 40px);
-  margin-top: 18px; padding: 9px 0 8px;
-  border-top: 3px double var(--text); border-bottom: 1px solid var(--text);
+.mast-tools { justify-self: end; display: flex; align-items: center; gap: 4px; }
+.navsearch-btn, .set-btn {
+  width: 36px; height: 36px; border: 0; border-radius: 50%; background: none;
+  color: var(--text); transition: background-color 140ms var(--ease-out);
 }
-.masthead .navlink {
-  color: var(--text); font-size: .9375rem; font-weight: 500; padding: 4px 0;
-  border-bottom: 2px solid transparent;
-  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out);
+.navsearch-btn:hover, .set-btn:hover, .settings[open] .set-btn, .navsearch[open] .navsearch-btn {
+  background: var(--wash); border: 0;
 }
-.masthead .navlink:hover { color: var(--accent); }
-.masthead .navlink.nav-on { border-bottom-color: var(--accent); }
-.masthead .badge {
-  background: none; color: var(--accent); padding: 0; margin-left: 5px;
-  font-size: .8125rem; font-weight: 600; border-radius: 0;
-}
-.masthead .badge::before { content: "("; } .masthead .badge::after { content: ")"; }
-.navsearch-btn, .set-btn { border-radius: 2px; width: 38px; height: 38px; border-color: var(--hairline); }
 .set-btn svg { fill: var(--text); }
-.settings-panel { border-radius: 4px; border-top: 3px solid var(--text); }
+/* The gear panel floats over content, so it is a material (apple-design §12). */
+.settings-panel {
+  border-radius: 14px; border: 1px solid var(--hairline);
+  background: var(--chrome); backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.navsearch-panel { background: var(--chrome); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); }
 
-/* The wire: the ticker tape becomes a thin newsprint strip under the rule. */
-.tape { background: none; border-bottom: 1px solid var(--hairline); }
+/* The tape: no box, edges fading out rather than cut. */
+.tape {
+  background: none; border-bottom: 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
 .tape-item { font-size: .8125rem; }
 
-/* --- Square controls. One primary (accent fill), one secondary (ink
-       outline); both 44px, 2px corners. --- */
-.btn-analyze, .btn-watch, .ghost, .wl-toggle, .seg, .suggest, .search-bar input,
-.auth-form input, .navsearch-panel .navsearch-suggest { border-radius: 2px; }
+/* --- Controls. One filled pill (primary), one outline pill (secondary). --- */
 .btn-analyze {
-  background: var(--accent-deep); min-height: 44px; font-weight: 500;
-  letter-spacing: .005em;
+  border-radius: 980px; min-height: 44px; padding: 0 22px; font-size: 1rem;
+  font-weight: 500; background: var(--accent-deep);
 }
 .btn-watch, .ghost {
-  color: var(--text); border-color: var(--text); min-height: 44px;
+  border-radius: 980px; color: var(--accent); border: 1px solid var(--accent);
+  background: none;
 }
-.btn-watch:hover, .ghost:hover { color: var(--accent); border-color: var(--accent); }
-.seg { border-color: var(--text); }
-.seg a.active { background: var(--text); color: var(--bg); }
-.search-bar input { background: var(--card); border-color: var(--text); min-height: 52px; font-size: 1rem; }
-
-/* One radius family: every button, chip, tag and select is square-cornered
-   now. Dots, step markers and the round icon buttons stay round — those are
-   circles by meaning, not pills by habit. */
+.btn-watch { min-height: 44px; font-size: 1rem; padding: 0 22px; }
+.btn-watch:hover, .ghost:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); border-color: var(--accent); }
 .btn-danger, .hero-chip, .port-panel > .port-btn, .bk-open, .jumpnav a,
-.senti-pick select, .flow-form select, .explain-btn, .ao-chip, #ao-input, .hd-btn,
-.nw-tab, .pnl-pill, .sig-chip > summary, .sig-chip-mini, .sig-tag, .reason,
-.srow-tick, .hd-axis, .imp-tag, .ins-act, .bk-pill { border-radius: 2px; }
-
-/* --- Ruled cards: flat paper with a heavy ink rule on top, no rounding. --- */
-.card, .bento-tile, .plate-frame, .wl-card, .port-panel {
-  border-radius: 2px; box-shadow: none;
+.explain-btn, .ao-chip, .hd-btn, .nw-tab, .pnl-pill, .sig-chip > summary,
+.sig-chip-mini, .sig-tag, .reason, .srow-tick, .hd-axis, .imp-tag, .ins-act,
+.bk-pill, .wl-toggle { border-radius: 980px; }
+/* iOS segmented control: a grey track, the chosen segment a raised pill. */
+.seg {
+  border: 0; border-radius: 10px; padding: 2px; gap: 2px;
+  background: rgba(118, 118, 128, .14);
 }
-.card { border-top: 2px solid var(--text); }
-.card-head h2, .card-head h3 {
-  font-family: var(--serif); font-weight: 500; font-size: 1.25rem; letter-spacing: -.01em;
+.seg a { border-radius: 8px; padding: 6px 14px; color: var(--text); }
+.seg a.active {
+  background: var(--seg-on); color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .04);
 }
-.bento-tile { border-top: 2px solid var(--text); }
-.bento-tile:hover { box-shadow: none; border-color: var(--accent); border-top-color: var(--accent); }
+.search-bar input {
+  border-radius: 14px; min-height: 52px; font-size: 1.0625rem;
+  border: 1px solid var(--hairline); background: var(--card);
+}
+.search-bar input:focus, .auth-form input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.suggest { border-radius: 14px; }
+.auth-form input { border-radius: 12px; border-color: var(--hairline); }
 
-/* Tables read like a ledger: sentence-case heads on an ink rule, tabular
-   figures throughout. */
+/* --- Cards: borderless white on grey by day, #1c1c1e on black by night.
+       Tiles nested inside a card take the ground colour, so nothing is a box
+       drawn inside a box of the same colour. --- */
+.card { border: 0; border-radius: 18px; padding: 24px; }
+.card-head h2, .card-head h3 { font-family: var(--serif); font-weight: 600; font-size: 1.1875rem; letter-spacing: -.012em; }
+.bento-tile { background: var(--bg); border-color: transparent; border-radius: 14px; }
+.bento-tile:hover { border-color: transparent; box-shadow: 0 8px 24px rgba(0, 0, 0, .08); }
 th {
-  text-transform: none; letter-spacing: 0; font-size: .8125rem; color: var(--text);
-  font-weight: 600; border-bottom: 1px solid var(--text);
+  text-transform: none; letter-spacing: 0; font-size: .8125rem;
+  color: var(--muted); font-weight: 500;
 }
 table { font-variant-numeric: tabular-nums; }
-
-/* No tracked capitals anywhere (taste): every small label the older sheet
-   set in uppercase reads in sentence case at 13px instead. SVG chart text
-   (.donut-cap) keeps px sizing and is left alone. */
 .hero-trending-label, .xchg, .bento-k, .verdict-label, .axis-h, .ins-act,
 .peer-badge, .member-role, .wl-metrics span, .wl-rangewrap .rl {
   text-transform: none; letter-spacing: 0;
@@ -2805,53 +2805,79 @@ table { font-variant-numeric: tabular-nums; }
 .bento-k, .verdict-label, .axis-h, .member-role { font-size: .8125rem; font-weight: 500; }
 .wl-metrics span, .wl-rangewrap .rl { font-size: .75rem; }
 
-/* Page titles take the editorial voice. */
-.head-row h1, .page-title, main > h1 { font-family: var(--serif); font-weight: 500; letter-spacing: -.015em; }
-
-/* --- Colophon footer: a double rule, the wordmark small, the credit. --- */
-footer {
-  max-width: 1400px; margin-top: var(--space-6);
-  border-top: 3px double var(--text); padding-top: var(--space-5);
-}
-footer::before {
-  content: "InvestRight"; display: block; font-family: var(--serif);
-  font-size: 1.25rem; font-weight: 500; color: var(--text); margin-bottom: 4px;
-}
-
-/* --- The edition (landing) in Ledger dress. Plates lose the folio double
-       frame for the ledger's ink rule; the index reads like a contents page. */
-.plate-frame { outline: none; border-top: 2px solid var(--text); }
-.ed-index ol { border-left: 0; }
-.ed-index a { border-left: 0; padding-left: 0; border-bottom: 1px solid var(--hairline); padding-block: 7px; }
-.ed-index a[aria-current="true"] { color: var(--accent); }
-.ed-statement { font-size: clamp(2.25rem, 4.2vw, 3.75rem); line-height: 1.02; letter-spacing: -.025em; }
-.ed-sec:nth-child(even) { border-image: none; }
-.ed-sec + .ed-sec { border-top: 1px solid var(--hairline); }
-
-/* The hero becomes the front page's lead: a big serif headline, ruled off. */
+/* Display type: heavy, tight, short leading (apple-design §15). */
+.head-row h1, .page-title, main > h1, .hero h1 { font-weight: 700; letter-spacing: -.025em; }
 .hero-home .hero-display {
-  font-family: var(--serif); font-weight: 500; letter-spacing: -.03em;
-  font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1; max-width: 14em;
+  font-family: var(--serif); font-weight: 700; letter-spacing: -.035em;
+  font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.05; max-width: 13em;
+  margin-bottom: 32px;
 }
 
-/* --- Phones: the masthead folds to wordmark + tools, the dateline drops
-       under it, and the section row scrolls sideways on its rule. --- */
-@media (max-width: 720px) {
-  .masthead { grid-template-columns: 1fr auto; padding: 14px 16px 0; }
-  .masthead .brand { grid-column: 1; grid-row: 1; justify-self: start; font-size: 1.75rem; }
-  .mast-tools { grid-column: 2; grid-row: 1; }
-  .mast-date { grid-column: 1 / -1; grid-row: 2; margin-top: 6px; }
-  .mast-ed { display: none; }
-  .masthead .topnav {
-    grid-row: 3; justify-content: flex-start; margin-top: 10px;
-    overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; gap: 22px;
-  }
-  .masthead .topnav::-webkit-scrollbar { display: none; }
-  .masthead .navlink { flex: 0 0 auto; white-space: nowrap; }
+/* --- Footer: small and quiet on a hairline. --- */
+footer {
+  max-width: 1080px; margin-top: var(--space-6); padding-top: var(--space-5);
+  border-top: 1px solid var(--hairline); font-size: .8125rem;
 }
-@media (prefers-reduced-motion: reduce) {
-  .masthead .navlink { transition: color .2s linear, border-color .2s linear; }
+
+/* --- The landing, Apple-style: centred sections, a big bold statement and
+       its line, then the live panel beneath. Bands alternate between the
+       ground and the card colour, and a panel takes the opposite one. The
+       numbered contents index and the drop caps belonged to the earlier
+       editorial look, so they go. --- */
+main:has(.ed) { max-width: 1080px; }
+.ed { display: block; }
+.ed-index { display: none; }
+.ed-sec {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 40px; padding: 120px 0 72px;
+}
+.ed-sec:nth-child(even) { border-image: linear-gradient(var(--card) 0 0) fill 0 / / 0 100vw; }
+.ed-sec:nth-child(even) .ed-copy { order: 0; }
+.ed-sec:nth-child(even) .plate-frame { background: var(--bg); }
+.ed-copy { max-width: 40rem; }
+.ed-kicker { font-size: 1.0625rem; font-weight: 600; margin-bottom: 8px; }
+.ed-kicker span { display: none; }
+.ed-statement {
+  font-family: var(--serif); font-weight: 700; letter-spacing: -.03em;
+  font-size: clamp(2.25rem, 4.6vw, 3.5rem); line-height: 1.06; margin-bottom: 16px;
+}
+.ed-lede { font-size: 1.1875rem; line-height: 1.5; max-width: 34em; margin: 0 auto; }
+.ed-lede::first-letter {
+  float: none; font: inherit; color: inherit; margin: 0; line-height: inherit;
+}
+.ed-go { font-size: 1.0625rem; font-weight: 400; }
+.ed-go a::after { content: " ›"; }
+.ed-go a { margin: 0 10px; }
+.plate { width: 100%; max-width: 880px; }
+.ed .plate-frame {
+  min-height: 0; border: 0; outline: none; border-radius: 22px; padding: 32px;
+  text-align: left;
+}
+.plate-frame::before { opacity: .35; }
+.plate:hover .plate-frame, .plate:focus-within .plate-frame {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .08);
+}
+
+@media (max-width: 720px) {
+  .gnav { grid-template-columns: 1fr auto; row-gap: 2px; padding: 8px 16px; }
+  .gnav .brand { grid-column: 1; grid-row: 1; }
+  .mast-tools { grid-column: 2; grid-row: 1; }
+  .gnav .topnav {
+    grid-column: 1 / -1; grid-row: 2; justify-self: stretch; justify-content: flex-start;
+    gap: 22px; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap;
+  }
+  .gnav .topnav::-webkit-scrollbar { display: none; }
+  .gnav .navlink { flex: 0 0 auto; white-space: nowrap; }
+  .ed-sec { padding: 96px 0 48px; gap: 32px; }
+  .ed .plate-frame { padding: 20px; border-radius: 18px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .settings-panel, .navsearch-panel { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 @media (prefers-contrast: more) {
-  .masthead .topnav { border-top-width: 4px; }
+  .card, .ed .plate-frame { border: 1px solid var(--edge); }
+  .seg { background: none; border: 1px solid var(--edge); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gnav .navlink, .navsearch-btn, .set-btn { transition: opacity .2s linear, background-color .2s linear; }
 }
