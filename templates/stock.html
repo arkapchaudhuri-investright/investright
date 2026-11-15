@@ -118,6 +118,7 @@
    scoring/statement sections live inside the `has_data` branch below, so they
    are gated on it too. #}
 <nav class="jumpnav" aria-label="Jump to section">
+  {% if event_card %}<a href="#snapshot">Snapshot</a>{% endif %}
   <a href="#trend">Trend</a>
   {% if has_data %}
   <a href="#snowflake">Score</a>
@@ -134,6 +135,9 @@
   {% if news %}<a href="#news">News</a>{% endif %}
   {% if current_user %}<a href="#notes">Notes</a>{% endif %}
 </nav>
+
+{# Lead widget: the valuation re-framed around the stock's latest event. #}
+{% include "_event_snapshot.html" %}
 
 {# Otto's verdict, bento edition (long-scroll fix): the page's payoff as a grid
    of glanceable tiles — score radar, fair-value gap, health, price move, growth,

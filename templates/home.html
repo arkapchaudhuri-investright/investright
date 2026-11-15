@@ -67,6 +67,19 @@
   {# The watchlist itself lives on /watchlist now — home stays search-only. #}
 </section>
 
+{# The lead widget: the featured company's event snapshot — the same card that
+   opens every deep-dive, so the first thing a visitor meets is the product
+   doing its job on a real stock. It is the company the plates in IV–VI are
+   drawn from. Nothing renders on an empty database. #}
+{% if home_snapshot %}
+<div class="evs-home">
+  {% with event_card = home_snapshot.card, s = home_snapshot.stock,
+          evs_more = url_for('stock', ticker=home_snapshot.stock.ticker) %}
+  {% include "_event_snapshot.html" %}
+  {% endwith %}
+</div>
+{% endif %}
+
 {# ===== The edition ======================================================
    Eleven numbered sections, one idea each, after the Renaissance-Edition
    layout Arka asked for (Shopify Editions Winter '26): a persistent roman-

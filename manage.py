@@ -366,6 +366,37 @@ def backfill_industry(apply=False):
               else "\ndry run — re-run with --apply to write")
 
 
+def event_snapshots(limit=None, apply=False):
+    """Backfill the deep-dive's event snapshot for every saved stock, rather
+    than waiting for the nightly pass: forward consensus (one Yahoo snapshot
+    each) and the AI's read of the week's headlines (capped + paced exactly as
+    the cron does it). Dry run by default — it reports how many it would touch."""
+    import digest          # also loads .env, so the AI keys are in the environment
+    import event_snapshot
+    import fetch
+    from db import save_snapshot
+    with get_conn() as conn:
+        tickers = [r["ticker"] for r in conn.execute(
+            "SELECT s.ticker FROM stocks s LEFT JOIN forward_est f ON f.ticker = s.ticker "
+            "WHERE s.exchange IS NULL OR s.exchange != 'INDEX' "
+            "ORDER BY f.ticker IS NOT NULL, s.ticker")]
+    if limit:
+        tickers = tickers[:limit]
+    print(f"{len(tickers)} stocks · AI provider: "
+          f"{', '.join(n for n, _ in digest.providers()) or 'none configured'}")
+    if not apply:
+        print("DRY RUN — nothing fetched or written. Re-run with --apply.")
+        return
+    snaps = fetch.snapshot_many(tickers)
+    with get_conn() as conn:
+        for snap in snaps:
+            save_snapshot(conn, snap)
+        have = conn.execute("SELECT COUNT(*) c FROM forward_est").fetchone()["c"]
+    print(f"snapshots {len(snaps)}/{len(tickers)} · forward consensus saved for {have}")
+    if digest.providers():
+        print("events:", event_snapshot.refresh_events(get_conn, tickers, digest._run))
+
+
 def enrich_execs(reset=False):
     """Recover / fill leadership photos+bios across ALL stocks (the nightly
     refresh only enriches watchlist tickers). First re-links any cached photo
@@ -466,6 +497,13 @@ def main():
     ad.add_argument("--apply", action="store_true",
                     help="actually write (default is a dry run)")
 
+    es = sub.add_parser("event-snapshots",
+                        help="backfill the deep-dive event snapshot (forward "
+                             "consensus + AI event read) for every saved stock")
+    es.add_argument("--limit", type=int, help="only the first N stocks")
+    es.add_argument("--apply", action="store_true",
+                    help="actually fetch + write (default is a dry run)")
+
     args = ap.parse_args()
     if args.cmd == "set-admin":
         set_admin(args.email, args.revoke, args.apply)
@@ -475,6 +513,8 @@ def main():
         migrate_holdings(args.commit)
     elif args.cmd == "set-password":
         set_user_password(args.email, args.password, args.apply)
+    elif args.cmd == "event-snapshots":
+        event_snapshots(args.limit, args.apply)
     elif args.cmd == "enrich-execs":
         enrich_execs(args.reset)
     elif args.cmd == "backfill-industry":
