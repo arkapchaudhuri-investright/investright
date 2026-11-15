@@ -16,6 +16,7 @@ from flask import (Flask, abort, flash, g, jsonify, make_response, redirect,
 
 import analytics
 import digest
+import event_snapshot
 import fetch
 import logos
 import mailer
@@ -368,6 +369,59 @@ _EXAMPLE_BOOK = [("Index fund", 40), ("Large caps", 26), ("India", 16),
                  ("Bonds", 12), ("Cash", 6)]
 
 
+def _peer_candidates(conn, ticker, industry):
+    """Competitors of `ticker` (§4.9) as (peer, source, added_by): the curated
+    map ∪ community-added ∪ a same-industry fill from companies already
+    tracked. Source tags let the deep-dive make user-added ones deletable."""
+    curated = list(metrics.PEERS.get(ticker, []))
+    cand = [(p, "curated", None) for p in curated]
+    for r in user_peers_for(conn, ticker):
+        if r["peer"] not in curated and r["peer"] != ticker:
+            cand.append((r["peer"], "user", r["added_by"]))
+    listed = {p for p, _, _ in cand} | {ticker}
+    if industry:   # companies we already track in the same industry
+        ph = ",".join("?" * len(listed))
+        for r in conn.execute(
+                f"SELECT ticker FROM stocks WHERE industry=? AND exchange != 'INDEX' "
+                f"AND ticker NOT IN ({ph}) "
+                "ORDER BY ticker LIMIT 4", (industry, *listed)):
+            cand.append((r["ticker"], "industry", None))
+    return cand
+
+
+def _home_snapshot(conn, featured, ctx):
+    """The landing page's lead widget: the event snapshot of the same featured
+    company the analysis plates below are drawn from, so the page threads one
+    company through. Stored rows only; None when there is nothing to show."""
+    if not featured:
+        return None
+    try:
+        t = featured["ticker"]
+        s = conn.execute("SELECT * FROM stocks WHERE ticker=?", (t,)).fetchone()
+        snap = conn.execute("SELECT * FROM snapshots WHERE ticker=?", (t,)).fetchone()
+        dcf = conn.execute("SELECT * FROM dcf WHERE ticker=?", (t,)).fetchone()
+        if not s or not snap:
+            return None
+        factor, ccy = _fx_factor(s["currency"], ctx["ccy"], ctx["fx"])
+        snap, dcf = dict(snap), dict(dcf) if dcf else None
+        for k in _SNAP_MONEY:
+            if snap.get(k) is not None:
+                snap[k] *= factor
+        if dcf and dcf.get("fair_value"):
+            dcf["fair_value"] *= factor
+        raw = event_snapshot.load(
+            conn, t, [p for p, _, _ in _peer_candidates(conn, t, s["industry"])])
+        card = event_snapshot.view(t, raw, snap, s["next_earnings"], dcf, factor, ccy)
+        if not card:
+            return None
+        for e in card["events"]:         # chips open the deep-dive on that event
+            e["href"] = url_for("stock", ticker=t,
+                                **({} if e["latest"] else {"event": e["kind"]})) + "#snapshot"
+        return {"card": card, "stock": {"ticker": t, "name": s["name"]}}
+    except Exception:
+        return None                      # never let the lead widget 500 the home page
+
+
 def _home_featured(conn):
     """One tracked company the landing page's analysis plates are drawn from:
     the most-viewed of the last fortnight that has a stored DCF and scored
@@ -472,6 +526,7 @@ def home():
 
     with get_conn() as conn:
         featured = _home_featured(conn)
+        home_snapshot = _home_snapshot(conn, featured, ctx)
         tracked = conn.execute("SELECT COUNT(*) FROM stocks").fetchone()[0]
         picks = [dict(r) for r in conn.execute(
             "SELECT strategy, ticker, name, why FROM strategy_picks "
@@ -483,7 +538,7 @@ def home():
     resp = make_response(render_template(
         "home.html", greeting=greeting(), movers=movers, news_tabs=news_tabs,
         earnings=earnings, movers_as_of=movers_as_of, market=market,
-        featured=featured, tracked=tracked, picks=picks,
+        featured=featured, home_snapshot=home_snapshot, tracked=tracked, picks=picks,
         strategy_names={x["id"]: x["name"] for x in strategies_content.STRATEGIES},
         example_donut=metrics.allocation_donut(_EXAMPLE_BOOK, size=140, thickness=18),
         **ctx))
@@ -1651,21 +1706,7 @@ def stock(ticker):
             "SELECT * FROM user_alerts WHERE user_id=? AND ticker=? "
             "ORDER BY triggered_at IS NOT NULL, id", (user["id"], ticker))] if user else []
 
-        # Competitors strip (§4.9): curated map ∪ community-added ∪ same-industry
-        # fill, each tagged with its source (user-added ones are deletable).
-        curated = list(metrics.PEERS.get(ticker, []))
-        cand = [(p, "curated", None) for p in curated]
-        for r in user_peers_for(conn, ticker):
-            if r["peer"] not in curated and r["peer"] != ticker:
-                cand.append((r["peer"], "user", r["added_by"]))
-        listed = {p for p, _, _ in cand} | {ticker}
-        if s["industry"]:   # companies we already track in the same industry
-            ph = ",".join("?" * len(listed))
-            for r in conn.execute(
-                    f"SELECT ticker FROM stocks WHERE industry=? AND exchange != 'INDEX' "
-                    f"AND ticker NOT IN ({ph}) "
-                    "ORDER BY ticker LIMIT 4", (s["industry"], *listed)):
-                cand.append((r["ticker"], "industry", None))
+        cand = _peer_candidates(conn, ticker, s["industry"])
         peers = []
         for p, src, added_by in cand:
             prow = conn.execute(
@@ -1687,6 +1728,10 @@ def stock(ticker):
         insiders = [dict(r) for r in conn.execute(
             "SELECT * FROM insider_tx WHERE ticker=? ORDER BY filed_at DESC LIMIT 10",
             (ticker,))]
+
+        # Event snapshot (lead widget): saved forward consensus for this stock
+        # and its first few peers, plus the cron's read of the latest event.
+        snapshot_raw = event_snapshot.load(conn, ticker, [p for p, _, _ in cand])
 
         # Trend widget: saved daily closes, windowed by ?range= (1D is a live
         # JSON fetch client-side — see /stock/<t>/spark.json).
@@ -1907,9 +1952,27 @@ def stock(ticker):
     bento_snow = (metrics.snowflake(scores, cx=30, cy=30, R=25)
                   if scores and any(v is not None for v in scores.values()) else None)
 
+    # Event snapshot (lead widget) — built on the SAME dcf dict the Fair value
+    # card renders, so its Base scenario is that card's number by construction
+    # (stored row, on-the-fly recompute, or the reader's ?growth= overrides).
+    # Derived from saved rows; nothing is written on this GET (§3).
+    try:
+        event_card = event_snapshot.view(
+            ticker, snapshot_raw, snap, s["next_earnings"], dcf, factor, ccy,
+            selected=request.args.get("event"))
+        if event_card:                   # chips are plain links; keep ?ccy= etc.
+            keep = {k: v for k, v in request.args.items() if k != "event"}
+            for e in event_card["events"]:
+                e["href"] = url_for("stock", ticker=ticker, **keep,
+                                    **({} if e["latest"] else {"event": e["kind"]})
+                                    ) + "#snapshot"
+    except Exception:
+        event_card = None                # a lead widget must never 500 the page
+
     _log("view", ticker)
     return render_template(
         "stock.html", s=dict(s), snap=dict(snap) if snap else None,
+        event_card=event_card,
         earnings_days=earnings_days, bento_snow=bento_snow,
         logo=logos.find(ticker),
         ccy=ccy, native_ccy=s["currency"], dcf=dcf, price=price, overridden=overridden,

@@ -458,6 +458,19 @@ def allocation_donut(slices, size=140, thickness=18):
 
 
 # --- DCF (§8.4) ------------------------------------------------------------
+def dcf_fair(base, shares, growth, discount, terminal):
+    """Per-share value of `base` cash flow under one set of assumptions — the
+    DCF's arithmetic on its own, so compute_dcf and the event snapshot's
+    bull/base/bear range (event_snapshot.scenarios) can't drift apart."""
+    cash, pv = base, 0.0
+    for yr in range(1, 6):                          # stage 1: years 1–5 at `growth`
+        cash *= (1 + growth)
+        pv += cash / (1 + discount) ** yr
+    terminal_val = cash * (1 + terminal) / (discount - terminal)   # Gordon tail
+    pv += terminal_val / (1 + discount) ** 5
+    return pv / shares
+
+
 def compute_dcf(funds, price, shares, growth=None, discount=None, terminal=None):
     """2-stage DCF on FCF (fallback: net income). Returns None if too thin.
 
@@ -494,13 +507,7 @@ def compute_dcf(funds, price, shares, growth=None, discount=None, terminal=None)
         g = _cagr(flows[0], base, len(flows) - 1)
         growth = 0.0 if g is None else max(-GROWTH_CAP, min(GROWTH_CAP, g))
 
-    cash, pv = base, 0.0
-    for yr in range(1, 6):                          # stage 1: years 1–5 at `growth`
-        cash *= (1 + growth)
-        pv += cash / (1 + discount) ** yr
-    terminal_val = cash * (1 + terminal) / (discount - terminal)   # Gordon tail
-    pv += terminal_val / (1 + discount) ** 5
-    fair = pv / shares
+    fair = dcf_fair(base, shares, growth, discount, terminal)
     # Last guard: even normalised, a short or erratic series can produce a
     # number that isn't a valuation. Returning None puts the page into the
     # honest "can't value this yet" state it already renders, which beats

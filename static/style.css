@@ -3074,3 +3074,116 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
   .navsearch[open] .navsearch-scrim { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0, 0, 0, .55); }
 }
 @media (prefers-reduced-motion: reduce) { .s-go { transition: opacity .2s linear; transform: none !important; } }
+
+
+/* --- Event snapshot: the deep-dive's lead widget (templates/_event_snapshot.html).
+       One accent — the brand green — carries "this stock" and "Otto's lean";
+       everything else is the muted ink, so the eye lands on three things only:
+       the stock's own bar, the leaned-to mix, and the weighted range. --- */
+.evs-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.evs-kicker {
+  font-size: var(--fs-xs); font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted);
+}
+.evs-events { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 2px; }
+.evs-events-lab { font-size: var(--fs-xs); color: var(--muted); margin-right: 2px; }
+.evs-events a {
+  font-size: var(--fs-sm); padding: 4px 11px; border-radius: 999px; text-decoration: none;
+  color: var(--muted); border: 1px solid var(--hairline);
+  transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
+}
+.evs-events a:hover { color: var(--text); border-color: var(--edge); }
+.evs-events a.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.evs-headline {
+  font-family: var(--serif); font-weight: 600; font-size: 1.5rem; line-height: 1.2;
+  letter-spacing: -.018em; margin: 10px 0 6px; text-wrap: balance;
+}
+.evs-deck { margin: 0 0 18px; color: var(--muted); font-size: var(--fs-md); line-height: 1.5; max-width: 68ch; }
+.evs-cols {
+  display: grid; gap: 22px 22px; align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+}
+.evs-col { min-width: 0; }
+.evs-h {
+  margin: 0 0 8px; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--accent);
+}
+.evs-sub { margin: 0 0 8px; color: var(--muted); font-size: var(--fs-sm); text-align: left; caption-side: top; }
+.evs-note { margin: 10px 0 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; }
+.evs-src { margin: 6px 0 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.45; }
+.evs-src a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.evs-src a:hover { color: var(--accent); }
+
+/* shared row: label · bar · value */
+.evs-fpe, .evs-range { list-style: none; margin: 0; padding: 0; }
+.evs-fpe li, .evs-range li {
+  display: grid; align-items: center; column-gap: 8px;
+  font-size: var(--fs-body); font-variant-numeric: tabular-nums;
+}
+.evs-fpe li { grid-template-columns: 4.6rem 1fr 3.4rem; padding: 4px 0; }
+.evs-lab { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.evs-val { color: var(--muted); white-space: nowrap; }
+.evs-fpe-track { height: 14px; }
+.evs-fpe-bar { display: block; height: 100%; min-width: 3px; border-radius: 2px; background: var(--muted); opacity: .45; }
+.evs-fpe .is-self .evs-fpe-bar { background: var(--accent); opacity: 1; }
+.evs-fpe .is-self .evs-lab, .evs-fpe .is-self .evs-val { color: var(--text); font-weight: 600; }
+
+/* the range: label + value on one line, the bar on a full-width track under
+   it. Every track shares one scale, so the price tick lines up down the column. */
+.evs-range li { grid-template-columns: 1fr auto; row-gap: 3px; padding: 4px 0 6px; }
+.evs-track { position: relative; grid-column: 1 / -1; height: 14px; }
+.evs-bar {
+  position: absolute; top: 3px; height: 8px; border-radius: 2px;
+  background: var(--accent);
+}
+.evs-r-stress .evs-bar { opacity: .25; }
+.evs-r-bear .evs-bar { opacity: .45; }
+.evs-r-base .evs-bar { opacity: .7; }
+.evs-r-bull .evs-bar { opacity: 1; }
+.evs-r-targets .evs-bar { background: none; border: 1.5px dashed var(--muted); }
+.evs-r-weighted .evs-bar { top: 1px; height: 12px; }
+.evs-r-weighted .evs-lab, .evs-r-weighted .evs-val { color: var(--text); font-weight: 600; }
+.evs-price { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
+.evs-pricekey {
+  display: flex; align-items: center; gap: 6px; margin: 6px 0 0;
+  font-size: var(--fs-xs); font-weight: 600; color: var(--text);
+}
+.evs-pricekey .evs-price { position: static; display: inline-block; height: 12px; margin: 0; }
+
+/* the weights table */
+.evs-mix { width: 100%; border-collapse: collapse; font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+.evs-mix th, .evs-mix td { padding: 7px 4px; text-align: left; border-bottom: 1px solid var(--hairline); font-weight: 400; }
+.evs-mix thead th { color: var(--muted); font-size: var(--fs-xs); font-weight: 600; }
+.evs-mix .num { text-align: right; white-space: nowrap; }
+.evs-mix tbody tr:last-child th, .evs-mix tbody tr:last-child td { border-bottom: 0; }
+.evs-mixname { display: block; color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; }
+.evs-mix .is-lean th, .evs-mix .is-lean td { background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; }
+.evs-mix .is-lean th { box-shadow: inset 3px 0 0 var(--accent); }
+.evs-mix .is-lean .evs-mixname { color: var(--accent); font-weight: 600; }
+
+/* stat row */
+.evs-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 14px 0; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--hairline);
+}
+.evs-stats > div { padding: 0 14px; border-left: 1px solid var(--hairline); min-width: 0; }
+.evs-stats > div:first-child { padding-left: 0; border-left: 0; }
+.evs-stats dd { margin: 0; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.evs-stats dt { margin-top: 2px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
+.evs-stats .is-accent dd { color: var(--accent); }
+.evs-foot { margin: 18px 0 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.5; }
+
+@media (max-width: 560px) {
+  .evs-headline { font-size: 1.25rem; }
+  .evs-stats { grid-template-columns: 1fr 1fr; }
+  .evs-stats > div { padding: 0 0 0 12px; }
+  .evs-stats > div:nth-child(odd) { padding-left: 0; border-left: 0; }
+}
+
+/* on the landing page the card sits between the hero and the edition, at the
+   deep-dive's own measure rather than the edition's wider one */
+.evs-home { max-width: 880px; margin: 0 auto var(--space-6); }
+.evs-home .card { margin-top: 0; }
+.evs-more { margin: 14px 0 0; font-size: var(--fs-md); font-weight: 600; }
+.evs-more a { color: var(--accent); text-decoration: none; }
+.evs-more a:hover { text-decoration: underline; text-underline-offset: 3px; }

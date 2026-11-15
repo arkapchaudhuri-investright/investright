@@ -320,6 +320,42 @@ CREATE TABLE IF NOT EXISTS income_flow (
 -- (analytics.py) rebuilds from `events` — web only reads them, nothing here is
 -- source-of-truth. New TABLES via CREATE IF NOT EXISTS (not columns) so the two
 -- gunicorn workers can't race on first deploy.
+-- Event snapshot (the deep-dive's lead widget). Two NEW tables rather than new
+-- columns, for the same first-deploy race reason as above.
+--
+-- forward_est: Yahoo's consensus forward P/E + analyst target range, captured
+-- from the same `.info` payload the snapshot already reads (no extra request).
+-- Kept apart from `snapshots` because that row is INSERT OR REPLACEd on every
+-- price refresh and `.info` is the flaky half of it — a quote that lands
+-- without `.info` must not blank the last good consensus.
+CREATE TABLE IF NOT EXISTS forward_est (
+    ticker      TEXT PRIMARY KEY REFERENCES stocks(ticker) ON DELETE CASCADE,
+    forward_pe  REAL,
+    forward_eps REAL,
+    target_low  REAL,                    -- native currency, like snapshots
+    target_high REAL,
+    fetched_at  TEXT NOT NULL
+);
+-- event_snapshot: what the cron knows about a stock's latest event that can't
+-- be derived at request time — the AI's read of the week's headlines (label,
+-- direction, one-line why, the headline it came from) and the last earnings
+-- date that has passed. Price-move / 52-week / upcoming-earnings events are
+-- NOT stored: they are computed from the snapshot on each view, so they
+-- change the moment the price does.
+CREATE TABLE IF NOT EXISTS event_snapshot (
+    ticker        TEXT PRIMARY KEY REFERENCES stocks(ticker) ON DELETE CASCADE,
+    news_key      TEXT,                  -- hash of the headlines the AI last read
+    label         TEXT,                  -- noun phrase, reads after "After …"
+    direction     TEXT CHECK (direction IN ('positive','neutral','negative')),
+    why           TEXT,
+    src_title     TEXT,
+    src_url       TEXT,
+    src_publisher TEXT,
+    src_published TEXT,
+    model         TEXT,
+    computed_at   TEXT,
+    last_earnings TEXT                   -- most recent report date now in the past
+);
 -- Topic news for the landing page carousel. Separate from `news`, which is
 -- per-ticker and foreign-keyed to stocks: these stories belong to a subject,
 -- not a company.
@@ -413,11 +449,22 @@ def _now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+FWD_COLS = ("forward_pe", "forward_eps", "target_low", "target_high")
+
+
 def save_snapshot(conn, snap):
     conn.execute(
         f"INSERT OR REPLACE INTO snapshots ({','.join(SNAP_COLS)}) "
         f"VALUES ({','.join('?' * len(SNAP_COLS))})",
         [snap.get(c) for c in SNAP_COLS])
+    # Forward consensus rides in on the same fetch. Written only when Yahoo
+    # actually served some of it, so a quote-only snapshot keeps the last good.
+    if any(snap.get(c) is not None for c in FWD_COLS):
+        conn.execute(
+            f"INSERT OR REPLACE INTO forward_est (ticker,{','.join(FWD_COLS)},fetched_at) "
+            f"VALUES (?,{','.join('?' * len(FWD_COLS))},?)",
+            [snap["ticker"], *[snap.get(c) for c in FWD_COLS],
+             snap.get("fetched_at") or _now()])
 
 
 def save_price_history(conn, ticker, rows):

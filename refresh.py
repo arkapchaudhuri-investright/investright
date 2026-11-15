@@ -17,6 +17,7 @@ from pathlib import Path
 
 import digest
 import edgar
+import event_snapshot
 import fetch
 import logos
 import metrics
@@ -148,6 +149,14 @@ def save_deep(conn, ticker):
 
     try:  # next earnings date (spec 13) — always overwrite: past → next or NULL
         ne = fetch.next_earnings(ticker)
+        # A date that has now passed is about to be overwritten with the next
+        # quarter's. Keep it: "earnings N days ago" is the event snapshot's
+        # most useful trigger, and this is the only moment the date is known.
+        was = conn.execute("SELECT next_earnings FROM stocks WHERE ticker=?",
+                           (ticker,)).fetchone()
+        if (was and was["next_earnings"] and was["next_earnings"] != ne
+                and was["next_earnings"] <= date.today().isoformat()):
+            event_snapshot.note_reported(conn, ticker, was["next_earnings"])
         conn.execute("UPDATE stocks SET next_earnings=? WHERE ticker=?", (ne, ticker))
     except Exception:
         pass
@@ -436,6 +445,18 @@ def main():
             except Exception as e:                       # never let one bad ticker abort the run
                 print(f"  deep refresh failed for {sym}: {e}")
 
+    # Event snapshot (deep-dive lead widget): with tonight's headlines saved,
+    # let the free LLM read the week's event for every ticker that has no hard
+    # trigger and whose headlines changed. Capped + paced inside; a provider
+    # outage just leaves last night's read in place.
+    events_status = "skipped (no AI key)"
+    if digest.providers():
+        try:
+            events_status = event_snapshot.refresh_events(get_conn, everyone, digest._run)
+        except Exception as e:
+            events_status = f"failed: {e}"
+            print(f"  event snapshots failed: {e}")
+
     # Wikidata leadership enrichment — nightly, paced, and only for people not
     # yet resolved (enriched=0), so the API isn't re-hit for settled rows.
     for sym in everyone:
@@ -493,6 +514,7 @@ def main():
              + (f" +{len(NO_NEWS) - 5} more" if len(NO_NEWS) > 5 else "") + ")"
              if NO_NEWS else "")
           + f" · USDINR {rate if rate else 'fetch failed, kept last-good'}"
+          + f" · events {events_status}"
           + f" · screener {len(ranked)} ranked · digest {digest_status}"
           + f" · strategy picks {picks_status}")
     return 1 if (symbols and not snaps) or not rate else 0

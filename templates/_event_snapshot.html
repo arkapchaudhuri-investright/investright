@@ -1,0 +1,127 @@
+{# Event snapshot — the deep-dive's lead widget (event_snapshot.view). The
+   valuation re-framed around the stock's latest event: forward P/E against
+   peers, three scenario weightings, and the range of outcomes against the
+   price. Every figure is computed from saved rows; the event only decides
+   which weighting Otto leans to. Columns appear only when their data exists,
+   so the numbering is counted rather than hard-coded. #}
+{% if event_card %}
+{% set ec = event_card %}
+{% set n = namespace(i=0) %}
+<section class="card evs" id="snapshot" aria-labelledby="evs-headline">
+  <div class="evs-top">
+    <span class="evs-kicker">{% if evs_more %}{{ s['name'] }} · {% endif %}{{ s['ticker'] }} <span aria-hidden="true">|</span> Snapshot · latest event</span>
+    {% if ec.as_of %}<span class="asof">consensus as of {{ ec.as_of }}</span>{% endif %}
+  </div>
+  {% if ec.events %}
+  <nav class="evs-events" aria-label="Frame the snapshot around an event">
+    <span class="evs-events-lab">Events</span>
+    {% for e in ec.events %}
+    <a href="{{ e.href }}" class="{{ 'active' if e.active }}"
+       {% if e.active %}aria-current="true"{% endif %}>{{ e.chip }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
+  <h2 class="evs-headline" id="evs-headline">{{ ec.headline }}</h2>
+  {% if ec.deck %}<p class="evs-deck">{{ ec.deck }}</p>{% endif %}
+
+  <div class="evs-cols">
+    {% if ec.fpe %}
+    {% set n.i = n.i + 1 %}
+    <div class="evs-col">
+      <h3 class="evs-h">{{ '%02d'|format(n.i) }} · Forward P/E</h3>
+      <ul class="evs-fpe">
+        {% for r in ec.fpe.rows %}
+        <li class="{{ 'is-self' if r.self }}">
+          <span class="evs-lab">{{ r.label }}</span>
+          <span class="evs-fpe-track"><span class="evs-fpe-bar" style="width: {{ r.pct }}%"></span></span>
+          <span class="evs-val">{{ r.txt }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="evs-note">{{ ec.fpe.note }}</p>
+    </div>
+    {% endif %}
+
+    {% set n.i = n.i + 1 %}
+    <div class="evs-col">
+      {% if ec.mix %}
+      <h3 class="evs-h">{{ '%02d'|format(n.i) }} · Scenario weights</h3>
+      <table class="evs-mix">
+        <caption class="evs-sub">Weighted value a share, by bull / base / bear mix.</caption>
+        <thead><tr>
+          <th scope="col">Mix</th><th scope="col" class="num">Weighted</th>
+          <th scope="col" class="num">At {{ ec.mix.band }}</th>
+        </tr></thead>
+        <tbody>
+          {% for r in ec.mix.rows %}
+          <tr class="{{ 'is-lean' if r.lean }}">
+            <th scope="row">{{ r.weights }}
+              <span class="evs-mixname">{{ r.label }}{% if r.lean %}<span class="visually-hidden"> (Otto's lean)</span>{% endif %}</span></th>
+            <td class="num">{{ r.mid }}</td>
+            <td class="num">{{ r.span }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <h3 class="evs-h">{{ '%02d'|format(n.i) }} · Latest event</h3>
+      {% endif %}
+      <p class="evs-note">
+        {{ ec.event.why }}
+        {% if ec.lean %}
+          {% if ec.event.direction == 'neutral' %}Otto keeps the balanced mix.
+          {% else %}That tilts Otto to the {{ ec.lean|lower }} mix.{% endif %}
+        {% endif %}
+      </p>
+      {% if ec.event.src and ec.event.src.url %}
+      <p class="evs-src">Headline:
+        <a href="{{ ec.event.src.url }}" target="_blank" rel="noopener noreferrer">{{ ec.event.src.title }}</a>{% if ec.event.src.publisher %} — {{ ec.event.src.publisher }}{% endif %}
+      </p>
+      {% endif %}
+    </div>
+
+    {% if ec.range %}
+    {% set n.i = n.i + 1 %}
+    <div class="evs-col">
+      <h3 class="evs-h">{{ '%02d'|format(n.i) }} · The range, a share</h3>
+      {% if ec.range.band %}<p class="evs-sub">Bars span a {{ ec.range.band }} discount rate.</p>{% endif %}
+      <ul class="evs-range">
+        {% for r in ec.range.rows %}
+        <li class="evs-r-{{ r.kind }}">
+          <span class="evs-lab">{{ r.label }}</span>
+          <span class="evs-val">{{ r.txt }}</span>
+          <span class="evs-track">
+            <span class="evs-bar" style="left: {{ r.left }}%; width: {{ r.width }}%"></span>
+            <span class="evs-price" style="left: {{ ec.range.price_left }}%"></span>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="evs-pricekey" aria-hidden="true"><span class="evs-price"></span> Price {{ ec.range.price }}</p>
+      <p class="visually-hidden">Current price {{ ec.range.price }}.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if ec.stats %}
+  <dl class="evs-stats">
+    {% for st in ec.stats %}
+    <div class="{{ 'is-accent' if st.accent }}">
+      <dd>{{ st.value }}</dd><dt>{{ st.label }}</dt>
+    </div>
+    {% endfor %}
+  </dl>
+  {% endif %}
+
+  <p class="evs-foot">
+    Forward P/E and analyst targets: Yahoo Finance consensus. {{ ec.method }}
+    {% if ec.event.ai %}The event and its direction were read by AI from the linked headline; it supplies no figures.
+    {% elif ec.event.kind != 'baseline' %}The event is detected from the saved price and earnings calendar.{% endif %}
+    Not investment advice — Otto just crunches numbers.
+  </p>
+  {# Only on the landing page, where the card stands in for a whole deep-dive. #}
+  {% if evs_more %}
+  <p class="evs-more"><a href="{{ evs_more }}">Open {{ s['name'] }}’s full analysis <span aria-hidden="true">→</span></a></p>
+  {% endif %}
+</section>
+{% endif %}

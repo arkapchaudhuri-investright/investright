@@ -200,6 +200,11 @@ def snapshot(symbol):
             snap["rec_mean"] = info.get("recommendationMean")   # 1 strong buy … 5 sell
             snap["analyst_n"] = info.get("numberOfAnalystOpinions")
             snap["target_mean"] = info.get("targetMeanPrice")
+            # Forward consensus for the event-snapshot widget (db.forward_est).
+            snap["forward_pe"] = info.get("forwardPE")
+            snap["forward_eps"] = info.get("forwardEps")
+            snap["target_low"] = info.get("targetLowPrice")
+            snap["target_high"] = info.get("targetHighPrice")
         except Exception:
             pass
         return snap
