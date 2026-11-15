@@ -445,18 +445,6 @@ def main():
             except Exception as e:                       # never let one bad ticker abort the run
                 print(f"  deep refresh failed for {sym}: {e}")
 
-    # Event snapshot (deep-dive lead widget): with tonight's headlines saved,
-    # let the free LLM read the week's event for every ticker that has no hard
-    # trigger and whose headlines changed. Capped + paced inside; a provider
-    # outage just leaves last night's read in place.
-    events_status = "skipped (no AI key)"
-    if digest.providers():
-        try:
-            events_status = event_snapshot.refresh_events(get_conn, everyone, digest._run)
-        except Exception as e:
-            events_status = f"failed: {e}"
-            print(f"  event snapshots failed: {e}")
-
     # Wikidata leadership enrichment — nightly, paced, and only for people not
     # yet resolved (enriched=0), so the API isn't re-hit for settled rows.
     for sym in everyone:
@@ -477,6 +465,21 @@ def main():
         ranked = run_screener(conn)
     with get_conn() as conn:
         digest_status = run_digest(conn, ranked)
+
+    # Event snapshot (deep-dive lead widget). Deliberately AFTER the digest:
+    # both draw on the same free-tier quota, and the digest is the one a
+    # reader notices missing. With tonight's headlines saved,
+    # let the free LLM read the week's event for every ticker whose headlines
+    # changed. Capped + paced inside; a provider
+    # outage just leaves last night's read in place.
+    events_status = "skipped (no AI key)"
+    if digest.providers():
+        try:
+            events_status = event_snapshot.refresh_events(get_conn, everyone, digest._run)
+        except Exception as e:
+            events_status = f"failed: {e}"
+            print(f"  event snapshots failed: {e}")
+
 
     # /strategies monthly picks — re-sweep only when the batch is 30+ days old
     # (strategy_screen measures ~100 tickers, a few minutes; failure here must
