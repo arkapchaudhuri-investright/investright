@@ -67,19 +67,6 @@
   {# The watchlist itself lives on /watchlist now — home stays search-only. #}
 </section>
 
-{# The lead widget: the featured company's event snapshot — the same card that
-   opens every deep-dive, so the first thing a visitor meets is the product
-   doing its job on a real stock. It is the company the plates in IV–VI are
-   drawn from. Nothing renders on an empty database. #}
-{% if home_snapshot %}
-<div class="evs-home">
-  {% with event_card = home_snapshot.card, s = home_snapshot.stock,
-          evs_more = url_for('stock', ticker=home_snapshot.stock.ticker) %}
-  {% include "_event_snapshot.html" %}
-  {% endwith %}
-</div>
-{% endif %}
-
 {# ===== The edition ======================================================
    Eleven numbered sections, one idea each, after the Renaissance-Edition
    layout Arka asked for (Shopify Editions Winter '26): a persistent roman-
@@ -106,6 +93,45 @@
 </nav>
 
 <div class="ed-body">
+
+{# Snapshot — the product's most presentable idea, shown once and simply: one
+   real company, the latest event, the value range and where the price sits.
+   The full card (peers, weightings, sources) opens every deep-dive; here it
+   is a single picture, so the page sells the idea instead of explaining it. #}
+{% if home_snapshot %}
+{% set hs = home_snapshot %}
+<section class="ed-sec tint-explore" id="snapshot" aria-labelledby="snapshot-h">
+  <div class="ed-copy">
+    <p class="ed-kicker">Snapshot</p>
+    <h2 class="ed-statement" id="snapshot-h">A value range for every stock</h2>
+    <p class="ed-lede">Each stock page opens with its latest event, what the company is worth in a bull, a base and a bear case, and where today’s price sits against that range.</p>
+    <p class="ed-go"><a href="{{ url_for('stock', ticker=hs.stock.ticker) }}#snapshot">See {{ hs.stock.name }}’s snapshot</a></p>
+  </div>
+  <figure class="plate plate-snapshot" tabindex="-1">
+    <div class="plate-frame">
+      <div class="snp-top">
+        <span class="snp-co">{{ hs.stock.name }} <span>{{ hs.stock.ticker }}</span></span>
+        {% if hs.card.event.kind != 'baseline' %}<span class="snp-event">{{ hs.card.event.chip }}</span>{% endif %}
+      </div>
+      <p class="snp-value">{{ hs.card.weighted }}<span>a share, across Otto’s scenarios</span></p>
+      <ul class="evs-range snp-range">
+        {% for r in hs.card.range.rows if r.kind != 'targets' %}
+        <li class="evs-r-{{ r.kind }}">
+          <span class="evs-lab">{{ r.label }}</span>
+          <span class="evs-val">{{ r.txt }}</span>
+          <span class="evs-track">
+            <span class="evs-bar" style="left: {{ r.left }}%; width: {{ r.width }}%"></span>
+            <span class="evs-price" style="left: {{ hs.card.range.price_left }}%"></span>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="evs-pricekey"><span class="evs-price" aria-hidden="true"></span> Price {{ hs.card.range.price }}, {{ hs.card.position }} the range</p>
+    </div>
+    <figcaption>{{ hs.stock.name }}, from its saved cash flows. Not investment advice.</figcaption>
+  </figure>
+</section>
+{% endif %}
 
 {# I — Markets. The ranking is over S&P 500 + NIFTY 50 constituents, not the
    handful of tickers tracked here, so "market" is honest. #}
@@ -402,14 +428,33 @@
   </div>
   <figure class="plate plate-weekly" tabindex="-1">
     <div class="plate-frame wk-frame">
+      {# The whole email, not a sketch of one: the same layers weekly.py sends,
+         filled from tonight's saved rows. #}
       <div class="wk-mail">
-        <span class="wk-from">InvestRight · Sunday, 8:00</span>
-        <span class="wk-subj">Your week: three earnings, one score change</span>
-        <span class="wk-line" style="--i: 0"></span>
-        <span class="wk-line" style="--i: 1"></span>
-        <span class="wk-line short" style="--i: 2"></span>
+        <div class="wk-head">
+          <span class="wk-avatar" aria-hidden="true">{% with mood = 'happy', size = 36 %}{% include "_otto.html" %}{% endwith %}</span>
+          <span class="wk-who"><b>Otto at InvestRight</b><span>to you · Sunday, 8:00 am</span></span>
+        </div>
+        <p class="wk-subj">Otto’s weekly note</p>
+        {% if weekly_sample %}
+        {% for sec in weekly_sample.sections %}
+        <div class="wk-sec">
+          <p class="wk-sec-h">{{ sec.title }}</p>
+          <ul>
+            {% for ln in sec.lines %}<li>{{ ln }}</li>{% endfor %}
+            {% if sec.more %}<li class="wk-more">and {{ sec.more }} more</li>{% endif %}
+          </ul>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="wk-sec-h">Your portfolio’s week · Your watchlist’s week · Earnings this week · Top movers</p>
+        {% endif %}
+        <p class="wk-foot">Manage or unsubscribe in one click. Not investment advice.</p>
       </div>
     </div>
+    {% if weekly_sample %}
+    <figcaption>{{ 'Built from your own stocks, as of tonight' if weekly_sample.personal else 'Built tonight from the stocks tracked here; yours would list your own' }}</figcaption>
+    {% endif %}
   </figure>
 </section>
 
