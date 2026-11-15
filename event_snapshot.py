@@ -369,6 +369,8 @@ def view(ticker, raw, snap, next_earnings, dcf, factor, ccy, selected=None,
             {"value": fmt(price, ccy), "label": f"Price: {pos} the weighted range"},
             {"value": fmt_range(w_lo, w_hi, ccy), "accent": True,
              "label": "Weighted, bear- to bull-leaning"}]
+        out["weighted"] = fmt_range(w_lo, w_hi, ccy)     # the landing page's
+        out["position"] = pos                            # one-line version
         g_lo, g_hi = scen[0]["growth"] * 100, scen[-1]["growth"] * 100
         out["method"] = (f"Scenarios: Otto's cash-flow model with growth from {g_lo:+.0f}% to "
                          f"{g_hi:+.0f}% a year and a discount rate of {band} — arithmetic on "

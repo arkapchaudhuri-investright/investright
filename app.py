@@ -390,9 +390,11 @@ def _peer_candidates(conn, ticker, industry):
 
 
 def _home_snapshot(conn, featured, ctx):
-    """The landing page's lead widget: the event snapshot of the same featured
-    company the analysis plates below are drawn from, so the page threads one
-    company through. Stored rows only; None when there is nothing to show."""
+    """The landing page's first section: the event snapshot of the same
+    featured company the analysis plates below are drawn from, so the page
+    threads one company through. The template shows only its headline figure
+    and range — the full card lives on the deep-dive. Stored rows only; None
+    when there is nothing to show."""
     if not featured:
         return None
     try:
@@ -412,14 +414,61 @@ def _home_snapshot(conn, featured, ctx):
         raw = event_snapshot.load(
             conn, t, [p for p, _, _ in _peer_candidates(conn, t, s["industry"])])
         card = event_snapshot.view(t, raw, snap, s["next_earnings"], dcf, factor, ccy)
-        if not card:
-            return None
-        for e in card["events"]:         # chips open the deep-dive on that event
-            e["href"] = url_for("stock", ticker=t,
-                                **({} if e["latest"] else {"event": e["kind"]})) + "#snapshot"
+        if not card or not card.get("weighted"):
+            return None                  # the showcase needs the full range
         return {"card": card, "stock": {"ticker": t, "name": s["name"]}}
     except Exception:
         return None                      # never let the lead widget 500 the home page
+
+
+def _note_sections(*texts, limit=4):
+    """weekly.py's plain-text layers ("Title:\n  line\n  line") → the
+    [{'title','lines'}] the landing page's sample email renders."""
+    out = []
+    for text in texts:
+        if not text:
+            continue
+        head, *lines = text.split("\n")
+        lines = [ln.strip() for ln in lines if ln.strip()]
+        if lines:
+            out.append({"title": head.rstrip(":"), "lines": lines[:limit],
+                        "more": max(len(lines) - limit, 0)})
+    return out
+
+
+def _home_weekly_sample(conn, user):
+    """What Sunday's email would say, for the landing page's last section —
+    built by the same functions that build the real one (weekly.py), from
+    tonight's saved rows. A signed-in visitor with stocks sees their own; a
+    guest sees the stocks tracked here. No AI call and no write on this GET."""
+    try:
+        import weekly
+        rate = weekly._usdinr(conn)
+        if user:
+            port, held = weekly._portfolio_section(conn, user["id"], rate)
+            watch, watched = weekly._watchlist_section(conn, user["id"], held)
+            if held or watched:
+                return {"personal": True, "sections": _note_sections(
+                    port, watch, weekly._earnings_section(conn, held | watched),
+                    weekly._movers_section(conn))}
+        rows = conn.execute(
+            "SELECT s.ticker, s.name, s.currency, n.price FROM watchlist w "
+            "JOIN stocks s ON s.ticker = w.ticker "
+            "JOIN snapshots n ON n.ticker = w.ticker "
+            "WHERE n.price IS NOT NULL ORDER BY n.market_cap DESC LIMIT 4").fetchall()
+        lines = []
+        for r in rows:
+            wk = weekly._week_move(conn, r["ticker"], r["price"])
+            if wk is not None:
+                lines.append(f"  {r['ticker']} {r['name']}: {r['price']:,.2f} "
+                             f"{r['currency']}, week {wk:+.1f}%")
+        watch = "Your watchlist's week:\n" + "\n".join(lines) if lines else ""
+        tickers = {r["ticker"] for r in conn.execute("SELECT ticker FROM watchlist")}
+        sections = _note_sections(watch, weekly._earnings_section(conn, tickers),
+                                  weekly._movers_section(conn))
+        return {"personal": False, "sections": sections} if sections else None
+    except Exception:
+        return None                      # the section falls back to copy alone
 
 
 def _home_featured(conn):
@@ -527,6 +576,7 @@ def home():
     with get_conn() as conn:
         featured = _home_featured(conn)
         home_snapshot = _home_snapshot(conn, featured, ctx)
+        weekly_sample = _home_weekly_sample(conn, user)
         tracked = conn.execute("SELECT COUNT(*) FROM stocks").fetchone()[0]
         picks = [dict(r) for r in conn.execute(
             "SELECT strategy, ticker, name, why FROM strategy_picks "
@@ -538,7 +588,8 @@ def home():
     resp = make_response(render_template(
         "home.html", greeting=greeting(), movers=movers, news_tabs=news_tabs,
         earnings=earnings, movers_as_of=movers_as_of, market=market,
-        featured=featured, home_snapshot=home_snapshot, tracked=tracked, picks=picks,
+        featured=featured, home_snapshot=home_snapshot, weekly_sample=weekly_sample,
+        tracked=tracked, picks=picks,
         strategy_names={x["id"]: x["name"] for x in strategies_content.STRATEGIES},
         example_donut=metrics.allocation_donut(_EXAMPLE_BOOK, size=140, thickness=18),
         **ctx))

@@ -9,7 +9,7 @@
 {% set n = namespace(i=0) %}
 <section class="card evs" id="snapshot" aria-labelledby="evs-headline">
   <div class="evs-top">
-    <span class="evs-kicker">{% if evs_more %}{{ s['name'] }} · {% endif %}{{ s['ticker'] }} <span aria-hidden="true">|</span> Snapshot · latest event</span>
+    <span class="evs-kicker">{{ s['ticker'] }} <span aria-hidden="true">|</span> Snapshot · latest event</span>
     {% if ec.as_of %}<span class="asof">consensus as of {{ ec.as_of }}</span>{% endif %}
   </div>
   {% if ec.events %}
@@ -119,9 +119,5 @@
     {% elif ec.event.kind != 'baseline' %}The event is detected from the saved price and earnings calendar.{% endif %}
     Not investment advice — Otto just crunches numbers.
   </p>
-  {# Only on the landing page, where the card stands in for a whole deep-dive. #}
-  {% if evs_more %}
-  <p class="evs-more"><a href="{{ evs_more }}">Open {{ s['name'] }}’s full analysis <span aria-hidden="true">→</span></a></p>
-  {% endif %}
 </section>
 {% endif %}
