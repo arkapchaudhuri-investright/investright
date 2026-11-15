@@ -252,3 +252,29 @@ def test_deep_dive_and_home_render_the_widget(seeded, client):
     assert "Forward P/E" in html and "Not investment advice" in html
     assert client.get("/stock/EVT?event=bogus").status_code == 200
     assert client.get("/").status_code == 200
+
+
+def test_refresh_events_waits_out_one_rate_limit(seeded):
+    db = seeded
+    waits, calls = [], []
+
+    def flaky(prompt):
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("gemini: 429 Client Error: Too Many Requests")
+        return _reply(), "fake-model"
+
+    status = es.refresh_events(db.get_conn, ["EVT"], flaky, sleep=waits.append)
+    assert status.startswith("1 read") and waits == [es.AI_BACKOFF]
+
+
+def test_refresh_events_stops_when_quota_is_gone(seeded):
+    db = seeded
+    calls = []
+
+    def exhausted(prompt):
+        calls.append(1)
+        raise RuntimeError("gemini: 429 Client Error: Too Many Requests")
+
+    status = es.refresh_events(db.get_conn, ["EVT", "EVT"], exhausted, sleep=lambda s: None)
+    assert "1 failed" in status and len(calls) == 2      # one retry, then stop

@@ -48,8 +48,13 @@ NEAR_52W = 0.01      # within 1% of the 52-week high/low
 REACT_PCT = 2.0      # post-earnings move beyond this reads as good/bad
 NEWS_DAYS = 7        # headlines the AI may read
 NEWS_SHOW_DAYS = 10  # an AI-read event older than this is no longer "latest"
-AI_CAP = 60          # LLM calls per nightly run (free-tier quota is daily)
-AI_PACE = 4.0        # seconds between calls (free-tier quota is also per-minute)
+# The free tier is metered per minute AND per day, and the same key serves the
+# nightly digest and Ask Otto. Production answered 429 after five calls four
+# seconds apart, so: stay under five a minute, wait out one 429, and keep the
+# nightly total small enough that reader-facing features are never starved.
+AI_CAP = 40          # LLM calls per nightly run
+AI_PACE = 13.0       # seconds between calls
+AI_BACKOFF = 65.0    # one wait after a 429 before giving up for the night
 
 _ADVICE = re.compile(r"\b(buy|sell|hold|should|must|recommend\w*)\b", re.I)
 
@@ -515,12 +520,13 @@ def _save_read(conn, ticker, key, got, model):
 
 
 def refresh_events(get_conn, tickers, run, cap=AI_CAP, pace=AI_PACE, today=None,
-                   sleep=time.sleep):
+                   sleep=time.sleep, backoff=AI_BACKOFF):
     """Nightly: for each ticker whose week of headlines has changed, ask the LLM (`run(prompt) -> (text, model)`) for the week's
     event and save its validated read. Returns a one-line status for the log.
 
-    Unchanged headlines cost no call; the run stops early if the provider
-    fails three times running, and never raises."""
+    Unchanged headlines cost no call. A 429 is waited out once; a second one
+    (or three other failures running) ends the pass, leaving earlier reads in
+    place for the next night. Never raises."""
     read = kept = quiet = capped = failed = streak = 0
     for ticker in tickers:
         try:
@@ -544,14 +550,21 @@ def refresh_events(get_conn, tickers, run, cap=AI_CAP, pace=AI_PACE, today=None,
                 continue
             if read + failed:
                 sleep(pace)
+            prompt = build_prompt(s["name"], ticker, items)
             try:
-                text, model = run(build_prompt(s["name"], ticker, items))
+                try:
+                    text, model = run(prompt)
+                except Exception as e:
+                    if "429" not in str(e):
+                        raise
+                    sleep(backoff)       # per-minute limit: wait it out once
+                    text, model = run(prompt)
             except Exception as e:
                 failed += 1
                 streak += 1
                 print(f"  event read failed for {ticker}: {e}")
-                if streak >= 3:
-                    break                # provider is down — stop spending time
+                if streak >= 3 or "429" in str(e):
+                    break                # down, or out of quota — stop for tonight
                 continue
             streak = 0
             with get_conn() as conn:
