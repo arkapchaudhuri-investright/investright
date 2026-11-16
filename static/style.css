@@ -71,7 +71,7 @@
   --ease-out: cubic-bezier(.22, .61, .36, 1);
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 20px; --space-6: 28px;
-  --fs-xs: 0.71875rem;   /* chips, fine print */
+  --fs-xs: 0.75rem;      /* chips, fine print */
   --fs-sm: 0.78125rem;   /* .asof, captions */
   --fs-body: 0.84375rem; /* secondary UI text */
   --fs-md: 0.9375rem;     /* body / inputs / buttons */
@@ -247,7 +247,7 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 .cmp-logo { width: 34px; height: 34px; border-radius: 8px; object-fit: contain; background: #fff; border: 1px solid var(--hairline); padding: 3px; box-sizing: border-box; }
 .cmp-mono { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; font-family: var(--serif); font-weight: 600; font-size: 0.9375rem; padding: 0; }
 .cmp-tick { font-weight: 600; font-size: 0.84375rem; }
-.cmp-name { font-size: 0.6875rem; color: var(--muted); }
+.cmp-name { font-size: 0.75rem; color: var(--muted); }
 .compare-link { margin-left: auto; }
 /* Editing the comparison: ✕ per column, plus an add field under the table. */
 .cmp-head { position: relative; }
@@ -330,7 +330,7 @@ main { max-width: 880px; margin: 0 auto; padding: 0 var(--space-5) 48px; }
 .wl-toggle:hover { color: var(--text); border-color: var(--muted); }
 .badge {
   background: var(--accent-deep); color: #fff; border-radius: 999px;
-  font-size: 0.6875rem; padding: 1px 7px; margin-left: 6px;
+  font-size: 0.75rem; padding: 1px 7px; margin-left: 6px;
 }
 /* The "Team" gear row only exists on phones, where the topbar hides its nav
    link (see the ≤560px block below) to stay at two rows. Scoped under
@@ -626,9 +626,9 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .hero-chip:hover { border-color: var(--accent); color: var(--accent); }
 .hero-chip-tick { font-weight: 600; font-size: 0.84375rem; display: flex;
   gap: 6px; align-items: baseline; }
-.hero-chip-chg { font-size: 0.6875rem; font-weight: 500; }
+.hero-chip-chg { font-size: 0.75rem; font-weight: 500; }
 .hero-chip-chg.up { color: var(--up); } .hero-chip-chg.down { color: var(--down); }
-.hero-chip-name { font-size: 0.6875rem; color: var(--muted); max-width: 150px;
+.hero-chip-name { font-size: 0.75rem; color: var(--muted); max-width: 150px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-bar input {
   flex: 1; background: var(--card); color: var(--text);
@@ -669,11 +669,11 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .suggest b { min-width: 88px; font-weight: 600; }
 .s-name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xchg {
-  font-size: 0.65625rem; color: var(--muted); border: 1px solid var(--hairline);
+  font-size: 0.75rem; color: var(--muted); border: 1px solid var(--hairline);
   border-radius: 5px; padding: 0 5px; text-transform: uppercase; letter-spacing: .04em;
 }
 .earn-chip {
-  font-size: 0.6875rem; color: var(--accent); border: 1px solid var(--accent);
+  font-size: 0.75rem; color: var(--accent); border: 1px solid var(--accent);
   border-radius: 5px; padding: 0 5px; letter-spacing: .02em; white-space: nowrap;
 }
 .earn-list { list-style: none; margin: 0; padding: 0; }
@@ -707,7 +707,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 
 /* watchlist holdings editor (spec 11) */
 .hold-cell { white-space: nowrap; }
-.hold-cell small { display: block; font-size: 0.6875rem; opacity: .85; }
+.hold-cell small { display: block; font-size: 0.75rem; opacity: .85; }
 .hold-edit { margin-top: 4px; font-size: 0.75rem; }
 .hold-edit > summary {
   cursor: pointer; list-style: none; color: var(--muted);
@@ -719,7 +719,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   padding: 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--card);
 }
 .hold-form label {
-  display: flex; flex-direction: column; gap: 2px; font-size: 0.6875rem; color: var(--muted);
+  display: flex; flex-direction: column; gap: 2px; font-size: 0.75rem; color: var(--muted);
   text-align: left;
 }
 .hold-form input { width: 84px; padding: 4px 6px; }
@@ -864,7 +864,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   width: 20px; height: 20px; border-radius: 999px; box-sizing: border-box;
   border: 1px solid var(--accent); color: var(--accent);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 0.71875rem; font-weight: 650; font-variant-numeric: tabular-nums;
+  font-size: 0.75rem; font-weight: 650; font-variant-numeric: tabular-nums;
 }
 .bk-open {
   display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
@@ -916,7 +916,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 }
 .sig-list li.sig-info { border-left-color: var(--accent); }
 .sig-chip-mini {
-  font-size: 0.6875rem; font-weight: 650; color: var(--amber); text-decoration: none;
+  font-size: 0.75rem; font-weight: 650; color: var(--amber); text-decoration: none;
   border: 1px solid currentColor; border-radius: 999px; padding: 0 7px;
   white-space: nowrap;
 }
@@ -965,7 +965,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
 .port-table-wrap { overflow-x: auto; }
 .port-table { width: 100%; }
 .pnl-cell { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; }
-.pnl-cell .pnl-pill { font-size: 0.71875rem; padding: 1px 7px; }
+.pnl-cell .pnl-pill { font-size: 0.75rem; padding: 1px 7px; }
 /* two classes so the tint survives .wl-metrics b's color on the mobile cards */
 .pnl-cell.up { color: var(--up); }
 .pnl-cell.down { color: var(--down); }
@@ -992,7 +992,7 @@ a.acct-name:hover { color: var(--accent); text-decoration: underline; }
   border-radius: var(--radius); padding: var(--space-5) 22px; margin-top: 18px;
 }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.card-head h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.card-head h1, .card-head h2 { font-size: 1rem; font-weight: 600; margin: 0; }
 .refresh-form { display: flex; align-items: center; gap: 12px; }
 .asof { color: var(--muted); font-size: 0.78125rem; }
 .ghost {
@@ -1142,7 +1142,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
   border-color: var(--accent); transform: translateY(-2px);
   box-shadow: 0 6px 16px var(--shadow);
 }
-.bento-k { font-size: 0.71875rem; font-weight: 650; letter-spacing: .05em;
+.bento-k { font-size: 0.75rem; font-weight: 650; letter-spacing: .05em;
   text-transform: uppercase; color: var(--muted); }
 .bento-v { font-size: 1.875rem; font-weight: 750; line-height: 1.05;
   font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
@@ -1191,7 +1191,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .verdict-dot.up { background: var(--up); }
 .verdict-dot.down { background: var(--down); }
 .verdict-label {
-  flex: none; width: 74px; font-size: 0.71875rem; font-weight: 650;
+  flex: none; width: 74px; font-size: 0.75rem; font-weight: 650;
   letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
 }
 .verdict-text { flex: 1; font-size: 0.90625rem; }
@@ -1245,7 +1245,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .trend-axis { position: relative; height: 16px; margin-top: 4px; }
 .trend-axis span {
   position: absolute; transform: translateX(-50%);
-  color: var(--muted); font-size: 0.6875rem; white-space: nowrap;
+  color: var(--muted); font-size: 0.75rem; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .trend-verdict { font-size: 0.9375rem; margin: 2px 0 4px; }
@@ -1358,7 +1358,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 .perf-chart { flex: 1 1 200px; min-width: 180px; }
 .perf-h { font-size: 0.75rem; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
 .perf-chart svg { width: 100%; height: auto; display: block; }
-.perf-legend { display: flex; justify-content: space-between; font-size: 0.71875rem;
+.perf-legend { display: flex; justify-content: space-between; font-size: 0.75rem;
   color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .perf-note { margin-top: 12px; }
 
@@ -1445,7 +1445,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 }
 .exec-name { font-size: 0.8125rem; font-weight: 600; line-height: 1.25; }
 .exec-title {
-  font-size: 0.71875rem; color: var(--muted); line-height: 1.3;
+  font-size: 0.75rem; color: var(--muted); line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 /* Detail card floats above the grid on hover/focus (tap = focus on mobile). */
@@ -1555,7 +1555,7 @@ img.head-brand-logo { object-fit: contain; background: #fff; border: 1px solid v
 }
 .ins-list li:last-child { border-bottom: 0; }
 .ins-act {
-  flex: none; font-size: 0.65625rem; border-radius: 999px; padding: 2px 9px;
+  flex: none; font-size: 0.75rem; border-radius: 999px; padding: 2px 9px;
   background: var(--bg); border: 1px solid var(--hairline); color: var(--muted);
   text-transform: uppercase; letter-spacing: .04em;
 }
@@ -1579,7 +1579,7 @@ a.peer:hover { border-color: var(--accent); }
 /* Empty stand-in so an unscored peer still reserves the radar's height. */
 .peer-snow-empty { display: block; }
 .peer-name {
-  color: var(--muted); font-size: 0.71875rem; max-width: 100%;
+  color: var(--muted); font-size: 0.75rem; max-width: 100%;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .peer-px { font-size: 0.78125rem; font-variant-numeric: tabular-nums; }
@@ -1592,7 +1592,7 @@ a.peer:hover { border-color: var(--accent); }
 }
 .peer-cell .peer { flex: 1; min-width: 0; max-width: none; }
 .peer-badge {
-  font-size: 0.625rem; color: var(--muted); border: 1px solid var(--hairline);
+  font-size: 0.75rem; color: var(--muted); border: 1px solid var(--hairline);
   border-radius: 5px; padding: 1px 6px;
   /* auto, not a fixed gap: unscored peers carry an extra "scores after next
      refresh" line, so pinning the badge to the bottom keeps the row of badges
@@ -1710,7 +1710,7 @@ a.peer:hover { border-color: var(--accent); }
 
 .scr-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 .reason {
-  font-size: 0.71875rem; border: 1px solid var(--hairline); border-radius: 999px;
+  font-size: 0.75rem; border: 1px solid var(--hairline); border-radius: 999px;
   padding: 2px 9px; color: var(--muted);
 }
 /* color = meaning only (§5): green good, amber caution, teal quality */
@@ -1905,11 +1905,11 @@ footer .foot-legal a:hover { color: var(--accent); }
     padding-top: 12px; border-top: 1px solid var(--hairline);
   }
   .wl-metrics > div { display: flex; flex-direction: column; gap: 3px; }
-  .wl-metrics span { color: var(--muted); font-size: 0.65625rem; text-transform: uppercase; letter-spacing: .04em; }
+  .wl-metrics span { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: .04em; }
   .wl-metrics b { font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .wl-rangewrap { margin-top: 13px; }
   .wl-rangewrap .rl {
-    display: block; color: var(--muted); font-size: 0.65625rem;
+    display: block; color: var(--muted); font-size: 0.75rem;
     text-transform: uppercase; letter-spacing: .04em; margin-bottom: 7px;
   }
   .wl-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
@@ -2038,7 +2038,7 @@ footer .foot-legal a:hover { color: var(--accent); }
 }
 #ao-input:focus { border-color: var(--accent); }
 .ao-send { flex: none; width: 38px; border: none; background: var(--accent-deep); color: #fff; border-radius: 999px; font-size: 1.0625rem; cursor: pointer; }
-.ao-disclaim { margin: 0; padding: 0 14px 12px; color: var(--muted); font-size: 0.6875rem; text-align: center; }
+.ao-disclaim { margin: 0; padding: 0 14px 12px; color: var(--muted); font-size: 0.75rem; text-align: center; }
 .ao-typing { display: inline-flex; gap: 4px; padding: 2px 0; }
 .ao-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); display: inline-block; }
 @media (prefers-reduced-motion: no-preference) {
@@ -2419,7 +2419,10 @@ main:has(.ed) { max-width: 1440px; }
 /* Labels: 13px at 500 in sentence case. Tracked capitals read as shouting
    and fell under the 13px floor at 11.5px. */
 .ed-kicker {
-  margin: 0 0 var(--space-3); font-size: .8125rem; font-weight: 500; color: var(--tint);
+  margin: 0 0 var(--space-3); font-size: .8125rem; font-weight: 500;
+  /* The tint alone measured 3.3–4.3:1 on its tile; mixed toward the ink it
+     keeps its hue and clears 4.5:1 in both themes. */
+  color: color-mix(in srgb, var(--tint) 55%, var(--text));
 }
 .ed-kicker span { font-family: var(--serif); font-size: 1.15em; letter-spacing: .04em; margin-right: 6px; }
 .ed-statement {
@@ -2799,7 +2802,7 @@ body { font-size: 1rem; letter-spacing: -.003em; }
        Tiles nested inside a card take the ground colour, so nothing is a box
        drawn inside a box of the same colour. --- */
 .card { border: 0; border-radius: 18px; padding: 24px; }
-.card-head h2, .card-head h3 { font-family: var(--serif); font-weight: 600; font-size: 1.1875rem; letter-spacing: -.012em; }
+.card-head h1, .card-head h2, .card-head h3 { font-family: var(--serif); font-weight: 600; font-size: 1.1875rem; letter-spacing: -.012em; }
 .bento-tile { background: var(--bg); border-color: transparent; border-radius: 14px; }
 .bento-tile:hover { border-color: transparent; box-shadow: 0 8px 24px rgba(0, 0, 0, .08); }
 th {
@@ -3072,10 +3075,7 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
        everything else is the muted ink, so the eye lands on three things only:
        the stock's own bar, the leaned-to mix, and the weighted range. --- */
 .evs-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.evs-kicker {
-  font-size: var(--fs-xs); font-weight: 600; letter-spacing: .09em;
-  text-transform: uppercase; color: var(--muted);
-}
+.evs-kicker { font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
 .evs-events { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 2px; }
 .evs-events-lab { font-size: var(--fs-xs); color: var(--muted); margin-right: 2px; }
 .evs-events a {
@@ -3096,8 +3096,7 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
 }
 .evs-col { min-width: 0; }
 .evs-h {
-  margin: 0 0 8px; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .09em;
-  text-transform: uppercase; color: var(--accent);
+  margin: 0 0 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--accent);
 }
 .evs-sub { margin: 0 0 8px; color: var(--muted); font-size: var(--fs-sm); text-align: left; caption-side: top; }
 .evs-note { margin: 10px 0 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; }

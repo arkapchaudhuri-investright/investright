@@ -9,7 +9,7 @@
 {% set n = namespace(i=0) %}
 <section class="card evs" id="snapshot" aria-labelledby="evs-headline">
   <div class="evs-top">
-    <span class="evs-kicker">{{ s['ticker'] }} <span aria-hidden="true">|</span> Snapshot · latest event</span>
+    <span class="evs-kicker">{{ s['ticker'] }} <span aria-hidden="true">|</span> snapshot, latest event</span>
     {% if ec.as_of %}<span class="asof">consensus as of {{ ec.as_of }}</span>{% endif %}
   </div>
   {% if ec.events %}
