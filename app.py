@@ -25,7 +25,7 @@ import portfolio_import
 import refresh as refresh_job   # aliased: the /refresh view below owns the name `refresh`
 import strategies as strategies_content   # aliased: /strategies view owns the short name
 import strategy_screen
-from auth import bp as auth_bp, client_ip, current_user, login_required
+from auth import TERMS_VERSION, bp as auth_bp, client_ip, current_user, login_required
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 add_user_peer, add_user_watch, get_conn, get_user_note, init_db,
                 is_admin as db_is_admin,   # aliased: _require_admin owns the short name
@@ -1391,6 +1391,12 @@ def team():
     """Meet Our Team (§4-style static page). No DB — content lives in the template."""
     _log("view")
     return render_template("team.html")
+
+
+@app.route("/terms")
+def terms():
+    """Terms of Use. Static, like /privacy, and not logged for the same reason."""
+    return render_template("terms.html", version=TERMS_VERSION)
 
 
 @app.route("/privacy")

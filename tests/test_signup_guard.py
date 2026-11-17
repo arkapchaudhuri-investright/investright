@@ -9,6 +9,9 @@ import mailer
 NOW = "2026-01-01T00:00:00"
 
 
+EMAIL = "zz_guard@example.com"
+
+
 def _csrf(client):
     with client.session_transaction() as sess:
         sess["csrf"] = "tok"
@@ -17,7 +20,8 @@ def _csrf(client):
 
 def _form(**over):
     base = {"email": "zz_guard@example.com", "password": "x" * 10,
-            "password2": "x" * 10, "name": "GuardQA", "csrf": "tok"}
+            "password2": "x" * 10, "name": "GuardQA", "csrf": "tok",
+            "terms": "1"}
     base.update(over)
     return base
 
@@ -90,3 +94,39 @@ def test_old_unsubscribe_links_still_verify():
     # helper must not invalidate them.
     assert mailer.unsubscribe_user_id(mailer.unsubscribe_token(42)) == 42
     assert mailer.link_user_id("unsub", mailer.link_token("unsub", 42)) == 42
+
+
+def test_signup_needs_the_terms_box(app_module, client):
+    from db import get_conn
+    _drop(EMAIL)
+    with client.session_transaction() as sess:
+        sess["csrf"] = "tok"
+    form = _form()
+    del form["terms"]
+    resp = client.post("/register", data=form)
+    assert "agree to the Terms of Use" in resp.get_data(as_text=True)
+    with get_conn() as conn:
+        assert conn.execute("SELECT 1 FROM users WHERE email=?", (EMAIL,)).fetchone() is None
+
+
+def test_signup_records_the_terms_version(app_module, client):
+    import auth
+    from db import get_conn
+    _drop(EMAIL)
+    try:
+        with client.session_transaction() as sess:
+            sess["csrf"] = "tok"
+        client.post("/register", data=_form())
+        with get_conn() as conn:
+            row = conn.execute("SELECT terms_version, terms_accepted_at FROM users "
+                               "WHERE email=?", (EMAIL,)).fetchone()
+        assert row["terms_version"] == auth.TERMS_VERSION and row["terms_accepted_at"]
+    finally:
+        _drop(EMAIL)
+
+
+def test_terms_page_renders_and_is_linked_from_the_footer(client):
+    assert client.get("/terms").status_code == 200
+    for path in ("/", "/today", "/watchlist", "/login"):
+        html = client.get(path).get_data(as_text=True)
+        assert 'href="/terms"' in html and "not investment advice" in html

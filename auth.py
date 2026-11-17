@@ -15,12 +15,16 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import mailer
 from db import (LOGIN_MAX_PER_EMAIL, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MIN,
                 RESET_MAX_PER_HOUR_IP, RESET_MAX_PER_HOUR_USER, RESET_TTL_MIN,
-                _reset_prune, clear_login_failures, consume_reset, create_reset,
+                _reset_prune, accept_terms, clear_login_failures, consume_reset, create_reset,
                 create_user, delete_user, get_reset, get_user_by_email,
                 get_user_by_id, login_failures, record_login_failure,
                 reset_requests_recent, rotate_session_token, set_password)
 
 bp = Blueprint("auth", __name__)
+
+# The Terms of Use an account agrees to at signup (templates/terms.html).
+# Change this date whenever the terms change in substance.
+TERMS_VERSION = "2026-11-16"
 
 
 # Hashed once at import. A miss on the email still pays for one hash check, so
@@ -144,6 +148,10 @@ def register():
         # mailing list.
         if request.form.get("website"):
             err = "That didn't go through — please try again."
+        # The Terms of Use box is unticked by default and required: agreeing
+        # is the visitor's act, and the version they agreed to is recorded.
+        if not err and not request.form.get("terms"):
+            err = "Please agree to the Terms of Use to create an account."
         wants_note = False
         if not err:
             with get_conn() as conn:
@@ -160,6 +168,7 @@ def register():
                     # mailed. The box is ticked by default, so its absence is a
                     # deliberate no.
                     wants_note = bool(request.form.get("weekly_email"))
+                    accept_terms(conn, uid, TERMS_VERSION)
                     user = dict(get_user_by_id(conn, uid))
                     _adopt_identity(conn, user)
             if not err:
@@ -183,6 +192,7 @@ def register():
         flash(err, "error")
         return render_template("register.html", email=email, name=name or "",
                                weekly=bool(request.form.get("weekly_email")),
+                               terms=bool(request.form.get("terms")),
                                next=request.form.get("next", ""))
     return render_template("register.html", email="", name="", weekly=True,
                            next=request.args.get("next", ""))
