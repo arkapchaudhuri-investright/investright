@@ -17,8 +17,8 @@
      trying category headlines ("Free stock research…", "Plain-English
      research…"). The taste skill would call it a slogan; his call wins. #}
   <h1 class="hero-display">When you invest,<br>do it <span class="hero-accent">right</span>.</h1>
-  {# The slogan stays (his call), so the line under it carries what the
-     page is and the one hard fact: it is free. #}
+  {# The slogan stays (his call), so the line under it says what the site
+     is and the one hard fact: it is free. #}
   <p class="hero-sub">Free, plain-English research on US and Indian stocks. Search a company and read its page in two minutes.</p>
 
 
@@ -70,179 +70,169 @@
   {# The watchlist itself lives on /watchlist now — home stays search-only. #}
 </section>
 
-{# ===== The page below the search (rebuilt 2026-11-16) =====================
-   Five sections on one surface, one accent, one card recipe. It replaced a
-   twelve-tile board that alternated black and white tiles in four tints and
-   said several things twice (snapshot and fair value, markets and today).
-   Every figure is still live data; hovering a card replays its drawing
-   (static/edition.js). #}
+{# ===== The edition ======================================================
+   Eleven numbered sections, one idea each, after the Renaissance-Edition
+   layout Arka asked for (Shopify Editions Winter '26): a persistent roman-
+   numeral index that tracks the scroll, a serif statement and a drop-capped
+   benefit line per section, and a "plate" beside it. We copy the structure,
+   not the artwork — every plate here is live data drawn as inline SVG/CSS,
+   framed like a catalogue plate, so the classical frame round modern data is
+   the collision their paintings-plus-UI made. Hovering a plate replays its
+   data drawing in (static/edition.js); the board that came before is folded
+   into sections I–III so nothing live was lost. #}
 {% set ccy_sym = {'USD': '$', 'INR': '₹'} %}
-<div class="hm">
+{% set sections = [
+  ('markets', 'I', 'Markets'), ('news', 'II', 'News'), ('earnings', 'III', 'Earnings'),
+  ('health', 'IV', 'Five questions'), ('value', 'V', 'Fair value'), ('watch', 'VI', 'Watchlist'),
+  ('portfolio', 'VII', 'Portfolio'), ('strategies', 'VIII', 'Strategies'), ('today', 'IX', 'Today'),
+  ('otto', 'X', 'Ask Otto'), ('weekly', 'XI', 'The weekly note')] %}
+<div class="ed">
+<nav class="ed-index" aria-label="Sections">
+  <ol>
+    {% for id, num, name in sections %}
+    <li><a href="#{{ id }}" data-ed-link="{{ id }}"><span class="ed-num">{{ num }}</span><span class="ed-name">{{ name }}</span></a></li>
+    {% endfor %}
+  </ol>
+</nav>
 
-{# 1 — Snapshot: the flagship idea, shown once and simply. #}
+<div class="ed-body">
+
+{# Snapshot — the product's most presentable idea, shown once and simply: one
+   real company, the latest event, the value range and where the price sits.
+   The full card (peers, weightings, sources) opens every deep-dive; here it
+   is a single picture, so the page sells the idea instead of explaining it. #}
 {% if home_snapshot %}
 {% set hs = home_snapshot %}
-<section class="hm-sec hm-split" id="snapshot" aria-labelledby="snapshot-h">
-  <header class="hm-head">
-    <h2 id="snapshot-h">A value range for every stock</h2>
-    <p>Each stock page opens with its latest event, what the company is worth in a bull, a base and a bear case, and where today’s price sits against that range.</p>
-    <a class="hm-go" href="{{ url_for('stock', ticker=hs.stock.ticker) }}#snapshot">See {{ hs.stock.name }}’s snapshot</a>
-  </header>
-  <figure class="hm-card hm-snap">
-    <div class="snp-top">
-      <span class="snp-co">{{ hs.stock.name }} <span>{{ hs.stock.ticker }}</span></span>
-      {% if hs.card.event.kind != 'baseline' %}<span class="snp-event">{{ hs.card.event.chip }}</span>{% endif %}
+<section class="ed-sec ed-split tint-explore tile-dark" id="snapshot" aria-labelledby="snapshot-h">
+  <div class="ed-copy">
+    <p class="ed-kicker">Snapshot</p>
+    <h2 class="ed-statement" id="snapshot-h">A value range for every stock</h2>
+    <p class="ed-lede">The latest event, what the company is worth in a bear, a base and a bull case, and where today’s price sits.</p>
+    <p class="ed-go"><a href="{{ url_for('stock', ticker=hs.stock.ticker) }}#snapshot">See {{ hs.stock.name }}’s snapshot</a></p>
+  </div>
+  {# One compact card: the figure, one scale, three cases. The full table of
+     scenarios lives on the stock page; five stacked bars here read as empty. #}
+  {% set rs = hs.card.range.rows|rejectattr('kind', 'equalto', 'targets')|list %}
+  {% set ns = namespace(lo=100, hi=0, w=none) %}
+  {% for r in rs %}
+    {% if r.kind == 'weighted' %}{% set ns.w = r %}
+    {% else %}
+      {% if r.left < ns.lo %}{% set ns.lo = r.left %}{% endif %}
+      {% if r.left + r.width > ns.hi %}{% set ns.hi = r.left + r.width %}{% endif %}
+    {% endif %}
+  {% endfor %}
+  <figure class="plate plate-snapshot" tabindex="-1">
+    <div class="plate-frame">
+      <div class="snp-top">
+        <span class="snp-co">{{ hs.stock.name }} <span>{{ hs.stock.ticker }}</span></span>
+        {% if hs.card.event.kind != 'baseline' %}<span class="snp-event">{{ hs.card.event.chip }}</span>{% endif %}
+      </div>
+      <p class="snp-value">{{ hs.card.weighted }}<span>a share, across Otto’s scenarios</span></p>
+      <div class="snp-scale" role="img" aria-label="Scenario range with today’s price marked">
+        <span class="snp-band" style="left: {{ ns.lo }}%; width: {{ ns.hi - ns.lo }}%"></span>
+        {% if ns.w %}<span class="snp-mid" style="left: {{ ns.w.left }}%; width: {{ ns.w.width }}%"></span>{% endif %}
+        <span class="snp-tick" style="left: {{ hs.card.range.price_left }}%"></span>
+      </div>
+      <p class="snp-key"><span class="snp-tick" aria-hidden="true"></span>Price {{ hs.card.range.price }}, {{ hs.card.position }} the range</p>
+      <ul class="snp-cases">
+        {% for r in rs if r.kind in ('bear', 'base', 'bull') %}
+        <li><span>{{ r.label }}</span><b>{{ r.txt }}</b></li>
+        {% endfor %}
+      </ul>
     </div>
-    <p class="snp-value">{{ hs.card.weighted }}<span>a share, across Otto’s scenarios</span></p>
-    <ul class="evs-range snp-range">
-      {% for r in hs.card.range.rows if r.kind != 'targets' %}
-      <li class="evs-r-{{ r.kind }}">
-        <span class="evs-lab">{{ r.label }}</span>
-        <span class="evs-val">{{ r.txt }}</span>
-        <span class="evs-track">
-          <span class="evs-bar" style="left: {{ r.left }}%; width: {{ r.width }}%"></span>
-          <span class="evs-price" style="left: {{ hs.card.range.price_left }}%"></span>
-        </span>
-      </li>
-      {% endfor %}
-    </ul>
-    <p class="evs-pricekey"><span class="evs-price" aria-hidden="true"></span> Price {{ hs.card.range.price }}, {{ hs.card.position }} the range</p>
-    <figcaption class="hm-note">From {{ hs.stock.name }}’s saved cash flows. Not investment advice.</figcaption>
+    <figcaption>From {{ hs.stock.name }}’s saved cash flows. Not investment advice.</figcaption>
   </figure>
 </section>
 {% endif %}
 
-{# 2 — What a stock page shows: health, fair value and price, all drawn from
-   one featured company (see _home_featured). #}
-<section class="hm-sec" id="pages" aria-labelledby="pages-h">
-  <header class="hm-head">
-    <div>
-      <h2 id="pages-h">What a stock page shows</h2>
-      <p>Every company gets the same page, built from its own financials and prices and refreshed every night.</p>
-    </div>
-    <a class="hm-go" href="#top" data-ed-search>Search for a company</a>
-  </header>
-  <div class="hm-grid">
-    <article class="hm-card" id="health">
-      <div class="hm-vis">
-        {% if featured and featured['snowflake'] %}
-        {% set sf = featured['snowflake'] %}
-        <svg class="ed-snow" viewBox="-62 -6 324 214" role="img"
-             aria-label="Health snowflake for {{ featured['name'] }}">
-          {% for ring in sf['rings'] %}<polygon class="sn-ring" points="{{ ring }}"/>{% endfor %}
-          <polygon class="sn-shape" points="{{ sf['polygon'] }}" style="transform-origin: {{ sf['cx'] }}px {{ sf['cy'] }}px"/>
-          {% for a in sf['axes'] %}
-          <text class="snow-label" x="{{ a['x'] }}" y="{{ a['y'] }}" text-anchor="{{ a['anchor'] }}">{{ a['label'] }}{% if a['pct'] is not none %} <tspan class="sn-pct" data-count="{{ a['pct'] }}">{{ a['pct'] }}</tspan>{% endif %}</text>
-          {% endfor %}
-        </svg>
-        {% else %}
-        <p class="asof">Scores appear once a company has been analysed.</p>
-        {% endif %}
-      </div>
-      <h3>Scores five kinds of health</h3>
-      <p>Value, growth, track record, balance sheet and dividends, each a set of pass-or-fail checks you can read.</p>
-    </article>
-
-    <article class="hm-card" id="value">
-      <div class="hm-vis hm-fv">
-        {% if featured %}
-        {% set sym = ccy_sym.get(featured['currency'], '') %}
-        <div class="fv-row">
-          <span class="fv-k">Price</span>
-          <span class="fv-n">{{ sym }}<span data-count="{{ '%.2f'|format(featured['price']) }}" data-dp="2">{{ '%.2f'|format(featured['price']) }}</span></span>
-          <span class="fv-bar" style="--v: {{ featured['price_w'] }}"><i></i></span>
-        </div>
-        <div class="fv-row fv-row-fair {{ 'over' if featured['upside_pct'] < 0 else '' }}">
-          <span class="fv-k">Fair value</span>
-          <span class="fv-n">{{ sym }}<span data-count="{{ '%.2f'|format(featured['fair_value']) }}" data-dp="2">{{ '%.2f'|format(featured['fair_value']) }}</span></span>
-          <span class="fv-bar" style="--v: {{ featured['fair_w'] }}"><i></i></span>
-        </div>
-        {# upside_pct is fair/price − 1, so it reads against the price. #}
-        <p class="fv-verdict">Our estimate sits
-          <b><span data-count="{{ '%.1f'|format(featured['upside_pct']|abs) }}" data-dp="1">{{ '%.1f'|format(featured['upside_pct']|abs) }}</span>% {{ 'below' if featured['upside_pct'] < 0 else 'above' }}</b>
-          {{ featured['ticker'] }}'s price. An estimate from history, not a forecast.</p>
-        {% else %}
-        <p class="asof">A fair value appears once a company has been analysed.</p>
-        {% endif %}
-      </div>
-      <h3>Estimates fair value</h3>
-      <p>A cash-flow model with its growth, discount and terminal rates on the page, and sliders to change them.</p>
-    </article>
-
-    <article class="hm-card" id="watch">
-      <div class="hm-vis">
-        {% if featured and featured['spark'] %}
-        {% set sp = featured['spark'] %}
-        <div class="wl-head">
-          <span class="mv-tk">{{ featured['ticker'] }}</span>
-          {% if featured['spark_chg'] is not none %}
-          <span class="mv-val {{ 'up' if featured['spark_chg'] > 0 else 'down' }}">{{ '%+.1f%%'|format(featured['spark_chg']) }}</span>
-          {% endif %}
-          <span class="tile-note">last 90 sessions</span>
-        </div>
-        <div class="wl-chart">
-          <svg viewBox="0 0 {{ sp['width'] }} {{ sp['height'] }}" preserveAspectRatio="none" role="img"
-               aria-label="{{ featured['ticker'] }} closing prices, last 90 sessions">
-            <polyline class="spark-line {{ sp['dir'] }}" points="{{ sp['points'] }}" vector-effect="non-scaling-stroke"/>
-          </svg>
-          <span class="wl-cover" aria-hidden="true"></span>
-        </div>
-        {% else %}
-        <p class="asof">Price history appears after the first nightly run.</p>
-        {% endif %}
-      </div>
-      <h3>Tracks the stocks you follow</h3>
-      <p>Prices, sparklines and alerts for your watchlist, refreshed every night.</p>
-      <a class="hm-link" href="{{ url_for('watchlist_page') }}">Open watchlist</a>
-    </article>
+{# I — Markets. The ranking is over S&P 500 + NIFTY 50 constituents, not the
+   handful of tickers tracked here, so "market" is honest. #}
+<section class="ed-sec tint-movers" id="markets" aria-labelledby="markets-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>I.</span> Markets</p>
+    <h2 class="ed-statement" id="markets-h">Today’s biggest market moves</h2>
+    <p class="ed-lede">Five hundred and fifty-three companies across the S&amp;P&nbsp;500 and NIFTY&nbsp;50, ranked every night by how far they ran, how far they fell, and how hard they traded.</p>
+    {% if movers_as_of %}<p class="ed-asof">Quotes as of {{ movers_as_of }}</p>{% endif %}
   </div>
-  {% if featured %}<p class="hm-note">Shown for <a href="{{ url_for('stock', ticker=featured['ticker']) }}">{{ featured['name'] }}</a>{{ ', the most viewed company this fortnight' if featured['views'] else '' }}. Not investment advice.</p>{% endif %}
+  <figure class="plate plate-movers" tabindex="-1">
+    <div class="plate-frame">
+      {% for kind, label in [('gainers', 'Top gainers'), ('losers', 'Top losers'), ('actives', 'Most active')] %}
+      <div class="mv-col">
+        <span class="tile-k">{{ label }}</span>
+        {% if movers[kind] %}
+        {% for m in movers[kind] %}
+        {# A form, not a link: opening an index member we've never seen ingests it,
+           and a write can't live in a GET (§3). #}
+        <form class="mv-row" method="post" action="{{ url_for('analyze') }}" style="--i: {{ loop.index0 }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token }}">
+          <input type="hidden" name="symbol" value="{{ m['ticker'] }}">
+          <button class="mv-btn" type="submit" title="{{ m['name'] }}">
+            <span class="mv-tk">{{ m['ticker'] }}</span>
+            {% if kind == 'actives' %}
+            <span class="mv-val">{{ '%.1fM'|format((m['volume'] or 0) / 1e6) }}</span>
+            {% else %}
+            <span class="mv-val {{ 'up' if m['change_pct'] > 0 else 'down' }}">
+              {{ '%+.2f%%'|format(m['change_pct']) }}</span>
+            {% endif %}
+            <span class="mv-bar {{ 'down' if kind == 'losers' else '' }}" style="--v: {{ m['bar'] }}" aria-hidden="true"><i></i></span>
+          </button>
+        </form>
+        {% endfor %}
+        {% else %}
+        <p class="asof">No quotes saved yet — Otto fetches these nightly.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <figcaption>S&amp;P 500 and NIFTY 50{% if movers_as_of %}, as of {{ movers_as_of }}{% endif %}</figcaption>
+  </figure>
 </section>
 
-{# 3 — The market. The ranking is over S&P 500 + NIFTY 50 constituents, not
-   the handful of tickers tracked here, so "market" is honest. #}
-<section class="hm-sec" id="markets" aria-labelledby="markets-h">
-  <header class="hm-head">
-    <div>
-      <h2 id="markets-h">The market, ranked every night</h2>
-      <p>553 companies across the S&amp;P&nbsp;500 and NIFTY&nbsp;50, ranked by how far they rose, how far they fell and how hard they traded.{% if movers_as_of %} Quotes as of {{ movers_as_of }}.{% endif %}</p>
-    </div>
-    <a class="hm-go" href="{{ url_for('today') }}">See today’s screen</a>
-  </header>
-  <div class="hm-card hm-movers">
-    {% for kind, label in [('gainers', 'Top gainers'), ('losers', 'Top losers'), ('actives', 'Most active')] %}
-    <div class="mv-col">
-      <span class="tile-k">{{ label }}</span>
-      {% if movers[kind] %}
-      {% for m in movers[kind] %}
-      {# A form, not a link: opening an index member we've never seen ingests it,
-         and a write can't live in a GET (§3). #}
-      <form class="mv-row" method="post" action="{{ url_for('analyze') }}" style="--i: {{ loop.index0 }}">
-        <input type="hidden" name="csrf" value="{{ csrf_token }}">
-        <input type="hidden" name="symbol" value="{{ m['ticker'] }}">
-        <button class="mv-btn" type="submit" title="{{ m['name'] }}">
-          <span class="mv-tk">{{ m['ticker'] }}</span>
-          {% if kind == 'actives' %}
-          <span class="mv-val">{{ '%.1fM'|format((m['volume'] or 0) / 1e6) }}</span>
-          {% else %}
-          <span class="mv-val {{ 'up' if m['change_pct'] > 0 else 'down' }}">
-            {{ '%+.2f%%'|format(m['change_pct']) }}</span>
-          {% endif %}
-          <span class="mv-bar {{ 'down' if kind == 'losers' else '' }}" style="--v: {{ m['bar'] }}" aria-hidden="true"><i></i></span>
-        </button>
-      </form>
+{# II — News. Tabs over rails; every rail is rendered and JS only toggles
+   which shows, so no-JS sees the first rather than nothing. #}
+<section class="ed-sec tint-news tile-dark" id="news" aria-labelledby="news-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>II.</span> News</p>
+    <h2 class="ed-statement" id="news-h">Market news from the last fortnight</h2>
+    <p class="ed-lede">Markets, stocks, funds and bonds, gathered nightly from the last fortnight only — plus a tab drawn from the companies you actually follow.</p>
+  </div>
+  <figure class="plate plate-news" tabindex="-1">
+    <div class="plate-frame">
+      {% if news_tabs %}
+      <div class="nw-tabs" role="tablist" aria-label="News topics">
+        {% for t in news_tabs %}
+        <button class="nw-tab" type="button" role="tab" data-nw="{{ t['key'] }}"
+                aria-selected="{{ 'true' if loop.first else 'false' }}">{{ t['label'] }}</button>
+        {% endfor %}
+      </div>
+      {% for t in news_tabs %}
+      <div class="nw-rail" data-nw-panel="{{ t['key'] }}" {% if not loop.first %}hidden{% endif %}>
+        {% for n in t['items'] %}
+        <a class="nw-card" href="{{ n['url'] }}" target="_blank" rel="noopener noreferrer" style="--i: {{ loop.index0 }}">
+          <span class="nw-title">{{ n['title']|truncate(96, True, '…') }}</span>
+          <span class="nw-meta">{{ n['publisher'] }}{% if n['published_at'] %} · {{ n['published_at'][:10] }}{% endif %}</span>
+        </a>
+        {% endfor %}
+      </div>
       {% endfor %}
       {% else %}
-      <p class="asof">No quotes saved yet — Otto fetches these nightly.</p>
+      <p class="asof">No headlines saved yet.</p>
       {% endif %}
     </div>
-    {% endfor %}
+  </figure>
+</section>
+
+{# III — Earnings: a countdown bar per company over the next 30 days. #}
+<section class="ed-sec tint-earnings" id="earnings" aria-labelledby="earnings-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>III.</span> Earnings</p>
+    <h2 class="ed-statement" id="earnings-h">Earnings in the next 30 days</h2>
+    <p class="ed-lede">Every reporting date in the next thirty days for the companies tracked here, soonest first, one tap from the full deep dive.</p>
   </div>
-  <div class="hm-grid hm-two">
-    <article class="hm-card hm-list" id="earnings">
-      <h3>Earnings in the next 30 days</h3>
+  <figure class="plate plate-earnings" tabindex="-1">
+    <div class="plate-frame">
       {% if earnings %}
-      {% for e in earnings[:6] %}
+      {% for e in earnings %}
       <a class="ern-row" href="{{ url_for('stock', ticker=e['ticker']) }}" title="{{ e['name'] }}" style="--i: {{ loop.index0 }}">
         <span class="mv-tk">{{ e['ticker'] }}</span>
         <span class="mv-nm">{{ e['name'] }}</span>
@@ -254,131 +244,233 @@
       {% else %}
       <p class="asof">No reporting dates saved for the next month.</p>
       {% endif %}
-    </article>
-    {# News: tabs over lists; every list is rendered and JS only toggles which
-       shows, so no-JS sees the first rather than nothing. #}
-    <article class="hm-card hm-list hm-news" id="news">
-      <h3>News from the last fortnight</h3>
-      {% if news_tabs %}
-      <div class="nw-tabs" role="tablist" aria-label="News topics">
-        {% for t in news_tabs %}
-        <button class="nw-tab" type="button" role="tab" data-nw="{{ t['key'] }}"
-                aria-selected="{{ 'true' if loop.first else 'false' }}">{{ t['label'] }}</button>
-        {% endfor %}
-      </div>
-      {% for t in news_tabs %}
-      <div class="nw-rail" data-nw-panel="{{ t['key'] }}" {% if not loop.first %}hidden{% endif %}>
-        {% for n in t['items'][:4] %}
-        <a class="nw-card" href="{{ n['url'] }}" target="_blank" rel="noopener noreferrer" style="--i: {{ loop.index0 }}">
-          <span class="nw-title">{{ n['title']|truncate(96, True, '…') }}</span>
-          <span class="nw-meta">{{ n['publisher'] }}{% if n['published_at'] %} · {{ n['published_at'][:10] }}{% endif %}</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% endfor %}
-      {% else %}
-      <p class="asof">No headlines saved yet.</p>
-      {% endif %}
-    </article>
-  </div>
-</section>
-
-{# 4 — Tools for the visitor's own stocks. A guest has no book, so the donut
-   is an illustration and says so. #}
-<section class="hm-sec" id="tools" aria-labelledby="tools-h">
-  <header class="hm-head">
-    <div>
-      <h2 id="tools-h">Tools for your own stocks</h2>
-      <p>A portfolio that reads your broker file, a monthly strategy screen, and Otto to explain any number you meet.</p>
     </div>
-  </header>
-  <div class="hm-grid">
-    <article class="hm-card" id="portfolio">
-      <div class="hm-vis hm-pf">
-        <svg class="ed-donut" viewBox="0 0 140 140" role="img" aria-label="An example allocation">
-          {% for sl in example_donut %}<path d="{{ sl['d'] }}" fill="{{ sl['fill'] }}" style="--i: {{ loop.index0 }}"/>{% endfor %}
-        </svg>
-        <ul class="pf-legend">
-          {% for sl in example_donut %}
-          <li style="--i: {{ loop.index0 }}"><i style="background: {{ sl['fill'] }}"></i>{{ sl['label'] }}<b>{{ '%.0f'|format(sl['pct']) }}%</b></li>
-          {% endfor %}
-        </ul>
-      </div>
-      <h3>Reads your portfolio</h3>
-      <p>Import a broker file to see profit and loss, allocation, and a flag when a holding needs a second look.</p>
-      <a class="hm-link" href="{{ url_for('portfolio_page') }}">Open portfolio</a>
-      <p class="hm-note">An example book, for illustration. Yours stays private.</p>
-    </article>
-
-    <article class="hm-card" id="strategies">
-      <div class="hm-vis hm-top">
-        {% if picks %}
-        {% for p in picks[:2] %}
-        <div class="st-row" style="--i: {{ loop.index0 }}">
-          <span class="tile-k">{{ strategy_names.get(p['strategy'], p['strategy']) }}</span>
-          <span class="st-name"><b>{{ p['ticker'] }}</b> {{ p['name'] or '' }}</span>
-          <span class="st-why">{{ p['why'] }}</span>
-        </div>
-        {% endfor %}
-        {% else %}
-        <p class="asof">This month's screen hasn't run yet.</p>
-        {% endif %}
-      </div>
-      <h3>Screens for strategies</h3>
-      <p>A field guide to US and Indian playbooks, and a monthly screen naming the companies that fit each one.</p>
-      <a class="hm-link" href="{{ url_for('strategies_page') }}">Read the Strategies guide</a>
-      <p class="hm-note">Rule-based matches. Not investment advice.</p>
-    </article>
-
-    <article class="hm-card hm-otto" id="otto">
-      <div class="hm-vis">
-        <div class="ot-chat">
-          <p class="ot-q">Is a P/E of 30 expensive?</p>
-          <p class="ot-a">It depends on growth. Thirty times earnings is cheap for a company growing 25% a year and dear for one growing 5%.</p>
-        </div>
-      </div>
-      <h3>Explains any number</h3>
-      <p>Ask Otto what a ratio means, why a score moved, or which strategy a company fits.</p>
-      <a class="hm-link" href="{{ url_for('strategies_page') }}#ask-otto">Ask Otto a question</a>
-      <p class="hm-note">An example question and answer.</p>
-    </article>
-  </div>
-</section>
-
-{# 5 — The weekly note: the whole email, not a sketch of one — the same
-   layers weekly.py sends, filled from tonight's saved rows. #}
-<section class="hm-sec hm-split" id="weekly" aria-labelledby="weekly-h">
-  <header class="hm-head">
-    <h2 id="weekly-h">A weekly email every Sunday</h2>
-    <p>What changed in your stocks this week, what’s coming next week, and nothing else. One click stops it, whenever you like.</p>
-    <a class="hm-go hm-go-fill" href="{{ url_for('auth.register') }}">Create a free account</a>
-    {% if weekly_sample %}
-    <p class="hm-note">{{ 'Built from your own stocks, as of tonight.' if weekly_sample.personal else 'Built tonight from the stocks tracked here. Yours would list your own.' }}</p>
-    {% endif %}
-  </header>
-  <figure class="hm-card wk-mail">
-    <div class="wk-head">
-      <span class="wk-avatar" aria-hidden="true">{% with mood = 'happy', size = 36 %}{% include "_otto.html" %}{% endwith %}</span>
-      <span class="wk-who"><b>Otto at InvestRight</b><span>to you · Sunday, 8:00 am</span></span>
-    </div>
-    <p class="wk-subj">Otto’s weekly note</p>
-    {% if weekly_sample %}
-    {% for sec in weekly_sample.sections %}
-    <div class="wk-sec">
-      <p class="wk-sec-h">{{ sec.title }}</p>
-      <ul>
-        {% for ln in sec.lines %}<li>{{ ln }}</li>{% endfor %}
-        {% if sec.more %}<li class="wk-more">and {{ sec.more }} more</li>{% endif %}
-      </ul>
-    </div>
-    {% endfor %}
-    {% else %}
-    <p class="wk-sec-h">Your portfolio’s week · Your watchlist’s week · Earnings this week · Top movers</p>
-    {% endif %}
-    <p class="wk-foot">Manage or unsubscribe in one click. Not investment advice.</p>
   </figure>
 </section>
 
+{# IV — the health snowflake of one featured company (see _home_featured). #}
+<section class="ed-sec tint-explore" id="health" aria-labelledby="health-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>IV.</span> Five questions</p>
+    <h2 class="ed-statement" id="health-h">Five health scores for any company</h2>
+    <p class="ed-lede">Is it cheap, is it growing, has it delivered, can it pay its bills, does it pay you? Each axis is a set of plain pass-or-fail checks you can read.</p>
+    <p class="ed-go"><a href="#top" data-ed-search>Search for a company</a></p>
+  </div>
+  <figure class="plate plate-health" tabindex="-1">
+    <div class="plate-frame">
+      {% if featured and featured['snowflake'] %}
+      {% set sf = featured['snowflake'] %}
+      <svg class="ed-snow" viewBox="-62 -6 324 214" role="img"
+           aria-label="Health snowflake for {{ featured['name'] }}">
+        {% for ring in sf['rings'] %}<polygon class="sn-ring" points="{{ ring }}"/>{% endfor %}
+        <polygon class="sn-shape" points="{{ sf['polygon'] }}" style="transform-origin: {{ sf['cx'] }}px {{ sf['cy'] }}px"/>
+        {% for a in sf['axes'] %}
+        <text class="snow-label" x="{{ a['x'] }}" y="{{ a['y'] }}" text-anchor="{{ a['anchor'] }}">{{ a['label'] }}{% if a['pct'] is not none %} <tspan class="sn-pct" data-count="{{ a['pct'] }}">{{ a['pct'] }}</tspan>{% endif %}</text>
+        {% endfor %}
+      </svg>
+      {% else %}
+      <p class="asof">Scores appear once a company has been analysed.</p>
+      {% endif %}
+    </div>
+    <figcaption>{% if featured %}<a href="{{ url_for('stock', ticker=featured['ticker']) }}">{{ featured['name'] }}</a>{{ ', most viewed this fortnight' if featured['views'] else '' }}{% else %}the health snowflake{% endif %}</figcaption>
+  </figure>
+</section>
+
+{# V — the same company's DCF, price and fair value drawn on one scale. #}
+<section class="ed-sec tint-movers tile-dark" id="value" aria-labelledby="value-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>V.</span> Fair value</p>
+    <h2 class="ed-statement" id="value-h">Fair value, with every assumption shown</h2>
+    <p class="ed-lede">A two-stage cash-flow model with every assumption on the page — growth, discount rate, terminal rate — and sliders to argue with it.</p>
+  </div>
+  <figure class="plate plate-value" tabindex="-1">
+    <div class="plate-frame">
+      {% if featured %}
+      {% set sym = ccy_sym.get(featured['currency'], '') %}
+      <div class="fv-row">
+        <span class="fv-k">Price</span>
+        <span class="fv-bar" style="--v: {{ featured['price_w'] }}"><i></i></span>
+        <span class="fv-n">{{ sym }}<span data-count="{{ '%.2f'|format(featured['price']) }}" data-dp="2">{{ '%.2f'|format(featured['price']) }}</span></span>
+      </div>
+      <div class="fv-row fv-row-fair {{ 'over' if featured['upside_pct'] < 0 else '' }}">
+        <span class="fv-k">Fair value</span>
+        <span class="fv-bar" style="--v: {{ featured['fair_w'] }}"><i></i></span>
+        <span class="fv-n">{{ sym }}<span data-count="{{ '%.2f'|format(featured['fair_value']) }}" data-dp="2">{{ '%.2f'|format(featured['fair_value']) }}</span></span>
+      </div>
+      {# upside_pct is fair/price − 1, so it reads against the price. #}
+      <p class="fv-verdict">Our estimate of fair value sits
+        <b><span data-count="{{ '%.1f'|format(featured['upside_pct']|abs) }}" data-dp="1">{{ '%.1f'|format(featured['upside_pct']|abs) }}</span>% {{ 'below' if featured['upside_pct'] < 0 else 'above' }}</b>
+        {{ featured['ticker'] }}'s price. An estimate from history, not a forecast.</p>
+      {% else %}
+      <p class="asof">A fair value appears once a company has been analysed.</p>
+      {% endif %}
+    </div>
+    <figcaption>{% if featured %}{{ featured['name'] }}, discounted cash flow. {% endif %}Not investment advice.</figcaption>
+  </figure>
+</section>
+
+{# VI — Watchlist: the featured company's last 90 sessions. #}
+<section class="ed-sec tint-news tile-dark" id="watch" aria-labelledby="watch-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>VI.</span> Watchlist</p>
+    <h2 class="ed-statement" id="watch-h">A watchlist with nightly prices</h2>
+    <p class="ed-lede">Prices, sparklines and alerts for everything you are keeping an eye on, refreshed every night while you sleep.</p>
+    <p class="ed-go"><a href="{{ url_for('watchlist_page') }}">Open watchlist</a></p>
+  </div>
+  <figure class="plate plate-watch" tabindex="-1">
+    <div class="plate-frame">
+      {% if featured and featured['spark'] %}
+      {% set sp = featured['spark'] %}
+      <div class="wl-head">
+        <span class="mv-tk">{{ featured['ticker'] }}</span>
+        {% if featured['spark_chg'] is not none %}
+        <span class="mv-val {{ 'up' if featured['spark_chg'] > 0 else 'down' }}">{{ '%+.1f%%'|format(featured['spark_chg']) }}</span>
+        {% endif %}
+        <span class="tile-note">last 90 sessions</span>
+      </div>
+      <div class="wl-chart">
+        <svg viewBox="0 0 {{ sp['width'] }} {{ sp['height'] }}" preserveAspectRatio="none" role="img"
+             aria-label="{{ featured['ticker'] }} closing prices, last 90 sessions">
+          <polyline class="spark-line {{ sp['dir'] }}" points="{{ sp['points'] }}" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <span class="wl-cover" aria-hidden="true"></span>
+      </div>
+      {% else %}
+      <p class="asof">Price history appears after the first nightly run.</p>
+      {% endif %}
+    </div>
+    {% if featured %}<figcaption>{{ featured['name'] }}, closing prices</figcaption>{% endif %}
+  </figure>
+</section>
+
+{# VII — Portfolio. A guest has no book, so this one is an illustration and
+   says so. #}
+<section class="ed-sec tint-explore" id="portfolio" aria-labelledby="portfolio-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>VII.</span> Portfolio</p>
+    <h2 class="ed-statement" id="portfolio-h">Profit, loss and allocation in one place</h2>
+    <p class="ed-lede">Drop in a broker file and see real profit and loss, how your money is spread, and a gentle flag when a holding deserves a second look.</p>
+    <p class="ed-go"><a href="{{ url_for('portfolio_page') }}">Open portfolio</a></p>
+  </div>
+  <figure class="plate plate-portfolio" tabindex="-1">
+    <div class="plate-frame pf-frame">
+      <svg class="ed-donut" viewBox="0 0 140 140" role="img" aria-label="An example allocation">
+        {% for sl in example_donut %}<path d="{{ sl['d'] }}" fill="{{ sl['fill'] }}" style="--i: {{ loop.index0 }}"/>{% endfor %}
+      </svg>
+      <ul class="pf-legend">
+        {% for sl in example_donut %}
+        <li style="--i: {{ loop.index0 }}"><i style="background: {{ sl['fill'] }}"></i>{{ sl['label'] }}<b>{{ '%.0f'|format(sl['pct']) }}%</b></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <figcaption>An example book, for illustration. Yours stays private.</figcaption>
+  </figure>
+</section>
+
+{# VIII — Strategies: this month's rule-based picks, with the numbers that
+   picked them. #}
+<section class="ed-sec tint-earnings" id="strategies" aria-labelledby="strategies-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>VIII.</span> Strategies</p>
+    <h2 class="ed-statement" id="strategies-h">Strategy guides for the US and India</h2>
+    <p class="ed-lede">A field guide to the playbooks that work right now, and a monthly screen that names the companies fitting each one — with the numbers that put them there.</p>
+    <p class="ed-go"><a href="{{ url_for('strategies_page') }}">Read the guide</a></p>
+  </div>
+  <figure class="plate plate-strategies" tabindex="-1">
+    <div class="plate-frame">
+      {% if picks %}
+      {% for p in picks %}
+      <div class="st-row" style="--i: {{ loop.index0 }}">
+        <span class="tile-k">{{ strategy_names.get(p['strategy'], p['strategy']) }}</span>
+        <span class="st-name"><b>{{ p['ticker'] }}</b> {{ p['name'] or '' }}</span>
+        <span class="st-why">{{ p['why'] }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="asof">This month's screen hasn't run yet.</p>
+      {% endif %}
+    </div>
+    <figcaption>This month’s rule-based matches. Not investment advice.</figcaption>
+  </figure>
+</section>
+
+{# IX — Today. #}
+<section class="ed-sec tint-movers tile-dark" id="today" aria-labelledby="today-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>IX.</span> Today</p>
+    <h2 class="ed-statement" id="today-h">Every tracked stock, ranked nightly</h2>
+    <p class="ed-lede">One screen of every tracked company, sorted by our own transparent rules, with Otto's plain-English read of what moved and why.</p>
+    <p class="ed-go"><a href="{{ url_for('today') }}">See today’s screen</a></p>
+  </div>
+  <figure class="plate plate-today" tabindex="-1">
+    <div class="plate-frame td-frame">
+      <span class="td-n" data-count="{{ tracked }}">{{ tracked }}</span>
+      <span class="td-cap">companies screened tonight, across the US and India</span>
+    </div>
+  </figure>
+</section>
+
+{# X — Ask Otto. #}
+<section class="ed-sec tint-explore tile-dark" id="otto" aria-labelledby="otto-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>X.</span> Ask Otto</p>
+    <h2 class="ed-statement" id="otto-h">Answers about any number on the page</h2>
+    <p class="ed-lede">Otto reads the same numbers you see and explains them — what a ratio means, why a score moved, which strategy a company fits.</p>
+    <p class="ed-go"><a href="{{ url_for('strategies_page') }}#ask-otto">Ask Otto a question</a></p>
+  </div>
+  <figure class="plate plate-otto" tabindex="-1">
+    <div class="plate-frame ot-frame">
+      {% with mood = 'happy', size = 84 %}{% include "_otto.html" %}{% endwith %}
+      <div class="ot-chat">
+        <p class="ot-q">Is a P/E of 30 expensive?</p>
+        <p class="ot-a">It depends on growth. Thirty times earnings is cheap for a company growing 25% a year and dear for one growing 5% — so look at the Future axis next to it.</p>
+      </div>
+    </div>
+    <figcaption>An example question and answer.</figcaption>
+  </figure>
+</section>
+
+{# XI — The weekly note. #}
+<section class="ed-sec ed-split tint-news" id="weekly" aria-labelledby="weekly-h">
+  <div class="ed-copy">
+    <p class="ed-kicker"><span>XI.</span> The weekly note</p>
+    <h2 class="ed-statement" id="weekly-h">A weekly email every Sunday</h2>
+    <p class="ed-lede">What changed in your stocks this week, what's coming next week, and nothing else. One click to stop it, whenever you like.</p>
+    <p class="ed-go"><a href="{{ url_for('auth.register') }}">Create a free account</a></p>
+  </div>
+  <figure class="plate plate-weekly" tabindex="-1">
+    <div class="plate-frame wk-frame">
+      {# The whole email, not a sketch of one: the same layers weekly.py sends,
+         filled from tonight's saved rows. #}
+      <div class="wk-mail">
+        <div class="wk-head">
+          <span class="wk-avatar" aria-hidden="true">{% with mood = 'happy', size = 36 %}{% include "_otto.html" %}{% endwith %}</span>
+          <span class="wk-who"><b>Otto at InvestRight</b><span>to you · Sunday, 8:00 am</span></span>
+        </div>
+        <p class="wk-subj">Otto’s weekly note</p>
+        {% if weekly_sample %}
+        {% for sec in weekly_sample.sections %}
+        <div class="wk-sec">
+          <p class="wk-sec-h">{{ sec.title }}</p>
+          <ul>
+            {% for ln in sec.lines %}<li>{{ ln }}</li>{% endfor %}
+            {% if sec.more %}<li class="wk-more">and {{ sec.more }} more</li>{% endif %}
+          </ul>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="wk-sec-h">Your portfolio’s week · Your watchlist’s week · Earnings this week · Top movers</p>
+        {% endif %}
+        <p class="wk-foot">Manage or unsubscribe in one click. Not investment advice.</p>
+      </div>
+    </div>
+    {% if weekly_sample %}
+    <figcaption>{{ 'Built from your own stocks, as of tonight' if weekly_sample.personal else 'Built tonight from the stocks tracked here; yours would list your own' }}</figcaption>
+    {% endif %}
+  </figure>
+</section>
+
+</div>
 </div>
 
 <script>

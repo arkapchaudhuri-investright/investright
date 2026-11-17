@@ -2343,8 +2343,13 @@ h1, .page-title { letter-spacing: var(--track-xl); }
 .field-err.on { display: block; }
 input.invalid, input.invalid:focus { border-color: var(--down); }
 
-/* ===== Landing page: the live panels' inner styles (the shell is the
-   "Home" block at the end of the sheet). ================================= */
+/* ===== The edition (landing page) ====================================== */
+/* After Shopify Editions Winter '26 ("The Renaissance Edition"): numbered
+   full-bleed sections, one idea each, a roman-numeral index that tracks the
+   scroll, Fraunces statements with drop caps, and a framed "plate" of live
+   data beside each. Structure copied, artwork not: the plates are our own
+   numbers, and the catalogue frame round them is the classical half of the
+   collision. */
 
 /* A critically damped spring (damping 1.0, response .35s) sampled for CSS:
    x(t) = 1 − (1 + ωt)·e^(−ωt), ω = 2π/.35. No bounce — none is earned by a
@@ -2355,6 +2360,126 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
                    .957, .971, .98, .986, .991, .994, .996, .997, .998, 1);
   --t-spring: .5s;
 }
+
+/* The edition is wider than the 880px reading column the rest of the site
+   uses; the index needs a gutter and the plates need room. */
+/* Equal edges (taste audit): the index gets a matching empty column on the
+   right, so the content sits on the page's centre line like the hero does,
+   instead of 348px from the left edge and 150px from the right. */
+main:has(.ed) { max-width: 1440px; }
+.ed {
+  display: grid; grid-template-columns: 170px minmax(0, 1fr) 170px;
+  gap: var(--space-6);
+}
+/* The hero has the first screen to itself, so no section heading peeks in
+   under the search box. The top bar plus the ticker tape measure 114px;
+   110 leaves a few px of slack so section I never shows a sliver. */
+.hero-home:has(~ .ed) { min-height: calc(100svh - 110px); }
+/* .hero h1 sets its own margin and would pin the h1 to the left. */
+.hero .hero-display { margin: 0 auto 16px; }
+.ed .asof { font-size: .8125rem; }
+
+/* --- The index. Sticky inside its own grid column, so it never touches the
+       .topbar's stacking rules (which must stay sticky-free, see ~l.388). --- */
+.ed-index { position: sticky; top: 24px; align-self: start; }
+.ed-index ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--hairline); }
+.ed-index a {
+  display: flex; align-items: baseline; gap: 10px; padding: 5px 0 5px 14px;
+  margin-left: -1px; border-left: 2px solid transparent;
+  color: var(--muted); text-decoration: none; font-size: var(--fs-sm);
+  transition: color var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out);
+}
+.ed-num {
+  font-family: var(--serif); font-weight: 600; min-width: 2.4em;
+  font-variant-numeric: lining-nums; letter-spacing: .02em;
+}
+.ed-index a:hover { color: var(--text); }
+.ed-index a[aria-current="true"] { color: var(--text); border-left-color: var(--accent); }
+.ed-index a[aria-current="true"] .ed-num { color: var(--accent); }
+
+/* --- Sections. Alternate bands run full-bleed through border-image, which
+       paints outside the box without adding scroll overflow. --- */
+.ed-sec {
+  --tint: var(--tint-movers);
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: start; gap: clamp(24px, 4vw, 56px);
+  /* One section per screen, its heading top-aligned 120px down (taste). */
+  min-height: 100svh; padding: 120px 0 72px;
+  scroll-margin-top: 8px; position: relative;
+}
+.ed-sec:nth-child(even) {
+  border-image: linear-gradient(var(--wash) 0 0) fill 0 / / 0 100vw;
+}
+.ed-sec:nth-child(even) .ed-copy { order: 2; }
+.tint-movers   { --tint: var(--tint-movers); }
+.tint-news     { --tint: var(--tint-news); }
+.tint-earnings { --tint: var(--tint-earnings); }
+.tint-explore  { --tint: var(--tint-explore); }
+
+/* Labels: 13px at 500 in sentence case. Tracked capitals read as shouting
+   and fell under the 13px floor at 11.5px. */
+.ed-kicker {
+  margin: 0 0 var(--space-3); font-size: .8125rem; font-weight: 500;
+  /* The tint alone measured 3.3–4.3:1 on its tile; mixed toward the ink it
+     keeps its hue and clears 4.5:1 in both themes. */
+  color: color-mix(in srgb, var(--tint) 55%, var(--text));
+}
+.ed-kicker span { font-family: var(--serif); font-size: 1.15em; letter-spacing: .04em; margin-right: 6px; }
+.ed-statement {
+  margin: 0 0 var(--space-4); font-family: var(--serif); font-weight: 500;
+  font-size: clamp(1.875rem, 3.6vw, 3rem); line-height: 1.06;
+  letter-spacing: var(--track-hero); font-optical-sizing: auto; text-wrap: balance;
+}
+.ed-lede { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.6; max-width: 34em; }
+/* The drop cap: one rule, the strongest classical signal on the page. */
+.ed-lede::first-letter {
+  float: left; font-family: var(--serif); font-weight: 600; color: var(--tint);
+  font-size: 3.4em; line-height: .82; margin: .06em .1em 0 0;
+}
+.ed-asof { margin: var(--space-3) 0 0; font-size: .8125rem; color: var(--muted); }
+.ed-go { margin: var(--space-4) 0 0; font-size: var(--fs-body); font-weight: 600; }
+.ed-go a { color: var(--tint); text-decoration: none; }
+.ed-go a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* --- The plate: a catalogue frame round live data. A double rule (border +
+       inset outline) and a caption underneath, like a plate in a folio. --- */
+.plate { margin: 0; position: relative; }
+.plate-frame {
+  position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--hairline); border-radius: 4px;
+  outline: 1px solid var(--hairline); outline-offset: 5px;
+  padding: clamp(16px, 2.4vw, 28px); min-height: 220px;
+  display: flex; flex-direction: column; gap: var(--space-2);
+  transition: transform var(--t-spring) var(--spring),
+              box-shadow var(--t-spring) var(--spring),
+              border-color var(--t-base) var(--ease-out);
+}
+/* Tint wash on a pseudo-element, so it never tints text; hover deepens it by
+   opacity alone. */
+.plate-frame::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .55;
+  background: linear-gradient(155deg,
+    color-mix(in srgb, var(--tint) 16%, transparent), transparent 64%);
+  transition: opacity var(--t-spring) var(--spring);
+}
+.plate-frame > * { position: relative; }
+/* A one-screen section needs 495px+ of content or it reads sparse (taste),
+   so on desktop the plate carries the height and its data sits centred. */
+@media (min-width: 1200px) {
+  .plate-frame { min-height: 500px; justify-content: center; }
+  .plate-movers .plate-frame { align-content: center; }
+}
+.plate figcaption {
+  margin-top: 14px; font-size: .8125rem; color: var(--muted); text-align: center;
+}
+.plate figcaption a { color: inherit; }
+.plate:hover .plate-frame, .plate:focus-within .plate-frame {
+  transform: translateY(-2px);
+  /* ≤10% ink in light (.12 × .8); the dark theme's darker shadow scales too. */
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow) 80%, transparent);
+  border-color: color-mix(in srgb, var(--tint) 45%, var(--hairline));
+}
+.plate:hover .plate-frame::before, .plate:focus-within .plate-frame::before { opacity: 1; }
 
 /* Shared label + row type, kept from the board. */
 .tile-k { font-size: .8125rem; font-weight: 500; color: var(--tint, var(--accent)); }
@@ -2367,6 +2492,7 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
 .mv-val { font-variant-numeric: tabular-nums; font-size: var(--fs-body); font-weight: 600; }
 
 /* I — movers: three columns, each row a form (a write can't live in a GET). */
+.plate-movers .plate-frame { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
 .mv-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mv-row { margin: 0; }
 .mv-btn {
@@ -2395,7 +2521,7 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
   border: 1px solid var(--hairline); border-radius: 999px;
   transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
-.nw-tab[aria-selected="true"] { color: var(--card); background: var(--text); border-color: var(--text); }
+.nw-tab[aria-selected="true"] { color: #fff; background: var(--tint-news); border-color: var(--tint-news); }
 .nw-rail {
   display: flex; gap: var(--space-3); overflow-x: auto; scroll-snap-type: x mandatory;
   scrollbar-width: none; padding: 2px 0 4px;
@@ -2411,7 +2537,7 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
   border: 1px solid var(--hairline); border-radius: 10px; background: var(--bg);
   transition: border-color var(--t-base) var(--ease-out);
 }
-.nw-card:hover .nw-title { color: var(--accent); }
+.nw-card:hover { border-color: color-mix(in srgb, var(--tint-news) 50%, var(--hairline)); }
 .nw-title { font-size: var(--fs-body); line-height: 1.4; font-weight: 500; }
 .nw-meta { font-size: .8125rem; color: var(--muted); margin-top: auto; }
 
@@ -2422,11 +2548,12 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
   padding: 7px 0; border-top: 1px solid var(--hairline); text-decoration: none; color: inherit;
 }
 .ern-row:first-of-type { border-top: 0; }
-.ern-row:hover .mv-tk { color: var(--accent); }
-.ern-when { font-size: .8125rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.ern-row:hover .mv-tk { color: var(--tint-earnings); }
+.ern-when { font-size: .8125rem; font-weight: 600; color: var(--tint-earnings); white-space: nowrap; }
 .ern-bar { grid-column: 1 / -1; }
 
 /* IV — snowflake */
+.plate-health .plate-frame { align-items: center; justify-content: center; }
 .ed-snow { width: min(360px, 100%); height: auto; }
 .sn-ring { fill: none; stroke: var(--hairline); stroke-width: 1; }
 .sn-shape {
@@ -2436,6 +2563,7 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
 .sn-pct { fill: var(--text); font-weight: 700; }
 
 /* V — fair value */
+.plate-value .plate-frame { justify-content: center; gap: var(--space-4); }
 .fv-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
 .fv-k { font-size: .8125rem; color: var(--muted); }
 .fv-n { font-variant-numeric: tabular-nums; font-weight: 650; font-size: var(--fs-lg); }
@@ -2465,6 +2593,7 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
 }
 
 /* VII — example donut */
+.pf-frame { flex-direction: row !important; align-items: center; justify-content: center; gap: var(--space-6) !important; flex-wrap: wrap; }
 .ed-donut { width: 170px; height: 170px; }
 .ed-donut path { transform-origin: 70px 70px; }
 .pf-legend { list-style: none; margin: 0; padding: 0; min-width: 180px; }
@@ -2476,6 +2605,7 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
 .pf-legend b { margin-left: auto; font-variant-numeric: tabular-nums; }
 
 /* VIII — strategies */
+.plate-strategies .plate-frame { justify-content: center; }
 .st-row { display: flex; flex-direction: column; gap: 3px; padding: 10px 0; border-top: 1px solid var(--hairline); }
 .st-row:first-child { border-top: 0; }
 .st-name { font-size: var(--fs-md); }
@@ -2483,11 +2613,19 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
 .st-why { font-size: .8125rem; color: var(--muted); line-height: 1.45; }
 
 /* IX — today */
+.td-frame { align-items: center; justify-content: center; text-align: center; }
+.td-n {
+  font-family: var(--serif); font-weight: 500; line-height: 1;
+  font-size: clamp(4.5rem, 10vw, 7.5rem); color: var(--tint);
+  font-variant-numeric: lining-nums tabular-nums; letter-spacing: var(--track-hero);
+}
+.td-cap { font-size: var(--fs-body); color: var(--muted); max-width: 22em; }
 
 /* X — Otto */
+.ot-frame { flex-direction: row !important; align-items: flex-end; gap: var(--space-4) !important; justify-content: center; }
 /* The hero's Otto already floats; a second one moving on the same page is
    two self-moving things, so this one holds still. */
-.hm-otto .otto svg, .hm-otto .otto svg * { animation: none !important; }
+.plate-otto .otto svg, .plate-otto .otto svg * { animation: none !important; }
 .ot-chat { display: flex; flex-direction: column; gap: var(--space-2); max-width: 340px; }
 .ot-q, .ot-a { margin: 0; padding: 10px 14px; border-radius: 14px; font-size: var(--fs-body); line-height: 1.5; }
 .ot-q { align-self: flex-end; background: var(--accent-deep); color: #fff; border-bottom-right-radius: 4px; }
@@ -2518,6 +2656,36 @@ input.invalid, input.invalid:focus { border-color: var(--down); }
 @keyframes ed-bloom { from { transform: scale(.2); opacity: 0; } }
 @keyframes ed-rise  { from { transform: translateY(10px); opacity: 0; } }
 @keyframes ed-sweep { from { transform: translateX(0); } }
+
+/* Reduced motion: no lifts, tilts or replays — hover becomes a ~200ms opacity
+   cross-fade of the tint wash, which still says "this responds". */
+@media (prefers-reduced-motion: reduce) {
+  .plate-frame { transition: border-color .2s linear, box-shadow .2s linear; }
+  .plate-frame::before { transition: opacity .2s linear; }
+  .plate:hover .plate-frame, .plate:focus-within .plate-frame { transform: none; }
+}
+/* The wash is decorative; contrast-preferring readers get flat surfaces and a
+   firmer frame. */
+@media (prefers-contrast: more) {
+  .plate-frame::before { display: none; }
+  .plate-frame { border-color: var(--edge); outline-color: var(--edge); }
+  .ed-lede { color: var(--text); }
+}
+
+/* Narrow screens: the index has no gutter to live in, so it folds away (each
+   section heading still carries its numeral), and copy stacks over plate. */
+@media (max-width: 1199px) {
+  .ed { grid-template-columns: minmax(0, 1fr); }
+  .ed-index { display: none; }
+  .ed-sec { grid-template-columns: minmax(0, 1fr); min-height: 0; padding: 96px 0 48px; }
+  /* Below 1200 the top bar wraps its nav onto a second row: ~150px. */
+  .hero-home:has(~ .ed) { min-height: calc(100svh - 150px); }
+  .ed-sec:nth-child(even) .ed-copy { order: 0; }
+}
+@media (max-width: 640px) {
+  .plate-movers .plate-frame { grid-template-columns: minmax(0, 1fr); }
+  .plate-frame { outline-offset: 3px; }
+}
 
 /* ===== Apple-style layer (2026-11 revamp) ================================ */
 /* Last in the sheet so every page takes it from one place. Built from the
@@ -2663,6 +2831,45 @@ footer {
   border-top: 1px solid var(--hairline); font-size: .8125rem;
 }
 
+/* --- The landing, Apple-style: centred sections, a big bold statement and
+       its line, then the live panel beneath. Bands alternate between the
+       ground and the card colour, and a panel takes the opposite one. The
+       numbered contents index and the drop caps belonged to the earlier
+       editorial look, so they go. --- */
+main:has(.ed) { max-width: 1080px; }
+.ed { display: block; }
+.ed-index { display: none; }
+.ed-sec {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 40px; padding: 120px 0 72px;
+}
+.ed-sec:nth-child(even) { border-image: linear-gradient(var(--card) 0 0) fill 0 / / 0 100vw; }
+.ed-sec:nth-child(even) .ed-copy { order: 0; }
+.ed-sec:nth-child(even) .plate-frame { background: var(--bg); }
+.ed-copy { max-width: 40rem; }
+.ed-kicker { font-size: 1.0625rem; font-weight: 600; margin-bottom: 8px; }
+.ed-kicker span { display: none; }
+.ed-statement {
+  font-family: var(--serif); font-weight: 700; letter-spacing: -.03em;
+  font-size: clamp(2.25rem, 4.6vw, 3.5rem); line-height: 1.06; margin-bottom: 16px;
+}
+.ed-lede { font-size: 1.1875rem; line-height: 1.5; max-width: 34em; margin: 0 auto; }
+.ed-lede::first-letter {
+  float: none; font: inherit; color: inherit; margin: 0; line-height: inherit;
+}
+.ed-go { font-size: 1.0625rem; font-weight: 400; }
+.ed-go a::after { content: " ›"; }
+.ed-go a { margin: 0 10px; }
+.plate { width: 100%; max-width: 880px; }
+.ed .plate-frame {
+  min-height: 0; border: 0; outline: none; border-radius: 22px; padding: 32px;
+  text-align: left;
+}
+.plate-frame::before { opacity: .35; }
+.plate:hover .plate-frame, .plate:focus-within .plate-frame {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .08);
+}
+
 @media (max-width: 720px) {
   :root { --gnav-h: 92px; }
   .gnav { grid-template-columns: 1fr auto; row-gap: 2px; padding: 8px 16px; }
@@ -2674,17 +2881,75 @@ footer {
   }
   .gnav .topnav::-webkit-scrollbar { display: none; }
   .gnav .navlink { flex: 0 0 auto; white-space: nowrap; }
+  .ed-sec { padding: 96px 0 48px; gap: 32px; }
+  .ed .plate-frame { padding: 20px; border-radius: 18px; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .gnav::before { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; }
   .settings-panel, .navsearch-panel { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 @media (prefers-contrast: more) {
-  .card, .hm-card { border: 1px solid var(--edge); }
+  .card, .ed .plate-frame { border: 1px solid var(--edge); }
   .seg { background: none; border: 1px solid var(--edge); }
 }
 @media (prefers-reduced-motion: reduce) {
   .gnav .navlink, .navsearch-btn, .set-btn { transition: opacity .2s linear, background-color .2s linear; }
+}
+
+/* --- The landing as an apple.com-style tile grid: two full-width tiles,
+       then pairs. Each tile is the surface — copy centred at the top, the
+       live panel anchored to the bottom — and some tiles are dark even in
+       light mode, through tile-local tokens, the way apple.com mixes them.
+       Hovering a tile eases its panel up to 1.02 (taste's photo zoom) and
+       the panel's own data replay still runs (edition.js). --- */
+.ed-body {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.ed-sec {
+  min-height: 600px; border-radius: 24px; overflow: hidden;
+  background: var(--card); color: var(--text); border-image: none;
+  padding: 56px 40px 40px; gap: 28px; justify-content: flex-start;
+}
+.ed-sec:nth-child(even) { border-image: none; }
+.ed-sec:nth-child(even) .plate-frame { background: none; }
+/* Full-width tiles: the two live boards, the snapshot that leads the page,
+   and the weekly note that closes it (an odd tile out would sit beside an
+   empty cell). */
+#markets, #news, #snapshot, #weekly { grid-column: span 2; min-height: 640px; }
+.tile-dark {
+  --card: #000000; --bg: #1c1c1e; --text: #f5f5f7; --muted: #a1a1a6;
+  --hairline: #38383a; --accent: #30d158; --accent-deep: #1f7a3a;
+  --up: #30d158; --down: #ff453a; --wash: rgba(245, 245, 247, .06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+.ed-statement { font-size: clamp(2rem, 3.4vw, 2.75rem); }
+#markets .ed-statement, #news .ed-statement { font-size: clamp(2.25rem, 4.6vw, 3.5rem); }
+.ed-lede { font-size: 1.0625rem; }
+.ed .plate { margin-top: auto; transition: transform var(--t-spring) var(--spring); }
+/* overflow visible: with no padding, a clipped frame shaved the overhang off
+   glyphs on the left edge ("Top gainers" lost half its T). The sparkline
+   keeps its own clip on .wl-chart. */
+.ed .plate-frame { background: none; padding: 0; box-shadow: none; overflow: visible; }
+.ed .plate-frame::before { display: none; }
+.plate:hover .plate-frame, .plate:focus-within .plate-frame { transform: none; box-shadow: none; }
+.ed-sec:hover .plate { transform: scale(1.02); }
+/* Panels that need a surface of their own inside the tile. */
+.nw-card, .wk-mail, .ot-a { background: var(--bg); }
+.ed-go a {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 18px;
+  border-radius: 980px; text-decoration: none; font-size: .9375rem;
+  border: 1px solid var(--accent); color: var(--accent); margin: 4px 5px;
+}
+.ed-go a::after { content: none; }
+.ed-go a:hover { text-decoration: none; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+@media (max-width: 860px) {
+  .ed-body { grid-template-columns: minmax(0, 1fr); }
+  #markets, #news { grid-column: auto; }
+  .ed-sec, #markets, #news { min-height: 0; padding: 40px 20px 28px; border-radius: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed .plate { transition: none; }
+  .ed-sec:hover .plate { transform: none; }
 }
 
 /* Inline SVG icons (templates/_icons.html) sit on the text baseline and take
@@ -2906,7 +3171,7 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
 }
 
 /* Landing page · Snapshot plate: one company, one figure, one picture. */
-.hm-snap { padding: clamp(24px, 4vw, 44px); }
+
 .snp-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .snp-co { font-size: var(--fs-md); font-weight: 600; }
 .snp-co span { color: var(--muted); font-weight: 400; margin-left: 4px; }
@@ -2923,13 +3188,8 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
   display: block; white-space: normal; margin-top: 8px; font-family: var(--sans); font-weight: 400;
   font-size: var(--fs-md); line-height: 1.5; letter-spacing: 0; color: var(--muted);
 }
-.snp-range li { font-size: var(--fs-md); padding: 6px 0 8px; }
-.snp-range .evs-track { height: 18px; }
-.snp-range .evs-bar { top: 4px; height: 10px; border-radius: 3px; }
-.snp-range .evs-r-weighted .evs-bar { top: 2px; height: 14px; }
-.hm-snap .evs-pricekey { margin-top: 12px; font-size: var(--fs-sm); }
-
 /* Landing page · the weekly note as a whole email */
+.wk-frame { align-items: center; justify-content: center; }
 .wk-mail {
   width: min(600px, 100%); display: flex; flex-direction: column; gap: 0;
   text-align: left; background: var(--bg); border: 1px solid var(--hairline);
@@ -2951,133 +3211,69 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
 .wk-sec .wk-more { color: var(--muted); font-size: var(--fs-sm); }
 .wk-foot { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--hairline); color: var(--muted); font-size: var(--fs-sm); }
 
-/* ===== Home (2026-11-16) =================================================
-   One surface, one accent, one card recipe. Sections sit on the page ground
-   96px apart; each opens with a left-aligned serif heading and one sentence,
-   then cards. Nothing is dark-in-light or tinted: colour comes from the data
-   (green up, red down) and the one accent. */
-main:has(.hm) { max-width: 1080px; }
-.hero-home:has(~ .hm) { min-height: calc(100svh - 110px); }
-.hero .hero-display { margin: 0 auto 16px; }
+/* ===== Landing page polish (2026-11-16) ==================================
+   Same tile board; tighter. Full-width tiles size to their content instead
+   of a 640px floor (which left a blank band above the news rail), and the
+   two tiles with a tall picture put words left and picture right. */
 .hero-sub {
   max-width: 32em; margin: 0 auto 32px; color: var(--muted);
   font-size: 1.1875rem; line-height: 1.5; text-wrap: balance;
 }
-/* The page is five screens now, so the reading-progress line and the
-   back-to-top button have nothing to do here. */
-body:has(.hm) .scroll-progress, body:has(.hm) .to-top { display: none; }
+#markets, #news, #snapshot, #weekly { min-height: 0; padding: 64px 48px 48px; gap: 36px; }
+.ed-split {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: center; text-align: left; column-gap: clamp(32px, 5vw, 72px);
+}
+.ed-split .ed-copy { max-width: none; }
+.ed-split .ed-lede { margin: 0; }
+.ed-split .ed-go a { margin-left: 0; }
+.ed-split .plate { margin: 0; max-width: none; }
 
-.hm {
-  --tint: var(--accent);
-  display: flex; flex-direction: column; gap: 96px; padding: 24px 0 64px;
+/* Snapshot: one compact card. */
+.ed .plate-snapshot .plate-frame {
+  background: var(--bg); border-radius: 20px; padding: 28px; gap: 0; text-align: left;
 }
-.hm .asof { font-size: .8125rem; }
-.hm-sec { scroll-margin-top: 72px; min-width: 0; }
-.hm-head {
-  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
-  gap: 16px 32px; margin-bottom: 32px;
+.snp-value { margin: 14px 0 22px; font-size: clamp(2.25rem, 5vw, 3.5rem); }
+.snp-value span { margin-top: 4px; font-size: var(--fs-sm); }
+.snp-scale {
+  position: relative; height: 12px; border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
 }
-.hm-head > div { flex: 1 1 26rem; min-width: 0; }
-.hm-head h2 {
-  margin: 0 0 12px; font-family: var(--serif); font-weight: 700;
-  font-size: clamp(1.875rem, 3.6vw, 2.75rem); line-height: 1.08;
-  letter-spacing: -.03em; font-optical-sizing: auto; text-wrap: balance;
+.snp-band, .snp-mid { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+.snp-band {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    color-mix(in srgb, var(--accent) 60%, transparent));
 }
-.hm-head p { margin: 0; color: var(--muted); font-size: 1.0625rem; line-height: 1.5; max-width: 36em; }
+.snp-mid { background: var(--accent); min-width: 8px; }
+.snp-tick {
+  position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px;
+  border-radius: 1px; background: var(--text);
+}
+.snp-key { margin: 12px 0 0; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.snp-key .snp-tick { position: static; width: 2px; height: 12px; margin: 0; flex: none; }
+.snp-cases {
+  list-style: none; margin: 22px 0 0; padding: 18px 0 0; border-top: 1px solid var(--hairline);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+}
+.snp-cases li { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.snp-cases span { font-size: var(--fs-sm); color: var(--muted); }
+.snp-cases b { font-size: 1.0625rem; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plate-snapshot figcaption { text-align: left; }
 
-/* The one secondary button (outline pill) and its filled sibling. */
-.hm-go {
-  display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px;
-  border-radius: 980px; border: 1px solid var(--accent); color: var(--accent);
-  font-size: .9375rem; font-weight: 500; text-decoration: none; white-space: nowrap;
-  transition: background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
-}
-.hm-go:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-.hm-go:active { transform: scale(.97); }
-.hm-go-fill { background: var(--accent-deep, var(--accent)); border-color: transparent; color: #fff; }
-.hm-go-fill:hover { background: color-mix(in srgb, var(--accent-deep, var(--accent)) 86%, #000); }
+/* Weekly note: the email sits beside its pitch. */
+#weekly .wk-frame { align-items: stretch; }
+#weekly .wk-mail { width: 100%; }
 
-/* Split sections: words on the left, the picture on the right. */
-.hm-split {
-  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: clamp(24px, 5vw, 72px); align-items: center;
-}
-.hm-split .hm-head { display: block; margin: 0; }
-.hm-split .hm-head p { margin-bottom: 24px; }
-.hm-split .hm-head .hm-note { margin: 16px 0 0; }
-
-.hm-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.hm-two { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; }
-.hm-card {
-  margin: 0; min-width: 0; display: flex; flex-direction: column;
-  background: var(--card); border-radius: 20px; padding: 28px;
-}
-.hm-vis {
-  flex: 1; min-height: 232px; margin-bottom: 24px;
-  display: flex; flex-direction: column; justify-content: center; gap: var(--space-3);
-}
-.hm-top { justify-content: flex-start; }
-.hm-card h3 { margin: 0 0 6px; font-size: 1.1875rem; font-weight: 650; letter-spacing: -.012em; line-height: 1.25; }
-.hm-card > h3 + p { margin: 0; color: var(--muted); font-size: .9375rem; line-height: 1.5; }
-.hm-link {
-  align-self: flex-start; margin-top: 14px; color: var(--accent);
-  font-size: .9375rem; font-weight: 500; text-decoration: none;
-}
-.hm-link::after {
-  content: "→"; display: inline-block; margin-left: 6px;
-  transition: transform var(--t-fast) var(--ease-out);
-}
-.hm-link:hover::after { transform: translateX(3px); }
-.hm-note, .hm-card > .hm-note { margin: 14px 0 0; font-size: .8125rem; line-height: 1.45; color: var(--muted); }
-.hm-note a { color: inherit; }
-
-/* Panels */
-.hm .ed-snow { width: min(320px, 100%); height: auto; align-self: center; }
-.hm-fv .fv-row { grid-template-columns: 1fr auto; row-gap: 8px; }
-.hm-fv .fv-bar { grid-column: 1 / -1; height: 12px; }
-.hm-fv .fv-verdict { font-size: .9375rem; }
-.hm-pf { align-items: center; }
-.hm-pf .ed-donut { width: 132px; height: 132px; }
-.hm-pf .pf-legend { width: 100%; min-width: 0; }
-.hm-pf .pf-legend li { padding: 5px 0; font-size: .875rem; }
-.hm-pf .pf-legend li:last-child { border-bottom: 0; }
-.hm-otto .ot-chat { max-width: none; }
-.hm-otto .ot-a { background: var(--bg); }
-.hm .st-row { padding: 12px 0; }
-.hm .st-row:first-child { padding-top: 0; }
-
-.hm-movers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 40px; }
-.hm-list h3 { margin-bottom: 14px; }
-.hm-news .nw-tabs { margin-bottom: 6px; flex-wrap: wrap; overflow: visible; }
-.hm-news .nw-rail { flex-direction: column; gap: 0; overflow: visible; padding: 0; }
-.hm-news .nw-card {
-  width: auto; min-height: 0; padding: 12px 0; gap: 4px; background: none;
-  border: 0; border-top: 1px solid var(--hairline); border-radius: 0;
-}
-.hm-news .nw-rail .nw-card:first-child { border-top: 0; }
-.hm-news .nw-title { transition: color var(--t-fast) var(--ease-out); }
-.hm-news .nw-meta { margin-top: 0; }
-
-.hm .wk-mail { width: 100%; border: 0; box-shadow: none; background: var(--card); padding: clamp(20px, 3vw, 32px); border-radius: 20px; }
-
-@media (max-width: 900px) {
-  .hm { gap: 72px; }
-  .hm-split, .hm-grid, .hm-two { grid-template-columns: minmax(0, 1fr); }
-  .hm-vis { min-height: 0; }
-  .hm-pf { flex-direction: row; gap: var(--space-5); }
-  .hm-pf .pf-legend { flex: 1; }
-}
-@media (max-width: 640px) {
-  .hm { gap: 64px; }
-  .hm-card { padding: 20px; border-radius: 18px; }
-  .hm-movers { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  .hm-go { width: 100%; justify-content: center; }
+@media (max-width: 860px) {
+  .ed-split { grid-template-columns: minmax(0, 1fr); row-gap: 28px; text-align: center; }
+  .ed-split .ed-lede { margin: 0 auto; }
+  .ed-split .ed-go a { margin: 4px 5px; }
+  #markets, #news, #snapshot, #weekly { padding: 40px 20px 28px; }
+  .ed .plate-snapshot .plate-frame { padding: 20px; }
   .hero-sub { font-size: 1.0625rem; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .hm-go:active { transform: none; opacity: .7; }
-  .hm-link::after { transition: none; }
-}
-@media (prefers-contrast: more) {
-  .hm-head p, .hm-card > h3 + p { color: var(--text); }
+@media (max-width: 480px) {
+  .snp-cases { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .snp-cases li { flex-direction: row; justify-content: space-between; align-items: baseline; }
 }

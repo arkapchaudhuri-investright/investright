@@ -1,13 +1,34 @@
-// The landing page: the hover replays that draw each card's data in, the news
-// tabs, and the search link. Vanilla, no libraries.
+// The edition (landing page): the scroll-tracking index and the hover replays
+// that draw each plate's data in. Vanilla, no libraries.
 //
 // Everything degrades: with JS off every section and value is simply there;
 // under prefers-reduced-motion the replays never start (the CSS gates them
 // too) and hover is the stylesheet's opacity cross-fade alone.
 (function () {
-  var ed = document.querySelector('.hm');
+  var ed = document.querySelector('.ed');
   if (!ed) return;
   var calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var sections = [].slice.call(ed.querySelectorAll('.ed-sec'));
+  var links = {};
+  [].forEach.call(ed.querySelectorAll('[data-ed-link]'), function (a) {
+    links[a.dataset.edLink] = a;
+  });
+
+  // --- Index: the section crossing the upper-middle of the viewport is the
+  //     current one. A thin band (not a threshold) means exactly one wins.
+  if ('IntersectionObserver' in window) {
+    var current = null;
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        if (current) current.removeAttribute('aria-current');
+        current = links[en.target.id] || null;
+        if (current) current.setAttribute('aria-current', 'true');
+      });
+    }, { rootMargin: '-38% 0px -58% 0px' });
+    sections.forEach(function (s) { spy.observe(s); });
+  }
+
   // --- Replays. Entering a plate (pointer or keyboard focus) adds .replay,
   //     which the CSS turns into the data drawing itself in; numbers marked
   //     data-count count up alongside. The class comes off only when the
@@ -30,7 +51,7 @@
     requestAnimationFrame(frame);
   }
 
-  [].forEach.call(ed.querySelectorAll('.hm-card'), function (plate) {
+  [].forEach.call(ed.querySelectorAll('.plate'), function (plate) {
     var counters = [].slice.call(plate.querySelectorAll('[data-count]'));
     counters.forEach(function (c) { c.dataset.final = c.textContent; });
     var busy = false;
