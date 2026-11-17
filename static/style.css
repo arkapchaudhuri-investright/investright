@@ -3171,7 +3171,7 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
 }
 
 /* Landing page · Snapshot plate: one company, one figure, one picture. */
-.plate-snapshot .plate-frame { text-align: left; gap: 0; padding: clamp(24px, 4vw, 48px); }
+
 .snp-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .snp-co { font-size: var(--fs-md); font-weight: 600; }
 .snp-co span { color: var(--muted); font-weight: 400; margin-left: 4px; }
@@ -3188,12 +3188,6 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
   display: block; white-space: normal; margin-top: 8px; font-family: var(--sans); font-weight: 400;
   font-size: var(--fs-md); line-height: 1.5; letter-spacing: 0; color: var(--muted);
 }
-.snp-range li { font-size: var(--fs-md); padding: 6px 0 8px; }
-.snp-range .evs-track { height: 18px; }
-.snp-range .evs-bar { top: 4px; height: 10px; border-radius: 3px; }
-.snp-range .evs-r-weighted .evs-bar { top: 2px; height: 14px; }
-.plate-snapshot .evs-pricekey { margin-top: 12px; font-size: var(--fs-sm); }
-
 /* Landing page · the weekly note as a whole email */
 .wk-frame { align-items: center; justify-content: center; }
 .wk-mail {
@@ -3216,3 +3210,70 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
 .wk-sec li:last-child { border-bottom: 0; }
 .wk-sec .wk-more { color: var(--muted); font-size: var(--fs-sm); }
 .wk-foot { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--hairline); color: var(--muted); font-size: var(--fs-sm); }
+
+/* ===== Landing page polish (2026-11-16) ==================================
+   Same tile board; tighter. Full-width tiles size to their content instead
+   of a 640px floor (which left a blank band above the news rail), and the
+   two tiles with a tall picture put words left and picture right. */
+.hero-sub {
+  max-width: 32em; margin: 0 auto 32px; color: var(--muted);
+  font-size: 1.1875rem; line-height: 1.5; text-wrap: balance;
+}
+#markets, #news, #snapshot, #weekly { min-height: 0; padding: 64px 48px 48px; gap: 36px; }
+.ed-split {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: center; text-align: left; column-gap: clamp(32px, 5vw, 72px);
+}
+.ed-split .ed-copy { max-width: none; }
+.ed-split .ed-lede { margin: 0; }
+.ed-split .ed-go a { margin-left: 0; }
+.ed-split .plate { margin: 0; max-width: none; }
+
+/* Snapshot: one compact card. */
+.ed .plate-snapshot .plate-frame {
+  background: var(--bg); border-radius: 20px; padding: 28px; gap: 0; text-align: left;
+}
+.snp-value { margin: 14px 0 22px; font-size: clamp(2.25rem, 5vw, 3.5rem); }
+.snp-value span { margin-top: 4px; font-size: var(--fs-sm); }
+.snp-scale {
+  position: relative; height: 12px; border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+}
+.snp-band, .snp-mid { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+.snp-band {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    color-mix(in srgb, var(--accent) 60%, transparent));
+}
+.snp-mid { background: var(--accent); min-width: 8px; }
+.snp-tick {
+  position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px;
+  border-radius: 1px; background: var(--text);
+}
+.snp-key { margin: 12px 0 0; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.snp-key .snp-tick { position: static; width: 2px; height: 12px; margin: 0; flex: none; }
+.snp-cases {
+  list-style: none; margin: 22px 0 0; padding: 18px 0 0; border-top: 1px solid var(--hairline);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+}
+.snp-cases li { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.snp-cases span { font-size: var(--fs-sm); color: var(--muted); }
+.snp-cases b { font-size: 1.0625rem; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plate-snapshot figcaption { text-align: left; }
+
+/* Weekly note: the email sits beside its pitch. */
+#weekly .wk-frame { align-items: stretch; }
+#weekly .wk-mail { width: 100%; }
+
+@media (max-width: 860px) {
+  .ed-split { grid-template-columns: minmax(0, 1fr); row-gap: 28px; text-align: center; }
+  .ed-split .ed-lede { margin: 0 auto; }
+  .ed-split .ed-go a { margin: 4px 5px; }
+  #markets, #news, #snapshot, #weekly { padding: 40px 20px 28px; }
+  .ed .plate-snapshot .plate-frame { padding: 20px; }
+  .hero-sub { font-size: 1.0625rem; }
+}
+@media (max-width: 480px) {
+  .snp-cases { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .snp-cases li { flex-direction: row; justify-content: space-between; align-items: baseline; }
+}

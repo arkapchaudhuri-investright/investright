@@ -17,6 +17,9 @@
      trying category headlines ("Free stock research…", "Plain-English
      research…"). The taste skill would call it a slogan; his call wins. #}
   <h1 class="hero-display">When you invest,<br>do it <span class="hero-accent">right</span>.</h1>
+  {# The slogan stays (his call), so the line under it says what the site
+     is and the one hard fact: it is free. #}
+  <p class="hero-sub">Free, plain-English research on US and Indian stocks. Search a company and read its page in two minutes.</p>
 
 
   {# Market is chosen by the US/India/Both segs on /today, /watchlist and
@@ -100,13 +103,24 @@
    is a single picture, so the page sells the idea instead of explaining it. #}
 {% if home_snapshot %}
 {% set hs = home_snapshot %}
-<section class="ed-sec tint-explore" id="snapshot" aria-labelledby="snapshot-h">
+<section class="ed-sec ed-split tint-explore tile-dark" id="snapshot" aria-labelledby="snapshot-h">
   <div class="ed-copy">
     <p class="ed-kicker">Snapshot</p>
     <h2 class="ed-statement" id="snapshot-h">A value range for every stock</h2>
-    <p class="ed-lede">Each stock page opens with its latest event, what the company is worth in a bull, a base and a bear case, and where today’s price sits against that range.</p>
+    <p class="ed-lede">The latest event, what the company is worth in a bear, a base and a bull case, and where today’s price sits.</p>
     <p class="ed-go"><a href="{{ url_for('stock', ticker=hs.stock.ticker) }}#snapshot">See {{ hs.stock.name }}’s snapshot</a></p>
   </div>
+  {# One compact card: the figure, one scale, three cases. The full table of
+     scenarios lives on the stock page; five stacked bars here read as empty. #}
+  {% set rs = hs.card.range.rows|rejectattr('kind', 'equalto', 'targets')|list %}
+  {% set ns = namespace(lo=100, hi=0, w=none) %}
+  {% for r in rs %}
+    {% if r.kind == 'weighted' %}{% set ns.w = r %}
+    {% else %}
+      {% if r.left < ns.lo %}{% set ns.lo = r.left %}{% endif %}
+      {% if r.left + r.width > ns.hi %}{% set ns.hi = r.left + r.width %}{% endif %}
+    {% endif %}
+  {% endfor %}
   <figure class="plate plate-snapshot" tabindex="-1">
     <div class="plate-frame">
       <div class="snp-top">
@@ -114,21 +128,19 @@
         {% if hs.card.event.kind != 'baseline' %}<span class="snp-event">{{ hs.card.event.chip }}</span>{% endif %}
       </div>
       <p class="snp-value">{{ hs.card.weighted }}<span>a share, across Otto’s scenarios</span></p>
-      <ul class="evs-range snp-range">
-        {% for r in hs.card.range.rows if r.kind != 'targets' %}
-        <li class="evs-r-{{ r.kind }}">
-          <span class="evs-lab">{{ r.label }}</span>
-          <span class="evs-val">{{ r.txt }}</span>
-          <span class="evs-track">
-            <span class="evs-bar" style="left: {{ r.left }}%; width: {{ r.width }}%"></span>
-            <span class="evs-price" style="left: {{ hs.card.range.price_left }}%"></span>
-          </span>
-        </li>
+      <div class="snp-scale" role="img" aria-label="Scenario range with today’s price marked">
+        <span class="snp-band" style="left: {{ ns.lo }}%; width: {{ ns.hi - ns.lo }}%"></span>
+        {% if ns.w %}<span class="snp-mid" style="left: {{ ns.w.left }}%; width: {{ ns.w.width }}%"></span>{% endif %}
+        <span class="snp-tick" style="left: {{ hs.card.range.price_left }}%"></span>
+      </div>
+      <p class="snp-key"><span class="snp-tick" aria-hidden="true"></span>Price {{ hs.card.range.price }}, {{ hs.card.position }} the range</p>
+      <ul class="snp-cases">
+        {% for r in rs if r.kind in ('bear', 'base', 'bull') %}
+        <li><span>{{ r.label }}</span><b>{{ r.txt }}</b></li>
         {% endfor %}
       </ul>
-      <p class="evs-pricekey"><span class="evs-price" aria-hidden="true"></span> Price {{ hs.card.range.price }}, {{ hs.card.position }} the range</p>
     </div>
-    <figcaption>{{ hs.stock.name }}, from its saved cash flows. Not investment advice.</figcaption>
+    <figcaption>From {{ hs.stock.name }}’s saved cash flows. Not investment advice.</figcaption>
   </figure>
 </section>
 {% endif %}
@@ -419,7 +431,7 @@
 </section>
 
 {# XI — The weekly note. #}
-<section class="ed-sec tint-news" id="weekly" aria-labelledby="weekly-h">
+<section class="ed-sec ed-split tint-news" id="weekly" aria-labelledby="weekly-h">
   <div class="ed-copy">
     <p class="ed-kicker"><span>XI.</span> The weekly note</p>
     <h2 class="ed-statement" id="weekly-h">A weekly email every Sunday</h2>
