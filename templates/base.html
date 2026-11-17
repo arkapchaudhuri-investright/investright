@@ -257,11 +257,18 @@
   </div>
 </div>
 <footer>
-  {# Footer kept to the credit line (Arka's call). The "not investment advice"
-     disclaimer still rides every surface that actually outputs analysis —
-     deep-dive, portfolio, compare, /today, register and Ask Otto. #}
+  {# The disclaimer is on every page now (Arka's call, 2026-11-16), as well as
+     beside each surface that outputs analysis. Keep its wording in step with
+     templates/terms.html. #}
+  <p class="foot-disclaimer">InvestRight is for information and education only.
+    It is not investment advice or a recommendation to buy or sell anything, and
+    it is not a registered investment adviser or research analyst. Figures come
+    from third-party sources and can be wrong or out of date. Investing can lose
+    money, and your decisions are your own. See the
+    <a href="{{ url_for('terms') }}">Terms of Use</a>.</p>
   <p class="foot-credit">Designed with love by Arkaprava Chaudhuri <span class="heart">♥</span></p>
   <p class="foot-legal">© {{ year }} InvestRight. All rights reserved.
+    · <a href="{{ url_for('terms') }}">Terms</a>
     · <a href="{{ url_for('privacy') }}">Privacy</a></p>
 </footer>
 <script>

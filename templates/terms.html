@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Terms of Use · InvestRight{% endblock %}
+{% block content %}
+
+{# Static page, like privacy.html. A DRAFT written without a lawyer: it has no
+   governing-law or dispute clause on purpose, because those need one. When the
+   substance changes, change auth.TERMS_VERSION in the same PR. #}
+<section class="hero team-head">
+  <h1 class="serif">Terms of Use</h1>
+  <p class="team-sub">What InvestRight is, what it is not, and what you agree to
+    by using it.</p>
+</section>
+
+<section class="card prose">
+  <h2>The short version</h2>
+  <p>InvestRight is a free site that explains public numbers about listed
+    companies. It is information and education, not investment advice. Its
+    figures can be wrong. What you do with your money is your decision and your
+    responsibility.</p>
+
+  <h2>Not investment advice</h2>
+  <p>Nothing on InvestRight is a recommendation to buy, sell or hold any
+    security, and nothing here is advice about your personal situation.
+    InvestRight is run by one person. It is not registered as an investment
+    adviser, research analyst, broker or dealer with the US Securities and
+    Exchange Commission, the Securities and Exchange Board of India or any
+    other regulator.</p>
+  <p>Fair values, value ranges, health scores, strategy matches, review signals
+    on a portfolio, the weekly note and Otto’s answers are all produced
+    automatically by the same published rules for everyone. They do not take
+    account of your goals, your finances, your taxes or your tolerance for
+    loss. Speak to a licensed adviser before making an investment decision.</p>
+
+  <h2>The numbers can be wrong</h2>
+  <p>Prices, financial statements, analyst estimates and news headlines come
+    from free third-party sources that InvestRight does not control. They can be
+    late, incomplete or incorrect, and the site refreshes them once a night, not
+    in real time. Fair values and scenario ranges are estimates built from past
+    figures and stated assumptions; they are not forecasts and they are often
+    far from the price a stock later trades at.</p>
+  <p>Some text is written by an AI model working from those numbers. It can
+    misread them or state them badly. Check anything that matters against the
+    company’s own filings before relying on it.</p>
+
+  <h2>Your decisions are yours</h2>
+  <p>You use InvestRight at your own risk. Investing can lose money, including
+    everything you put in. You are solely responsible for your investment
+    decisions and for checking any information you act on.</p>
+
+  <h2>No warranty and limited liability</h2>
+  <p>InvestRight is provided as it is and as available, without any warranty
+    that it is accurate, complete, up to date or uninterrupted. To the fullest
+    extent the law allows, InvestRight and the person who runs it are not liable
+    for any loss or damage, including trading losses and lost profits, that
+    comes from using the site or relying on anything on it.</p>
+
+  <h2>Accounts</h2>
+  <p>An account is free. Keep your password to yourself, give an email address
+    that is yours, and do not use the site to break the law, to scrape it at a
+    rate that harms it, or to interfere with other people’s use of it. You can
+    delete your account at any time from your account page. An account that
+    abuses the site may be closed.</p>
+  <p>What the site stores about you is described on the
+    <a href="{{ url_for('privacy') }}">Privacy</a> page.</p>
+
+  <h2>Other people’s content</h2>
+  <p>Headlines link to the publishers that wrote them. Company names, logos and
+    tickers belong to their owners. InvestRight is not affiliated with any
+    company, exchange, index provider or broker it mentions.</p>
+
+  <h2>Changes</h2>
+  <p>If these terms change, this page changes with it and the date below moves.
+    Using the site after a change means you accept the new terms.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about these terms:
+    <a href="mailto:arkap.chaudhuri@gmail.com">arkap.chaudhuri@gmail.com</a>.</p>
+
+  <p class="asof">Last updated {{ version }}.</p>
+</section>
+{% endblock %}

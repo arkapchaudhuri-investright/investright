@@ -37,7 +37,7 @@ def _signup(client, email, weekly):
     with client.session_transaction() as sess:
         sess["csrf"] = "tok"
     data = {"email": email, "password": "hunter2hunter2",
-            "password2": "hunter2hunter2", "csrf": "tok"}
+            "password2": "hunter2hunter2", "csrf": "tok", "terms": "1"}
     if weekly:
         data["weekly_email"] = "1"
     return client.post("/register", data=data)

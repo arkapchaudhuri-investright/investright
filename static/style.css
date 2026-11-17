@@ -3277,3 +3277,9 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
   .snp-cases { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .snp-cases li { flex-direction: row; justify-content: space-between; align-items: baseline; }
 }
+
+/* Site-wide disclaimer in the footer: small, but body-contrast and readable. */
+footer .foot-disclaimer {
+  max-width: 62em; margin: 0 auto 14px; font-size: .8125rem; line-height: 1.55; color: var(--muted);
+}
+footer .foot-disclaimer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }

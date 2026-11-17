@@ -638,6 +638,12 @@ def create_user(conn, email, password_hash, name=None, market=None):
     return cur.lastrowid
 
 
+def accept_terms(conn, user_id, version):
+    """Record that this account agreed to the given Terms of Use version."""
+    conn.execute("UPDATE users SET terms_version=?, terms_accepted_at=? WHERE id=?",
+                 (version, _now(), user_id))
+
+
 def set_password(conn, user_id, password_hash):
     """Change the password AND rotate the session token, so sessions on other
     devices stop working. Returns the new token."""
@@ -933,6 +939,12 @@ def _migrate(conn):
     # users.weekly_email (spec 12): opt-in flag for the Sunday watchlist note.
     if "weekly_email" not in ucols:
         conn.execute("ALTER TABLE users ADD COLUMN weekly_email INTEGER NOT NULL DEFAULT 0")
+
+    # users.terms_version / terms_accepted_at: which Terms of Use an account
+    # agreed to at signup, and when. NULL for accounts older than the terms.
+    for col in ("terms_version", "terms_accepted_at"):
+        if col not in ucols:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
 
     # events.user_id (§10.2). SQLite allows ADD COLUMN with a REFERENCES clause
     # only when it defaults to NULL — which is exactly what we want for the

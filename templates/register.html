@@ -41,6 +41,13 @@
         portfolio and watchlist. We'll send one email to confirm the address.
         One click to stop, any time.</span>
     </label>
+    {# Unticked by default and required: agreeing has to be the visitor's own
+       act. auth.register re-checks it and records the version agreed to. #}
+    <label class="auth-check auth-check-wrap">
+      <input type="checkbox" name="terms" value="1" required {{ 'checked' if terms }}>
+      <span>I agree to the <a href="{{ url_for('terms') }}" target="_blank" rel="noopener">Terms of Use</a>.
+        InvestRight is information, not investment advice, and its figures can be wrong.</span>
+    </label>
     <button type="submit" class="btn-analyze auth-go">Create account</button>
   </form>
 
