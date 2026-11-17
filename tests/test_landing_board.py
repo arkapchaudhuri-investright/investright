@@ -12,9 +12,9 @@ NOW = "2026-01-01T00:00:00+00:00"
 
 def test_board_renders_for_a_guest_on_an_empty_database(client):
     html = client.get("/").get_data(as_text=True)
-    assert html.count('class="ed-sec') == 11
-    # Every section is reachable from the index.
-    assert html.count("data-ed-link=") == 11
+    # Four sections for a guest on an empty database; the snapshot section
+    # joins them once a company has a value range to show.
+    assert html.count('class="hm-sec') == 4
     # The sections are the tour now, so every feature must always be there.
     for feature in ("Today", "Portfolio", "Watchlist", "Strategies", "Ask Otto"):
         assert feature in html

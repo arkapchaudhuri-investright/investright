@@ -590,7 +590,8 @@ def home():
         earnings=earnings, movers_as_of=movers_as_of, market=market,
         featured=featured, home_snapshot=home_snapshot, weekly_sample=weekly_sample,
         tracked=tracked, picks=picks,
-        strategy_names={x["id"]: x["name"] for x in strategies_content.STRATEGIES},
+        strategy_names={x["id"]: x["name"] for x in
+                        strategies_content.STRATEGIES + strategies_content.FRAMEWORKS},
         example_donut=metrics.allocation_donut(_EXAMPLE_BOOK, size=140, thickness=18),
         **ctx))
     if request.args.get("ccy"):
