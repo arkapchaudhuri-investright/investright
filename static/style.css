@@ -1634,8 +1634,25 @@ a.peer:hover { border-color: var(--accent); }
 .notes-actions { margin-top: 10px; text-align: right; }
 
 @media (max-width: 560px) {
-  .stock-head { flex-wrap: wrap; }
+  .stock-head { flex-wrap: wrap; gap: 14px; }
   .head-star { order: 3; width: 100%; }
+  /* A 72px logo left the name and takeaway a ~200px column on a phone. */
+  .head-brand-logo { width: 52px; height: 52px; border-radius: 12px; }
+  img.head-brand-logo { padding: 6px; }
+  .logo-mono { font-size: 1.375rem; }
+  /* Leadership detail: a bottom sheet instead of a card floating over the
+     person. Floating cards at a row's edge hung past the screen even while
+     hidden, which made every deep-dive scroll sideways; a fixed sheet takes
+     no room in the page and always fits. */
+  .exec-card, .exec:first-child .exec-card, .exec:last-child .exec-card {
+    position: fixed; z-index: 150; transform: none; width: auto;
+    left: max(16px, env(safe-area-inset-left, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    max-height: 60vh; overflow-y: auto;
+  }
+  /* Guest watchlist preview: fill the row instead of a 210px card off-centre. */
+  .guest-demo .peer { max-width: none; }
 }
 
 /* ============ Phase 4 — Today page (/today) ============ */
@@ -2767,6 +2784,13 @@ body { font-size: 1rem; letter-spacing: -.003em; }
   border-radius: 980px; min-height: 44px; padding: 0 22px; font-size: 1rem;
   font-weight: 500; background: var(--accent-deep);
 }
+/* Both pills have no vertical padding, so they must centre their own label:
+   a <button> does that natively, but the same classes on an <a> (sign-in
+   CTAs) left the text pinned to the top of the 44px pill. */
+.btn-analyze, .btn-watch {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  text-decoration: none;
+}
 .btn-watch, .ghost {
   border-radius: 980px; color: var(--accent); border: 1px solid var(--accent);
   background: none;
@@ -2876,8 +2900,8 @@ main:has(.ed) { max-width: 1080px; }
   .gnav .brand { grid-column: 1; grid-row: 1; }
   .mast-tools { grid-column: 2; grid-row: 1; }
   .gnav .topnav {
-    grid-column: 1 / -1; grid-row: 2; justify-self: stretch; justify-content: flex-start;
-    gap: 22px; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap;
+    grid-column: 1 / -1; grid-row: 2; justify-self: stretch; justify-content: space-between;
+    gap: 14px; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap;
   }
   .gnav .topnav::-webkit-scrollbar { display: none; }
   .gnav .navlink { flex: 0 0 auto; white-space: nowrap; }
@@ -3270,6 +3294,10 @@ button, summary, [role="button"], label[for] { cursor: pointer; }
   .ed-split .ed-lede { margin: 0 auto; }
   .ed-split .ed-go a { margin: 4px 5px; }
   #markets, #news, #snapshot, #weekly { padding: 40px 20px 28px; }
+  /* The span-2 rule above targets these by id, which outranks the class-level
+     reset in the earlier phone block. Left spanning, they forced an implicit
+     0px column on phones and crushed every half-width tile to 40px wide. */
+  #snapshot, #weekly { grid-column: auto; }
   .ed .plate-snapshot .plate-frame { padding: 20px; }
   .hero-sub { font-size: 1.0625rem; }
 }
