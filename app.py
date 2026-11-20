@@ -668,7 +668,9 @@ def watchlist_page():
                 checks = [dict(r) for r in conn.execute(
                     "SELECT axis, passed FROM health_checks WHERE ticker=?", (tk,))]
                 sc = metrics.axis_scores(checks)
-                d["snowflake"] = (metrics.snowflake(sc)
+                # Mini geometry: the template draws into a 60×60 viewBox, like
+                # every other peer-snow; the 200-unit default rendered a sliver.
+                d["snowflake"] = (metrics.snowflake(sc, cx=30, cy=30, R=25)
                                   if any(v is not None for v in sc.values()) else None)
                 demo.append(d)
 
